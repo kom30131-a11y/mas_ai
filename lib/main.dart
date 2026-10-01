@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
+import 'core/database/database_service.dart';
 
-void main() {
+import 'core/database/database_service.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await DatabaseService.instance.initialize();
+
   runApp(const MasAiApp());
 }
 
