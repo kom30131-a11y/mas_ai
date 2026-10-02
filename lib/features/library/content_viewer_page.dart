@@ -18,12 +18,10 @@ class ContentViewerPage extends StatefulWidget {
   });
 
   @override
-  State<ContentViewerPage> createState() =>
-      _ContentViewerPageState();
+  State<ContentViewerPage> createState() => _ContentViewerPageState();
 }
 
-class _ContentViewerPageState
-    extends State<ContentViewerPage> {
+class _ContentViewerPageState extends State<ContentViewerPage> {
   PdfControllerPinch? pdfController;
 
   @override
@@ -35,12 +33,6 @@ class _ContentViewerPageState
         document: PdfDocument.openFile(widget.path),
       );
     }
-  }
-
-  @override
-  void dispose() {
-    pdfController?.dispose();
-    super.dispose();
   }
 
   @override
@@ -56,17 +48,15 @@ class _ContentViewerPageState
           controller: pdfController!,
           minScale: 1,
           maxScale: 5,
-          builders: PdfViewPinchBuilders(
-            documentLoaderBuilder: (_) =>
-                const Center(
+          builders: PdfViewPinchBuilders<DefaultBuilderOptions>(
+            options: const DefaultBuilderOptions(),
+            documentLoaderBuilder: (_) => const Center(
               child: CircularProgressIndicator(),
             ),
-            pageLoaderBuilder: (_) =>
-                const Center(
+            pageLoaderBuilder: (_) => const Center(
               child: CircularProgressIndicator(),
             ),
-            errorBuilder: (_, error) =>
-                Center(
+            errorBuilder: (_, error) => Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Text(
