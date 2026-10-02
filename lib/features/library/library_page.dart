@@ -38,22 +38,38 @@ class _LibraryPageState extends State<LibraryPage> {
     });
   }
 
-  Future<void> _createSubject() async {
-    final controller = TextEditingController();
+  Future<String?> _askForSubjectName({
+    String? initialValue,
+  }) async {
+    final controller = TextEditingController(
+      text: initialValue,
+    );
 
     final name = await showDialog<String>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('New Subject'),
+          title: Text(
+            initialValue == null
+                ? 'New Subject'
+                : 'Rename Subject',
+          ),
           content: TextField(
             controller: controller,
             autofocus: true,
-            textCapitalization: TextCapitalization.sentences,
+            textCapitalization:
+                TextCapitalization.sentences,
             decoration: const InputDecoration(
               labelText: 'Subject name',
               hintText: 'Example: Pharmacology',
             ),
+            onSubmitted: (value) {
+              final name = value.trim();
+
+              if (name.isNotEmpty) {
+                Navigator.pop(context, name);
+              }
+            },
           ),
           actions: [
             TextButton(
@@ -64,13 +80,17 @@ class _LibraryPageState extends State<LibraryPage> {
             ),
             FilledButton(
               onPressed: () {
-                final value = controller.text.trim();
+                final name = controller.text.trim();
 
-                if (value.isNotEmpty) {
-                  Navigator.pop(context, value);
+                if (name.isNotEmpty) {
+                  Navigator.pop(context, name);
                 }
               },
-              child: const Text('Create'),
+              child: Text(
+                initialValue == null
+                    ? 'Create'
+                    : 'Save',
+              ),
             ),
           ],
         );
@@ -79,14 +99,37 @@ class _LibraryPageState extends State<LibraryPage> {
 
     controller.dispose();
 
-    if (name == null || name.trim().isEmpty) {
-      return;
-    }
+    return name;
+  }
+
+  Future<void> _createSubject() async {
+    final name = await _askForSubjectName();
+
+    if (name == null) return;
 
     await _repository.insertSubject({
-      'name': name.trim(),
-      'created_at': DateTime.now().toIso8601String(),
+      'name': name,
+      'created_at':
+          DateTime.now().toIso8601String(),
     });
+
+    await _loadSubjects();
+  }
+
+  Future<void> _renameSubject(
+    int id,
+    String currentName,
+  ) async {
+    final name = await _askForSubjectName(
+      initialValue: currentName,
+    );
+
+    if (name == null) return;
+
+    await _repository.renameSubject(
+      subjectId: id,
+      name: name,
+    );
 
     await _loadSubjects();
   }
@@ -118,11 +161,10 @@ class _LibraryPageState extends State<LibraryPage> {
       },
     );
 
-    if (confirmed != true) {
-      return;
-    }
+    if (confirmed != true) return;
 
     await _repository.deleteSubject(id);
+
     await _loadSubjects();
   }
 
@@ -174,14 +216,16 @@ class _LibraryPageState extends State<LibraryPage> {
 
     if (_subjects.isEmpty) {
       return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
+        physics:
+            const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(24),
         children: [
           const SizedBox(height: 140),
           Icon(
             Icons.library_books_outlined,
             size: 72,
-            color: Theme.of(context).colorScheme.primary,
+            color:
+                Theme.of(context).colorScheme.primary,
           ),
           const SizedBox(height: 20),
           Text(
@@ -196,10 +240,12 @@ class _LibraryPageState extends State<LibraryPage> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Use the + button in the top right '
+            'Use the button in the top right '
             'to create a subject.',
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium,
+            style: Theme.of(context)
+                .textTheme
+                .bodyMedium,
           ),
         ],
       );
@@ -224,7 +270,8 @@ class _LibraryPageState extends State<LibraryPage> {
             bottom: 12,
           ),
           child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(
+            contentPadding:
+                const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 8,
             ),
@@ -242,11 +289,17 @@ class _LibraryPageState extends State<LibraryPage> {
             subtitle: const Text('Subject'),
             trailing: PopupMenuButton<String>(
               onSelected: (value) {
-                if (value == 'delete') {
+                if (value == 'rename') {
+                  _renameSubject(id, name);
+                } else if (value == 'delete') {
                   _deleteSubject(id);
                 }
               },
               itemBuilder: (context) => const [
+                PopupMenuItem(
+                  value: 'rename',
+                  child: Text('Rename'),
+                ),
                 PopupMenuItem(
                   value: 'delete',
                   child: Text('Delete'),
