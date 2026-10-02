@@ -14,6 +14,7 @@ class SubjectPage extends StatefulWidget{
 class _SubjectState extends State<SubjectPage>{
   List<Map<String,dynamic>> folders=[],content=[];bool loading=true;
   @override void initState(){super.initState();load();}
+
   Future<void> load()async{
     final f=await repo.getFolders(),c=await repo.getContent();
     if(!mounted)return;
@@ -30,15 +31,18 @@ class _SubjectState extends State<SubjectPage>{
       title:Text(t),content:TextField(controller:c,autofocus:true),
       actions:[
         TextButton(onPressed:()=>Navigator.pop(context),child:const Text('Cancel')),
-        FilledButton(onPressed:()=>c.text.trim().isEmpty?null:Navigator.pop(context,c.text.trim()),child:const Text('Save'))
+        FilledButton(
+          onPressed:()=>c.text.trim().isEmpty?null:Navigator.pop(context,c.text.trim()),
+          child:const Text('Save'))
       ]));
     c.dispose();return r;
   }
 
   Future<void> folder([Map<String,dynamic>?x])async{
     final n=await dialog(x==null?'New folder':'Rename folder',x?['name']);
-    if(n==null)return;
-    x==null?await repo.insertFolder(name:n,subjectId:widget.subjectId)
+    if(!mounted||n==null)return;
+    x==null
+      ?await repo.insertFolder(name:n,subjectId:widget.subjectId)
       :await repo.renameFolder(folderId:x['id'],name:n);
     await load();
   }
@@ -52,7 +56,9 @@ class _SubjectState extends State<SubjectPage>{
       ]))??false;
 
   Future<void> deleteFolder(Map<String,dynamic>x)async{
-    if(await confirm('Delete folder?')){await repo.deleteFolder(x['id']);await load();}
+    if(await confirm('Delete folder?')){
+      await repo.deleteFolder(x['id']);await load();
+    }
   }
 
   Future<void> add({int? folderId})async{
@@ -60,7 +66,8 @@ class _SubjectState extends State<SubjectPage>{
     if(t=='text'){
       await Navigator.push(context,MaterialPageRoute(builder:(_)=>TextEditor(
         subjectId:widget.subjectId,folderId:folderId)));
-      if(!mounted||n==null)return;
+      if(mounted)await load();
+      return;
     }
     await pickFile(t,widget.subjectId,folderId);await load();
   }
@@ -81,11 +88,14 @@ class _SubjectState extends State<SubjectPage>{
 
   Future<void> rename(Map<String,dynamic>x)async{
     final n=await dialog('Rename',x['title']);
-    if(n!=null){await repo.updateContent(contentId:x['id'],title:n);await load();}
+    if(!mounted||n==null)return;
+    await repo.updateContent(contentId:x['id'],title:n);await load();
   }
 
   Future<void> deleteContent(Map<String,dynamic>x)async{
-    if(await confirm('Delete content?')){await repo.deleteContent(x['id']);await load();}
+    if(await confirm('Delete content?')){
+      await repo.deleteContent(x['id']);await load();
+    }
   }
 
   Widget item(Map<String,dynamic>x,bool f)=>ListTile(
@@ -93,8 +103,7 @@ class _SubjectState extends State<SubjectPage>{
     title:Text(f?x['name']:(x['title']??'Untitled')),
     onTap:()=>f
       ?Navigator.push(context,MaterialPageRoute(builder:(_)=>FolderPage(
-          subjectId:widget.subjectId,folderId:x['id'],folderName:x['name'])))
-          .then((_){load();})
+          subjectId:widget.subjectId,folderId:x['id'],folderName:x['name']))).then((_){load();})
       :x['type']=='Text'
         ?Navigator.push(context,MaterialPageRoute(builder:(_)=>TextEditor(
             subjectId:widget.subjectId,folderId:null,item:x))).then((_){load();})
@@ -163,7 +172,8 @@ class _FolderState extends State<FolderPage>{
     if(t=='text'){
       await Navigator.push(context,MaterialPageRoute(builder:(_)=>TextEditor(
         subjectId:widget.subjectId,folderId:widget.folderId)));
-      if(mounted)load();return;
+      if(mounted)await load();
+      return;
     }
     await pickFile(t,widget.subjectId,widget.folderId);await load();
   }
@@ -174,16 +184,21 @@ class _FolderState extends State<FolderPage>{
       title:Text(t),content:TextField(controller:c,autofocus:true),
       actions:[
         TextButton(onPressed:()=>Navigator.pop(context),child:const Text('Cancel')),
-        FilledButton(onPressed:()=>c.text.trim().isEmpty?null:Navigator.pop(context,c.text.trim()),child:const Text('Save'))
+        FilledButton(
+          onPressed:()=>c.text.trim().isEmpty?null:Navigator.pop(context,c.text.trim()),
+          child:const Text('Save'))
       ]));
     c.dispose();return r;
   }
 
-  Future<void> rename(Map<String,dynamic>x)async{
-  final n=await dialog('Rename',x['title']);
-  if(!mounted||n==null)return;
-  await repo.updateContent(contentId:x['id'],title:n);
-  await load();
+  Future<void> folder([Map<String,dynamic>?x])async{
+    final n=await dialog(x==null?'New folder':'Rename folder',x?['name']);
+    if(!mounted||n==null)return;
+    x==null
+      ?await repo.insertFolder(
+          name:n,parentId:widget.folderId,subjectId:widget.subjectId)
+      :await repo.renameFolder(folderId:x['id'],name:n);
+    await load();
   }
 
   Future<bool> confirm(String t)async=>await showDialog<bool>(
@@ -195,16 +210,21 @@ class _FolderState extends State<FolderPage>{
       ]))??false;
 
   Future<void> deleteFolder(Map<String,dynamic>x)async{
-    if(await confirm('Delete folder?')){await repo.deleteFolder(x['id']);await load();}
+    if(await confirm('Delete folder?')){
+      await repo.deleteFolder(x['id']);await load();
+    }
   }
 
   Future<void> rename(Map<String,dynamic>x)async{
     final n=await dialog('Rename',x['title']);
-    if(n!=null){await repo.updateContent(contentId:x['id'],title:n);await load();}
+    if(!mounted||n==null)return;
+    await repo.updateContent(contentId:x['id'],title:n);await load();
   }
 
   Future<void> deleteContent(Map<String,dynamic>x)async{
-    if(await confirm('Delete content?')){await repo.deleteContent(x['id']);await load();}
+    if(await confirm('Delete content?')){
+      await repo.deleteContent(x['id']);await load();
+    }
   }
 
   Widget item(Map<String,dynamic>x)=>ListTile(
@@ -221,17 +241,14 @@ class _FolderState extends State<FolderPage>{
         const PopupMenuItem(value:'d',child:Text('Delete'))
       ]));
 
-  // يعرض أنواع المحتوى الموجودة فقط كـ"مجلدات" افتراضية.
-  Widget typeFolder(String type,List<Map<String,dynamic>> items)=>ListTile(
+  Widget typeFolder(String type,List<Map<String,dynamic>>items)=>ListTile(
     leading:Icon(typeIcon(type)),
     title:Text(typeLabel(type)),
     trailing:const Icon(Icons.chevron_right),
     onTap:()=>Navigator.push(context,MaterialPageRoute(
       builder:(_)=>ContentTypePage(
-        title:typeLabel(type),
-        items:items,
-        subjectId:widget.subjectId,
-        folderId:widget.folderId,
+        title:typeLabel(type),items:items,
+        subjectId:widget.subjectId,folderId:widget.folderId,
       ))).then((_){load();}));
 
   List<Widget> contentTypes(){
@@ -243,22 +260,11 @@ class _FolderState extends State<FolderPage>{
     return types.entries.map((e)=>typeFolder(e.key,e.value)).toList();
   }
 
-  @override Widget build(BuildContext c)=>Scaffold(
-    appBar:AppBar(title:Text(widget.folderName),actions:[
-      IconButton(onPressed:()=>folder(),icon:const Icon(Icons.create_new_folder_outlined)),
-      IconButton(onPressed:add,icon:const Icon(Icons.add))
-    ]),
-    body:loading?const Center(child:CircularProgressIndicator()):RefreshIndicator(
-      onRefresh:load,
-      child:ListView(children:[
-        sectionFolders(folders),
-        ...contentTypes()
-      ])));
-
-  Widget sectionFolders(List<Map<String,dynamic>> d)=>d.isEmpty
+  Widget sectionFolders(List<Map<String,dynamic>>d)=>d.isEmpty
     ?const SizedBox()
     :Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      const Padding(padding:EdgeInsets.fromLTRB(16,16,16,8),child:Text('Folders')),
+      const Padding(
+        padding:EdgeInsets.fromLTRB(16,16,16,8),child:Text('Folders')),
       ...d.map((x)=>ListTile(
         leading:const Icon(Icons.folder_outlined),
         title:Text(x['name']),
@@ -271,15 +277,26 @@ class _FolderState extends State<FolderPage>{
             const PopupMenuItem(value:'d',child:Text('Delete folder'))
           ])))
     ]);
+
+  @override Widget build(BuildContext c)=>Scaffold(
+    appBar:AppBar(title:Text(widget.folderName),actions:[
+      IconButton(onPressed:()=>folder(),icon:const Icon(Icons.create_new_folder_outlined)),
+      IconButton(onPressed:add,icon:const Icon(Icons.add))
+    ]),
+    body:loading?const Center(child:CircularProgressIndicator()):RefreshIndicator(
+      onRefresh:load,
+      child:ListView(children:[
+        sectionFolders(folders),
+        ...contentTypes()
+      ])));
 }
 
 class ContentTypePage extends StatefulWidget{
-  final String title;final List<Map<String,dynamic>> items;
+  final String title;final List<Map<String,dynamic>>items;
   final int subjectId,folderId;
   const ContentTypePage({
     super.key,required this.title,required this.items,
     required this.subjectId,required this.folderId});
-
   @override State<ContentTypePage> createState()=>_ContentTypeState();
 }
 
@@ -296,7 +313,9 @@ class _ContentTypeState extends State<ContentTypePage>{
       title:const Text('Rename'),content:TextField(controller:c,autofocus:true),
       actions:[
         TextButton(onPressed:()=>Navigator.pop(context),child:const Text('Cancel')),
-        FilledButton(onPressed:()=>c.text.trim().isEmpty?null:Navigator.pop(context,c.text.trim()),child:const Text('Save'))
+        FilledButton(
+          onPressed:()=>c.text.trim().isEmpty?null:Navigator.pop(context,c.text.trim()),
+          child:const Text('Save'))
       ]));
     c.dispose();return r;
   }
@@ -312,16 +331,15 @@ class _ContentTypeState extends State<ContentTypePage>{
 
   Future<void> rename(Map<String,dynamic>x)async{
     final n=await dialog(x['title']??'Untitled');
-    if(n!=null){
-      await repo.updateContent(contentId:x['id'],title:n);
-      setState(()=>x['title']=n);
-    }
+    if(!mounted||n==null)return;
+    await repo.updateContent(contentId:x['id'],title:n);
+    if(mounted)setState(()=>x['title']=n);
   }
 
   Future<void> remove(Map<String,dynamic>x)async{
     if(await confirm()){
       await repo.deleteContent(x['id']);
-      setState(()=>items.remove(x));
+      if(mounted)setState(()=>items.remove(x));
     }
   }
 
@@ -459,4 +477,4 @@ String typeLabel(String t)=>switch(t){
   'Image'=>'Images',
   'Text'=>'Text',
   _=>t
-};
+};ا 
