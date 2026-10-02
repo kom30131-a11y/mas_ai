@@ -21,414 +21,299 @@ class SubjectPage extends StatefulWidget {
 }
 
 class _SubjectPageState extends State<SubjectPage> {
-  final DatabaseRepository _repository =
-      DatabaseRepository.instance;
+  final repo = DatabaseRepository.instance;
 
-  List<Map<String, dynamic>> _folders = [];
-  List<Map<String, dynamic>> _content = [];
-  bool _isLoading = true;
+  List<Map<String, dynamic>> folders = [];
+  List<Map<String, dynamic>> content = [];
+  bool loading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    load();
   }
 
-  Future<void> _loadData() async {
-    if (mounted) {
-      setState(() {
-        _isLoading = true;
-      });
-    }
-
-    final folders = await _repository.getFolders();
-    final content = await _repository.getContent();
+  Future<void> load() async {
+    final fs = await repo.getFolders();
+    final cs = await repo.getContent();
 
     if (!mounted) return;
 
     setState(() {
-      _folders = folders
-          .where(
-            (folder) =>
-                folder['subject_id'] == widget.subjectId &&
-                folder['parent_id'] == null,
-          )
-          .toList();
+      folders = fs.where((f) =>
+          f['subject_id'] == widget.subjectId &&
+          f['parent_id'] == null).toList();
 
-      _content = content
-          .where(
-            (item) =>
-                item['subject_id'] == widget.subjectId &&
-                item['folder_id'] == null,
-          )
-          .toList();
+      content = cs.where((c) =>
+          c['subject_id'] == widget.subjectId &&
+          c['folder_id'] == null).toList();
 
-      _isLoading = false;
+      loading = false;
     });
   }
 
-  Future<String?> _askForName({
-    required String title,
-    String? initialValue,
-    String label = 'Name',
-  }) async {
-    final controller = TextEditingController(
-      text: initialValue,
-    );
+  Future<String?> dialog(String title, [String value = '']) async {
+    final c = TextEditingController(text: value);
 
     final result = await showDialog<String>(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: Text(title),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            textCapitalization:
-                TextCapitalization.sentences,
-            decoration: InputDecoration(
-              labelText: label,
-            ),
-            onSubmitted: (value) {
-              final name = value.trim();
-
-              if (name.isNotEmpty) {
-                Navigator.pop(dialogContext, name);
-              }
-            },
+      builder: (d) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: c,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Name'),
+          onSubmitted: (v) {
+            if (v.trim().isNotEmpty) Navigator.pop(d, v.trim());
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(d),
+            child: const Text('Cancel'),
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-              },
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                final name = controller.text.trim();
-
-                if (name.isNotEmpty) {
-                  Navigator.pop(dialogContext, name);
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
+          FilledButton(
+            onPressed: () {
+              final v = c.text.trim();
+              if (v.isNotEmpty) Navigator.pop(d, v);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
     );
 
-    controller.dispose();
+    c.dispose();
     return result;
   }
 
-  Future<void> _createFolder() async {
-    final name = await _askForName(
-      title: 'New Folder',
-      label: 'Folder name',
-    );
-
-    if (name == null) return;
-
-    await _repository.insertFolder(
-      name: name,
-      subjectId: widget.subjectId,
-    );
-
-    await _loadData();
-  }
-
-  Future<void> _renameFolder(
-    int folderId,
-    String currentName,
-  ) async {
-    final name = await _askForName(
-      title: 'Rename Folder',
-      initialValue: currentName,
-      label: 'Folder name',
-    );
-
-    if (name == null) return;
-
-    await _repository.renameFolder(
-      folderId: folderId,
-      name: name,
-    );
-
-    await _loadData();
-  }
-
-  Future<void> _deleteFolder(int folderId) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Delete Folder'),
-          content: const Text(
-            'Delete this folder and all subfolders?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext, false);
-              },
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(dialogContext, true);
-              },
-              child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirmed != true) return;
-
-    await _repository.deleteFolder(folderId);
-    await _loadData();
-  }
-
-  Future<void> _addContent({
-    required int? folderId,
+  Future<void> folder({
+    int? parentId,
+    int? id,
+    String? oldName,
   }) async {
-    final result = await showModalBottomSheet<String>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.picture_as_pdf_outlined),
-                title: const Text('PDF'),
-                onTap: () {
-                  Navigator.pop(sheetContext, 'pdf');
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.description_outlined),
-                title: const Text('Word'),
-                onTap: () {
-                  Navigator.pop(sheetContext, 'word');
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.slideshow_outlined),
-                title: const Text('PowerPoint'),
-                onTap: () {
-                  Navigator.pop(sheetContext, 'powerpoint');
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.text_snippet_outlined),
-                title: const Text('Text file'),
-                onTap: () {
-                  Navigator.pop(sheetContext, 'text');
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.image_outlined),
-                title: const Text('Image'),
-                onTap: () {
-                  Navigator.pop(sheetContext, 'image');
-                },
+    final name = await dialog(
+      id == null ? 'New Folder' : 'Rename Folder',
+      oldName ?? '',
+    );
+
+    if (name == null) return;
+
+    if (id == null) {
+      await repo.insertFolder(
+        name: name,
+        parentId: parentId,
+        subjectId: widget.subjectId,
+      );
+    } else {
+      await repo.renameFolder(folderId: id, name: name);
+    }
+
+    await load();
+  }
+
+  Future<void> removeFolder(int id) async {
+    final ok = await showDialog<bool>(
+          context: context,
+          builder: (d) => AlertDialog(
+            title: const Text('Delete Folder'),
+            content: const Text(
+              'Delete this folder and all subfolders?',
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(d, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(d, true),
+                child: const Text('Delete'),
+              ),
             ],
           ),
-        );
-      },
-    );
+        ) ??
+        false;
 
-    if (result == null) return;
-
-    await _pickContent(
-      type: result,
-      folderId: folderId,
-    );
-  }
-
-  Future<void> _pickContent({
-    required String type,
-    required int? folderId,
-  }) async {
-    List<String> extensions;
-
-    switch (type) {
-      case 'pdf':
-        extensions = ['pdf'];
-        break;
-
-      case 'word':
-        extensions = ['doc', 'docx'];
-        break;
-
-      case 'powerpoint':
-        extensions = ['ppt', 'pptx'];
-        break;
-
-      case 'text':
-        extensions = ['txt'];
-        break;
-
-      case 'image':
-        extensions = [
-          'jpg',
-          'jpeg',
-          'png',
-          'webp',
-        ];
-        break;
-
-      default:
-        return;
-    }
-
-    final result = await FilePicker().pickFiles(
-      type: FileType.custom,
-      allowedExtensions: extensions,
-      withData: false,
-    );
-
-    if (result == null || result.files.isEmpty) {
-      return;
-    }
-
-    final file = result.files.single;
-
-    if (file.path == null) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Unable to access the selected file.'),
-        ),
-      );
-
-      return;
-    }
-
-    final filePath = file.path!;
-    final fileName = file.name;
-    final extension = p
-        .extension(fileName)
-        .replaceFirst('.', '')
-        .toLowerCase();
-
-    String contentType;
-
-    switch (extension) {
-      case 'pdf':
-        contentType = 'PDF';
-        break;
-
-      case 'doc':
-      case 'docx':
-        contentType = 'Word';
-        break;
-
-      case 'ppt':
-      case 'pptx':
-        contentType = 'PowerPoint';
-        break;
-
-      case 'txt':
-        contentType = 'Text';
-        break;
-
-      case 'jpg':
-      case 'jpeg':
-      case 'png':
-      case 'webp':
-        contentType = 'Image';
-        break;
-
-      default:
-        contentType = 'File';
-    }
-
-    final now = DateTime.now().toIso8601String();
-
-    final contentId = await _repository.insertContent({
-      'subject_id': widget.subjectId,
-      'topic_id': null,
-      'folder_id': folderId,
-      'title': p.basenameWithoutExtension(fileName),
-      'type': contentType,
-      'content': '',
-      'file_path': filePath,
-      'original_file_name': fileName,
-      'created_at': now,
-    });
-
-    await _repository.insertFile({
-      'content_id': contentId,
-      'file_name': fileName,
-      'file_path': filePath,
-      'mime_type': _mimeType(extension),
-      'file_size': File(filePath).lengthSync(),
-      'extracted_text': null,
-      'created_at': now,
-    });
-
-    await _loadData();
-  }
-
-  String? _mimeType(String extension) {
-    switch (extension) {
-      case 'pdf':
-        return 'application/pdf';
-
-      case 'doc':
-        return 'application/msword';
-
-      case 'docx':
-        return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-
-      case 'ppt':
-        return 'application/vnd.ms-powerpoint';
-
-      case 'pptx':
-        return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
-
-      case 'txt':
-        return 'text/plain';
-
-      case 'jpg':
-      case 'jpeg':
-        return 'image/jpeg';
-
-      case 'png':
-        return 'image/png';
-
-      case 'webp':
-        return 'image/webp';
-
-      default:
-        return null;
+    if (ok) {
+      await repo.deleteFolder(id);
+      await load();
     }
   }
 
-  Future<void> _openFolder(
-    int folderId,
-    String folderName,
-  ) async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => FolderPage(
-          folderId: folderId,
-          folderName: folderName,
-          subjectId: widget.subjectId,
+  Future<void> addContent({int? folderId}) async {
+    final type = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (d) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final x in _types)
+              ListTile(
+                leading: Icon(x.$2),
+                title: Text(x.$1),
+                onTap: () => Navigator.pop(d, x.$3),
+              ),
+          ],
         ),
       ),
     );
 
-    await _loadData();
+    if (type == null) return;
+
+    final extensions = _extensions[type]!;
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: extensions,
+    );
+
+    if (result == null || result.files.isEmpty) return;
+
+    final file = result.files.single;
+    final path = file.path;
+
+    if (path == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to access the selected file.'),
+          ),
+        );
+      }
+      return;
+    }
+
+    final name = file.name;
+    final ext = p.extension(name).replaceFirst('.', '').toLowerCase();
+    final now = DateTime.now().toIso8601String();
+
+    final id = await repo.insertContent({
+      'subject_id': widget.subjectId,
+      'topic_id': null,
+      'folder_id': folderId,
+      'title': p.basenameWithoutExtension(name),
+      'type': typeName(ext),
+      'content': '',
+      'file_path': path,
+      'original_file_name': name,
+      'created_at': now,
+    });
+
+    await repo.insertFile({
+      'content_id': id,
+      'file_name': name,
+      'file_path': path,
+      'mime_type': mimeType(ext),
+      'file_size': File(path).lengthSync(),
+      'extracted_text': null,
+      'created_at': now,
+    });
+
+    await load();
+  }
+
+  void openFolder(int id, String name) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FolderPage(
+          folderId: id,
+          folderName: name,
+          subjectId: widget.subjectId,
+        ),
+      ),
+    );
+    load();
+  }
+
+  Widget tile(Map<String, dynamic> x, {bool isFolder = false}) {
+    final id = x['id'] as int;
+    final name = (isFolder ? x['name'] : x['title']) as String;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: CircleAvatar(
+          child: Icon(
+            isFolder
+                ? Icons.folder_outlined
+                : iconFor(x['type'] as String),
+          ),
+        ),
+        title: Text(name),
+        subtitle: isFolder ? null : Text(x['type'] as String),
+        trailing: isFolder
+            ? PopupMenuButton<String>(
+                onSelected: (v) {
+                  if (v == 'rename') {
+                    folder(id: id, oldName: name);
+                  } else {
+                    removeFolder(id);
+                  }
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(
+                    value: 'rename',
+                    child: Text('Rename'),
+                  ),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Text('Delete'),
+                  ),
+                ],
+              )
+            : null,
+        onTap: isFolder ? () => openFolder(id, name) : null,
+      ),
+    );
+  }
+
+  Widget section(
+    String title,
+    List<Map<String, dynamic>> items, {
+    required bool isFolder,
+    required VoidCallback add,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleLarge
+                    ?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
+            IconButton(
+              onPressed: add,
+              icon: const Icon(Icons.add),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (items.isEmpty)
+          Card(
+            child: ListTile(
+              leading: Icon(
+                isFolder
+                    ? Icons.folder_outlined
+                    : Icons.description_outlined,
+              ),
+              title: Text(
+                isFolder ? 'No folders yet' : 'No content yet',
+              ),
+            ),
+          )
+        else
+          ...items.map(
+            (x) => tile(x, isFolder: isFolder),
+          ),
+      ],
+    );
   }
 
   @override
@@ -438,172 +323,39 @@ class _SubjectPageState extends State<SubjectPage> {
         title: Text(widget.subjectName),
         actions: [
           IconButton(
-            onPressed: _createFolder,
-            tooltip: 'New Folder',
-            icon: const Icon(
-              Icons.create_new_folder_outlined,
-            ),
+            onPressed: () => folder(),
+            icon: const Icon(Icons.create_new_folder_outlined),
           ),
           IconButton(
-            onPressed: () {
-              _addContent(folderId: null);
-            },
-            tooltip: 'Add Content',
-            icon: const Icon(
-              Icons.add_box_outlined,
-            ),
+            onPressed: () => addContent(),
+            icon: const Icon(Icons.add_box_outlined),
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: _loadData,
-        child: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(),
-              )
-            : ListView(
-                physics:
-                    const AlwaysScrollableScrollPhysics(),
+      body: loading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: load,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(16),
                 children: [
-                  _buildFolders(),
-                  const SizedBox(height: 24),
-                  _buildContent(),
+                  section(
+                    'Folders',
+                    folders,
+                    isFolder: true,
+                    add: () => folder(),
+                  ),
+                  const SizedBox(height: 20),
+                  section(
+                    'Content',
+                    content,
+                    isFolder: false,
+                    add: () => addContent(),
+                  ),
                 ],
               ),
-      ),
-    );
-  }
-
-  Widget _buildFolders() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Folders',
-          style: Theme.of(context)
-              .textTheme
-              .titleLarge
-              ?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-        ),
-        const SizedBox(height: 12),
-        if (_folders.isEmpty)
-          const Card(
-            child: ListTile(
-              leading: Icon(Icons.folder_outlined),
-              title: Text('No folders yet'),
             ),
-          )
-        else
-          ..._folders.map(
-            (folder) {
-              final id = folder['id'] as int;
-              final name = folder['name'] as String;
-
-              return Card(
-                margin: const EdgeInsets.only(
-                  bottom: 10,
-                ),
-                child: ListTile(
-                  leading: const CircleAvatar(
-                    child: Icon(Icons.folder_outlined),
-                  ),
-                  title: Text(name),
-                  trailing:
-                      PopupMenuButton<String>(
-                    onSelected: (value) {
-                      if (value == 'rename') {
-                        _renameFolder(id, name);
-                      } else if (value == 'delete') {
-                        _deleteFolder(id);
-                      }
-                    },
-                    itemBuilder: (context) => const [
-                      PopupMenuItem(
-                        value: 'rename',
-                        child: Text('Rename'),
-                      ),
-                      PopupMenuItem(
-                        value: 'delete',
-                        child: Text('Delete'),
-                      ),
-                    ],
-                  ),
-                  onTap: () {
-                    _openFolder(id, name);
-                  },
-                ),
-              );
-            },
-          ),
-      ],
-    );
-  }
-
-  Widget _buildContent() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Content',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleLarge
-                    ?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-            ),
-            IconButton(
-              onPressed: () {
-                _addContent(folderId: null);
-              },
-              tooltip: 'Add Content',
-              icon: const Icon(Icons.add),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        if (_content.isEmpty)
-          const Card(
-            child: ListTile(
-              leading: Icon(
-                Icons.description_outlined,
-              ),
-              title: Text('No content yet'),
-            ),
-          )
-        else
-          ..._content.map(
-            (item) {
-              final title =
-                  item['title'] as String;
-
-              final type =
-                  item['type'] as String;
-
-              return Card(
-                margin: const EdgeInsets.only(
-                  bottom: 10,
-                ),
-                child: ListTile(
-                  leading: const CircleAvatar(
-                    child: Icon(
-                      Icons.description_outlined,
-                    ),
-                  ),
-                  title: Text(title),
-                  subtitle: Text(type),
-                ),
-              );
-            },
-          ),
-      ],
     );
   }
 }
@@ -625,417 +377,253 @@ class FolderPage extends StatefulWidget {
 }
 
 class _FolderPageState extends State<FolderPage> {
-  final DatabaseRepository _repository =
-      DatabaseRepository.instance;
+  final repo = DatabaseRepository.instance;
 
-  List<Map<String, dynamic>> _folders = [];
-  List<Map<String, dynamic>> _content = [];
-  bool _isLoading = true;
+  List<Map<String, dynamic>> folders = [];
+  List<Map<String, dynamic>> content = [];
+  bool loading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    load();
   }
 
-  Future<void> _loadData() async {
-    if (mounted) {
-      setState(() {
-        _isLoading = true;
-      });
-    }
-
-    final folders = await _repository.getFolders(
-      parentId: widget.folderId,
-    );
-
-    final content = await _repository.getContent(
-      folderId: widget.folderId,
-    );
+  Future<void> load() async {
+    final fs = await repo.getFolders(parentId: widget.folderId);
+    final cs = await repo.getContent(folderId: widget.folderId);
 
     if (!mounted) return;
 
     setState(() {
-      _folders = folders;
-      _content = content;
-      _isLoading = false;
+      folders = fs;
+      content = cs;
+      loading = false;
     });
   }
 
-  Future<void> _createFolder() async {
-    final controller = TextEditingController();
+  Future<void> addFolder() async {
+    final c = TextEditingController();
 
     final name = await showDialog<String>(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('New Folder'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            textCapitalization:
-                TextCapitalization.sentences,
-            decoration: const InputDecoration(
-              labelText: 'Folder name',
-            ),
-            onSubmitted: (value) {
-              final name = value.trim();
-
-              if (name.isNotEmpty) {
-                Navigator.pop(dialogContext, name);
-              }
-            },
+      builder: (d) => AlertDialog(
+        title: const Text('New Folder'),
+        content: TextField(
+          controller: c,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Folder name',
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-              },
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                final name = controller.text.trim();
-
-                if (name.isNotEmpty) {
-                  Navigator.pop(dialogContext, name);
-                }
-              },
-              child: const Text('Create'),
-            ),
-          ],
-        );
-      },
+          onSubmitted: (v) {
+            if (v.trim().isNotEmpty) {
+              Navigator.pop(d, v.trim());
+            }
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(d),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final v = c.text.trim();
+              if (v.isNotEmpty) Navigator.pop(d, v);
+            },
+            child: const Text('Create'),
+          ),
+        ],
+      ),
     );
 
-    controller.dispose();
+    c.dispose();
 
     if (name == null) return;
 
-    await _repository.insertFolder(
+    await repo.insertFolder(
       name: name,
       parentId: widget.folderId,
       subjectId: widget.subjectId,
     );
 
-    await _loadData();
+    await load();
   }
 
-  Future<void> _renameFolder(
-    int folderId,
-    String currentName,
-  ) async {
-    final controller = TextEditingController(
-      text: currentName,
-    );
+  Future<void> rename(int id, String old) async {
+    final c = TextEditingController(text: old);
 
     final name = await showDialog<String>(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Rename Folder'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            decoration: const InputDecoration(
-              labelText: 'Folder name',
-            ),
+      builder: (d) => AlertDialog(
+        title: const Text('Rename Folder'),
+        content: TextField(controller: c),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(d),
+            child: const Text('Cancel'),
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-              },
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                final name = controller.text.trim();
-
-                if (name.isNotEmpty) {
-                  Navigator.pop(dialogContext, name);
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
+          FilledButton(
+            onPressed: () {
+              final v = c.text.trim();
+              if (v.isNotEmpty) Navigator.pop(d, v);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
     );
 
-    controller.dispose();
+    c.dispose();
 
     if (name == null) return;
 
-    await _repository.renameFolder(
-      folderId: folderId,
-      name: name,
-    );
-
-    await _loadData();
+    await repo.renameFolder(folderId: id, name: name);
+    await load();
   }
 
-  Future<void> _deleteFolder(int folderId) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Delete Folder'),
-          content: const Text(
-            'Delete this folder and all subfolders?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext, false);
-              },
-              child: const Text('Cancel'),
+  Future<void> remove(int id) async {
+    final ok = await showDialog<bool>(
+          context: context,
+          builder: (d) => AlertDialog(
+            title: const Text('Delete Folder'),
+            content: const Text(
+              'Delete this folder and all subfolders?',
             ),
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(dialogContext, true);
-              },
-              child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirmed != true) return;
-
-    await _repository.deleteFolder(folderId);
-    await _loadData();
-  }
-
-  Future<void> _addContent() async {
-    final result = await showModalBottomSheet<String>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(
-                  Icons.picture_as_pdf_outlined,
-                ),
-                title: const Text('PDF'),
-                onTap: () {
-                  Navigator.pop(sheetContext, 'pdf');
-                },
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(d, false),
+                child: const Text('Cancel'),
               ),
-              ListTile(
-                leading: const Icon(
-                  Icons.description_outlined,
-                ),
-                title: const Text('Word'),
-                onTap: () {
-                  Navigator.pop(sheetContext, 'word');
-                },
-              ),
-              ListTile(
-                leading: const Icon(
-                  Icons.slideshow_outlined,
-                ),
-                title: const Text('PowerPoint'),
-                onTap: () {
-                  Navigator.pop(
-                    sheetContext,
-                    'powerpoint',
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(
-                  Icons.text_snippet_outlined,
-                ),
-                title: const Text('Text file'),
-                onTap: () {
-                  Navigator.pop(sheetContext, 'text');
-                },
-              ),
-              ListTile(
-                leading: const Icon(
-                  Icons.image_outlined,
-                ),
-                title: const Text('Image'),
-                onTap: () {
-                  Navigator.pop(sheetContext, 'image');
-                },
+              FilledButton(
+                onPressed: () => Navigator.pop(d, true),
+                child: const Text('Delete'),
               ),
             ],
           ),
-        );
-      },
-    );
+        ) ??
+        false;
 
-    if (result == null) return;
-
-    await _pickContent(result);
-  }
-
-  Future<void> _pickContent(String type) async {
-    List<String> extensions;
-
-    switch (type) {
-      case 'pdf':
-        extensions = ['pdf'];
-        break;
-      case 'word':
-        extensions = ['doc', 'docx'];
-        break;
-      case 'powerpoint':
-        extensions = ['ppt', 'pptx'];
-        break;
-      case 'text':
-        extensions = ['txt'];
-        break;
-      case 'image':
-        extensions = [
-          'jpg',
-          'jpeg',
-          'png',
-          'webp',
-        ];
-        break;
-      default:
-        return;
-    }
-
-    final result = await FilePicker().pickFiles(
-      type: FileType.custom,
-      allowedExtensions: extensions,
-      withData: false,
-    );
-
-    if (result == null || result.files.isEmpty) {
-      return;
-    }
-
-    final file = result.files.single;
-
-    if (file.path == null) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Unable to access the selected file.',
-          ),
-        ),
-      );
-
-      return;
-    }
-
-    final filePath = file.path!;
-    final fileName = file.name;
-    final extension = p
-        .extension(fileName)
-        .replaceFirst('.', '')
-        .toLowerCase();
-
-    String contentType;
-
-    switch (extension) {
-      case 'pdf':
-        contentType = 'PDF';
-        break;
-      case 'doc':
-      case 'docx':
-        contentType = 'Word';
-        break;
-      case 'ppt':
-      case 'pptx':
-        contentType = 'PowerPoint';
-        break;
-      case 'txt':
-        contentType = 'Text';
-        break;
-      case 'jpg':
-      case 'jpeg':
-      case 'png':
-      case 'webp':
-        contentType = 'Image';
-        break;
-      default:
-        contentType = 'File';
-    }
-
-    final now = DateTime.now().toIso8601String();
-
-    final contentId =
-        await _repository.insertContent({
-      'subject_id': widget.subjectId,
-      'topic_id': null,
-      'folder_id': widget.folderId,
-      'title': p.basenameWithoutExtension(
-        fileName,
-      ),
-      'type': contentType,
-      'content': '',
-      'file_path': filePath,
-      'original_file_name': fileName,
-      'created_at': now,
-    });
-
-    await _repository.insertFile({
-      'content_id': contentId,
-      'file_name': fileName,
-      'file_path': filePath,
-      'mime_type': _mimeType(extension),
-      'file_size': File(filePath).lengthSync(),
-      'extracted_text': null,
-      'created_at': now,
-    });
-
-    await _loadData();
-  }
-
-  String? _mimeType(String extension) {
-    switch (extension) {
-      case 'pdf':
-        return 'application/pdf';
-      case 'doc':
-        return 'application/msword';
-      case 'docx':
-        return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-      case 'ppt':
-        return 'application/vnd.ms-powerpoint';
-      case 'pptx':
-        return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
-      case 'txt':
-        return 'text/plain';
-      case 'jpg':
-      case 'jpeg':
-        return 'image/jpeg';
-      case 'png':
-        return 'image/png';
-      case 'webp':
-        return 'image/webp';
-      default:
-        return null;
+    if (ok) {
+      await repo.deleteFolder(id);
+      await load();
     }
   }
 
-  Future<void> _openFolder(
-    int folderId,
-    String folderName,
-  ) async {
+  void open(int id, String name) async {
     await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => FolderPage(
-          folderId: folderId,
-          folderName: folderName,
+          folderId: id,
+          folderName: name,
           subjectId: widget.subjectId,
         ),
       ),
     );
+    load();
+  }
 
-    await _loadData();
+  Future<void> addContent() async {
+    final type = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (d) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final x in _types)
+              ListTile(
+                leading: Icon(x.$2),
+                title: Text(x.$1),
+                onTap: () => Navigator.pop(d, x.$3),
+              ),
+          ],
+        ),
+      ),
+    );
+
+    if (type == null) return;
+
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: _extensions[type]!,
+    );
+
+    if (result == null || result.files.isEmpty) return;
+
+    final file = result.files.single;
+    final path = file.path;
+
+    if (path == null) return;
+
+    final name = file.name;
+    final ext = p.extension(name).replaceFirst('.', '').toLowerCase();
+    final now = DateTime.now().toIso8601String();
+
+    final id = await repo.insertContent({
+      'subject_id': widget.subjectId,
+      'topic_id': null,
+      'folder_id': widget.folderId,
+      'title': p.basenameWithoutExtension(name),
+      'type': typeName(ext),
+      'content': '',
+      'file_path': path,
+      'original_file_name': name,
+      'created_at': now,
+    });
+
+    await repo.insertFile({
+      'content_id': id,
+      'file_name': name,
+      'file_path': path,
+      'mime_type': mimeType(ext),
+      'file_size': File(path).lengthSync(),
+      'extracted_text': null,
+      'created_at': now,
+    });
+
+    await load();
+  }
+
+  Widget item(Map<String, dynamic> x, bool folder) {
+    final id = x['id'] as int;
+    final name = (folder ? x['name'] : x['title']) as String;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: CircleAvatar(
+          child: Icon(
+            folder
+                ? Icons.folder_outlined
+                : iconFor(x['type'] as String),
+          ),
+        ),
+        title: Text(name),
+        subtitle: folder ? null : Text(x['type'] as String),
+        trailing: folder
+            ? PopupMenuButton<String>(
+                onSelected: (v) {
+                  v == 'rename'
+                      ? rename(id, name)
+                      : remove(id);
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(
+                    value: 'rename',
+                    child: Text('Rename'),
+                  ),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Text('Delete'),
+                  ),
+                ],
+              )
+            : null,
+        onTap: folder ? () => open(id, name) : null,
+      ),
+    );
   }
 
   @override
@@ -1045,173 +633,112 @@ class _FolderPageState extends State<FolderPage> {
         title: Text(widget.folderName),
         actions: [
           IconButton(
-            onPressed: _createFolder,
-            tooltip: 'New Folder',
-            icon: const Icon(
-              Icons.create_new_folder_outlined,
-            ),
+            onPressed: addFolder,
+            icon: const Icon(Icons.create_new_folder_outlined),
           ),
           IconButton(
-            onPressed: _addContent,
-            tooltip: 'Add Content',
-            icon: const Icon(
-              Icons.add_box_outlined,
-            ),
+            onPressed: addContent,
+            icon: const Icon(Icons.add_box_outlined),
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: _loadData,
-        child: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(),
-              )
-            : ListView(
-                physics:
-                    const AlwaysScrollableScrollPhysics(),
+      body: loading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: load,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(16),
                 children: [
-                  _buildFolders(),
-                  const SizedBox(height: 24),
-                  _buildContent(),
+                  Text(
+                    'Folders',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleLarge
+                        ?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 8),
+                  if (folders.isEmpty)
+                    const Text('No subfolders yet')
+                  else
+                    ...folders.map((x) => item(x, true)),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Content',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleLarge
+                        ?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 8),
+                  if (content.isEmpty)
+                    const Text('No content yet')
+                  else
+                    ...content.map((x) => item(x, false)),
                 ],
               ),
-      ),
-    );
-  }
-
-  Widget _buildFolders() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Folders',
-          style: Theme.of(context)
-              .textTheme
-              .titleLarge
-              ?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-        ),
-        const SizedBox(height: 12),
-        if (_folders.isEmpty)
-          const Card(
-            child: ListTile(
-              leading: Icon(
-                Icons.folder_outlined,
-              ),
-              title: Text('No subfolders yet'),
             ),
-          )
-        else
-          ..._folders.map(
-            (folder) {
-              final id = folder['id'] as int;
-              final name = folder['name'] as String;
-
-              return Card(
-                margin: const EdgeInsets.only(
-                  bottom: 10,
-                ),
-                child: ListTile(
-                  leading: const CircleAvatar(
-                    child: Icon(
-                      Icons.folder_outlined,
-                    ),
-                  ),
-                  title: Text(name),
-                  trailing:
-                      PopupMenuButton<String>(
-                    onSelected: (value) {
-                      if (value == 'rename') {
-                        _renameFolder(id, name);
-                      } else if (value == 'delete') {
-                        _deleteFolder(id);
-                      }
-                    },
-                    itemBuilder: (context) => const [
-                      PopupMenuItem(
-                        value: 'rename',
-                        child: Text('Rename'),
-                      ),
-                      PopupMenuItem(
-                        value: 'delete',
-                        child: Text('Delete'),
-                      ),
-                    ],
-                  ),
-                  onTap: () {
-                    _openFolder(id, name);
-                  },
-                ),
-              );
-            },
-          ),
-      ],
-    );
-  }
-
-  Widget _buildContent() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Content',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleLarge
-                    ?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-            ),
-            IconButton(
-              onPressed: _addContent,
-              tooltip: 'Add Content',
-              icon: const Icon(Icons.add),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        if (_content.isEmpty)
-          const Card(
-            child: ListTile(
-              leading: Icon(
-                Icons.description_outlined,
-              ),
-              title: Text('No content yet'),
-            ),
-          )
-        else
-          ..._content.map(
-            (item) {
-              final title =
-                  item['title'] as String;
-
-              final type =
-                  item['type'] as String;
-
-              return Card(
-                margin: const EdgeInsets.only(
-                  bottom: 10,
-                ),
-                child: ListTile(
-                  leading: const CircleAvatar(
-                    child: Icon(
-                      Icons.description_outlined,
-                    ),
-                  ),
-                  title: Text(title),
-                  subtitle: Text(type),
-                ),
-              );
-            },
-          ),
-      ],
     );
   }
 }
- 
+
+const _types = [
+  ('PDF', Icons.picture_as_pdf_outlined, 'pdf'),
+  ('Word', Icons.description_outlined, 'word'),
+  ('PowerPoint', Icons.slideshow_outlined, 'powerpoint'),
+  ('Text', Icons.text_snippet_outlined, 'text'),
+  ('Image', Icons.image_outlined, 'image'),
+];
+
+const _extensions = {
+  'pdf': ['pdf'],
+  'word': ['doc', 'docx'],
+  'powerpoint': ['ppt', 'pptx'],
+  'text': ['txt'],
+  'image': ['jpg', 'jpeg', 'png', 'webp'],
+};
+
+String typeName(String e) {
+  if (e == 'pdf') return 'PDF';
+  if (e == 'doc' || e == 'docx') return 'Word';
+  if (e == 'ppt' || e == 'pptx') return 'PowerPoint';
+  if (e == 'txt') return 'Text';
+  if (['jpg', 'jpeg', 'png', 'webp'].contains(e)) return 'Image';
+  return 'File';
+}
+
+String? mimeType(String e) => {
+      'pdf': 'application/pdf',
+      'doc': 'application/msword',
+      'docx':
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'ppt': 'application/vnd.ms-powerpoint',
+      'pptx':
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'txt': 'text/plain',
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'webp': 'image/webp',
+    }[e];
+
+IconData iconFor(String type) => {
+      'PDF': Icons.picture_as_pdf_outlined,
+      'Word': Icons.description_outlined,
+      'PowerPoint': Icons.slideshow_outlined,
+      'Text': Icons.text_snippet_outlined,
+      'Image': Icons.image_outlined,
+    }[type] ??
+    Icons.insert_drive_file_outlined;
+
+_PickTile(
+  String title,
+  IconData icon,
+  String value,
+) {
+  return ListTile(
+    leading: Icon(icon),
+    title: Text(title),
+    onTap: () {},
+  );
+}
