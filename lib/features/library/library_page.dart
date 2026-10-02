@@ -49,6 +49,7 @@ class _LibraryPageState extends State<LibraryPage> {
           content: TextField(
             controller: controller,
             autofocus: true,
+            textCapitalization: TextCapitalization.sentences,
             decoration: const InputDecoration(
               labelText: 'Subject name',
               hintText: 'Example: Pharmacology',
@@ -176,7 +177,7 @@ class _LibraryPageState extends State<LibraryPage> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(24),
         children: [
-          const SizedBox(height: 120),
+          const SizedBox(height: 140),
           Icon(
             Icons.library_books_outlined,
             size: 72,
@@ -186,11 +187,17 @@ class _LibraryPageState extends State<LibraryPage> {
           Text(
             'Your Library is empty',
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.headlineSmall,
+            style: Theme.of(context)
+                .textTheme
+                .headlineSmall
+                ?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Use the add button in the top right to create a subject.',
+            'Use the + button in the top right '
+            'to create a subject.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium,
           ),
@@ -213,7 +220,9 @@ class _LibraryPageState extends State<LibraryPage> {
         final name = subject['name'] as String;
 
         return Card(
-          margin: const EdgeInsets.only(bottom: 12),
+          margin: const EdgeInsets.only(
+            bottom: 12,
+          ),
           child: ListTile(
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
