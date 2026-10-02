@@ -30,16 +30,12 @@ class FileImportService {
   static final FileImportService instance = FileImportService._();
 
   Future<ImportedFile?> pickFile() async {
-    final result = await FilePicker.platform.pickFiles(
-      allowMultiple: false,
-      withData: false,
-    );
+    final file = await FilePicker.pickFile();
 
-    if (result == null || result.files.single.path == null) {
+    if (file == null || file.path == null) {
       return null;
     }
 
-    final file = result.files.single;
     final path = file.path!;
     final extension = file.extension?.toLowerCase();
 
@@ -79,9 +75,7 @@ class FileImportService {
     return importedFile;
   }
 
-  Future<void> _saveImportedFile(
-    ImportedFile file,
-  ) async {
+  Future<void> _saveImportedFile(ImportedFile file) async {
     final now = DateTime.now().toIso8601String();
 
     final contentId = await DatabaseRepository.instance.insertContent({
@@ -108,19 +102,26 @@ class FileImportService {
     switch (extension) {
       case 'pdf':
         return 'application/pdf';
+
       case 'docx':
         return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
       case 'txt':
         return 'text/plain';
+
       case 'jpg':
       case 'jpeg':
         return 'image/jpeg';
+
       case 'png':
         return 'image/png';
+
       case 'webp':
         return 'image/webp';
+
       case 'heic':
         return 'image/heic';
+
       default:
         return null;
     }
@@ -143,7 +144,6 @@ class FileImportService {
 
   Future<String> _extractTextFromDocx(String path) async {
     final document = docx.loadDocxDocument(path);
-
     final buffer = StringBuffer();
 
     for (final paragraph in document.paragraphs) {
