@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'core/database/database_service.dart';
 import 'features/library/library_page.dart';
 
@@ -21,7 +22,9 @@ class _MasAiAppState extends State<MasAiApp> {
   ThemeMode _themeMode = ThemeMode.system;
 
   void _setThemeMode(ThemeMode mode) {
-    setState(() => _themeMode = mode);
+    setState(() {
+      _themeMode = mode;
+    });
   }
 
   @override
@@ -66,12 +69,12 @@ class MasAiShell extends StatefulWidget {
 class _MasAiShellState extends State<MasAiShell> {
   int _currentIndex = 0;
 
-  final _pages = const [
-    HomePage(),
-    StudyPage(),
-    TestPage(),
-    ReviewPage(),
-    ProfilePage(),
+  late final List<Widget> _pages = [
+    const HomePage(),
+    const StudyPage(),
+    const TestPage(),
+    const ReviewPage(),
+    const ProfilePage(),
   ];
 
   @override
@@ -86,7 +89,9 @@ class _MasAiShellState extends State<MasAiShell> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (index) {
-          setState(() => _currentIndex = index);
+          setState(() {
+            _currentIndex = index;
+          });
         },
         destinations: const [
           NavigationDestination(
@@ -161,6 +166,15 @@ class HomePage extends StatelessWidget {
 class StudyPage extends StatelessWidget {
   const StudyPage({super.key});
 
+  void _openLibrary(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const LibraryPage(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return _Page(
@@ -168,21 +182,11 @@ class StudyPage extends StatelessWidget {
       subtitle: 'Learn → Recall → Explain → Quick Test',
       children: [
         _ActionCard(
-          icon: Icons.upload_file_outlined,
-          title: 'Add learning content',
-          subtitle: 'PDF, text, notes and lectures',
-        ),
-        _ActionCard(
-          icon: Icons.folder_outlined,
-          title: 'Subjects & topics',
-          subtitle: 'Open your study library',
+          icon: Icons.library_books_outlined,
+          title: 'Library',
+          subtitle: 'Subjects, folders and learning content',
           onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const LibraryPage(),
-              ),
-            );
+            _openLibrary(context);
           },
         ),
         _ActionCard(
