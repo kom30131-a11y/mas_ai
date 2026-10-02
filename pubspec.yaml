@@ -22,6 +22,8 @@ dependencies:
   pdfx: ^2.11.0
   docx_dart: ^1.2.0
   path_provider: ^2.1.5
+  archive: ^4.0.7
+  xml: ^6.6.1
 
 dev_dependencies:
   flutter_test:
