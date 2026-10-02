@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'core/database/database_service.dart';
+import 'features/library/library_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
