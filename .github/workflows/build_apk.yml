@@ -221,32 +221,27 @@ jobs:
           ]
 
           if missing:
-              marker = "dependencies {"
-              if marker not in text:
-                  raise SystemExit(
-                      "ERROR: dependencies block not found"
+              block = (
+                  "\n\ndependencies {\n"
+                  + "\n".join(
+                      f"    {dep}" for dep in missing
                   )
-
-              addition = "\n".join(
-                  f"    {dep}" for dep in missing
+                  + "\n}\n"
               )
 
-              text = text.replace(
-                  marker,
-                  marker + "\n" + addition,
-                  1
-              )
-
+              text = text.rstrip() + block
               path.write_text(text)
 
           print("Android dependencies verified:")
+          final_text = path.read_text()
+
           for dep in dependencies:
-              print(
-                  "OK"
-                  if dep in path.read_text()
-                  else "MISSING",
-                  dep
-              )
+              if dep in final_text:
+                  print("OK:", dep)
+              else:
+                  raise SystemExit(
+                      f"ERROR: Missing dependency: {dep}"
+                  )
           PY
 
       - name: 6. Verify Android configuration
