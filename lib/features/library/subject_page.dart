@@ -538,7 +538,7 @@ Future<void> pickFile(String type, int subjectId, int? folderId) async {
       'file_name': f.name,
       'file_path': path,
       'mime_type': mime(type),
-      'file_size': 0,
+      'file_size': f.size,
       'extracted_text': null,
       'created_at': now,
     });
