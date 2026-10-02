@@ -167,7 +167,9 @@ Future<void> pickFile(String t,int subjectId,int? folderId)async{
   final id=await repo.insertContent({'subject_id':subjectId,'topic_id':null,'folder_id':folderId,
     'title':p.basenameWithoutExtension(f.path!),'type':typeName(t),'content':null,'file_path':f.path,
     'original_file_name':f.name,'created_at':DateTime.now().toIso8601String()});
-  await repo.insertFile({'content_id':id,'path':f.path,'name':f.name,'mime_type':mime(t)});
+  await repo.insertFile({'content_id':id,'file_name':f.name,'file_path':f.path,
+    'mime_type':mime(t),'file_size':f.size,'extracted_text':null,
+    'created_at':DateTime.now().toIso8601String()});
 }
 
 class TextEditor extends StatefulWidget{
