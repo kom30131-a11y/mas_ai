@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../core/database/repository.dart';
+import '../../core/database/database_repository.dart';
 import 'subject_page.dart';
 
 class LibraryPage extends StatefulWidget {
@@ -161,8 +161,7 @@ class _LibraryPageState extends State<LibraryPage> {
         onRefresh: _loadSubjects,
         child: _buildBody(),
       ),
-      floatingActionButton:
-          FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: _createSubject,
         icon: const Icon(Icons.add),
         label: const Text('New Subject'),
@@ -179,43 +178,34 @@ class _LibraryPageState extends State<LibraryPage> {
 
     if (_subjects.isEmpty) {
       return ListView(
-        physics:
-            const AlwaysScrollableScrollPhysics(),
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(24),
         children: [
           const SizedBox(height: 100),
           Icon(
             Icons.library_books_outlined,
             size: 72,
-            color: Theme.of(context)
-                .colorScheme
-                .primary,
+            color: Theme.of(context).colorScheme.primary,
           ),
           const SizedBox(height: 20),
           Text(
             'Your Library is empty',
             textAlign: TextAlign.center,
-            style: Theme.of(context)
-                .textTheme
-                .headlineSmall,
+            style: Theme.of(context).textTheme.headlineSmall,
           ),
           const SizedBox(height: 8),
           Text(
             'Create a subject to start organizing '
             'your study content.',
             textAlign: TextAlign.center,
-            style: Theme.of(context)
-                .textTheme
-                .bodyMedium,
+            style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: 24),
           Center(
             child: FilledButton.icon(
               onPressed: _createSubject,
               icon: const Icon(Icons.add),
-              label: const Text(
-                'Create Subject',
-              ),
+              label: const Text('Create Subject'),
             ),
           ),
         ],
@@ -241,8 +231,7 @@ class _LibraryPageState extends State<LibraryPage> {
             bottom: 12,
           ),
           child: ListTile(
-            contentPadding:
-                const EdgeInsets.symmetric(
+            contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 8,
             ),
@@ -258,15 +247,13 @@ class _LibraryPageState extends State<LibraryPage> {
               ),
             ),
             subtitle: const Text('Subject'),
-            trailing:
-                PopupMenuButton<String>(
+            trailing: PopupMenuButton<String>(
               onSelected: (value) {
                 if (value == 'delete') {
                   _deleteSubject(id);
                 }
               },
-              itemBuilder: (context) =>
-                  const [
+              itemBuilder: (context) => const [
                 PopupMenuItem(
                   value: 'delete',
                   child: Text('Delete'),
