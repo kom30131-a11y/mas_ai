@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:syncfusion_flutter_pdf/pdf.dart';
 
 class ImportedFile {
   final String fileName;
@@ -41,10 +42,22 @@ class FileImportService {
 
     String? extractedText;
 
-    if (extension == 'txt') {
-      extractedText = await File(path).readAsString();
-    } else if (_isImage(extension)) {
-      extractedText = await _extractTextFromImage(path);
+    switch (extension) {
+      case 'txt':
+        extractedText = await File(path).readAsString();
+        break;
+
+      case 'pdf':
+        extractedText = await _extractTextFromPdf(path);
+        break;
+
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'webp':
+      case 'heic':
+        extractedText = await _extractTextFromImage(path);
+        break;
     }
 
     return ImportedFile(
@@ -53,6 +66,17 @@ class FileImportService {
       extension: extension,
       extractedText: extractedText,
     );
+  }
+
+  Future<String> _extractTextFromPdf(String path) async {
+    final bytes = await File(path).readAsBytes();
+    final document = PdfDocument(inputBytes: bytes);
+
+    try {
+      return PdfTextExtractor(document).extractText();
+    } finally {
+      document.dispose();
+    }
   }
 
   Future<String> _extractTextFromImage(String path) async {
@@ -65,13 +89,5 @@ class FileImportService {
     } finally {
       await recognizer.close();
     }
-  }
-
-  bool _isImage(String? extension) {
-    return extension == 'jpg' ||
-        extension == 'jpeg' ||
-        extension == 'png' ||
-        extension == 'webp' ||
-        extension == 'heic';
   }
 }
