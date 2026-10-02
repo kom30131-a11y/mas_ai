@@ -477,4 +477,4 @@ String typeLabel(String t)=>switch(t){
   'Image'=>'Images',
   'Text'=>'Text',
   _=>t
-};ا 
+};
