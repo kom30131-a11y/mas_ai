@@ -5,6 +5,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 
+import '../database/database_repository.dart';
+
 class ImportedFile {
   final String fileName;
   final String path;
@@ -65,12 +67,63 @@ class FileImportService {
         break;
     }
 
-    return ImportedFile(
+    final importedFile = ImportedFile(
       fileName: file.name,
       path: path,
       extension: extension,
       extractedText: extractedText,
     );
+
+    await _saveImportedFile(importedFile);
+
+    return importedFile;
+  }
+
+  Future<void> _saveImportedFile(
+    ImportedFile file,
+  ) async {
+    final now = DateTime.now().toIso8601String();
+
+    final contentId = await DatabaseRepository.instance.insertContent({
+      'title': file.fileName,
+      'type': file.extension ?? 'unknown',
+      'content': file.extractedText ?? '',
+      'file_path': file.path,
+      'original_file_name': file.fileName,
+      'created_at': now,
+    });
+
+    await DatabaseRepository.instance.insertFile({
+      'content_id': contentId,
+      'file_name': file.fileName,
+      'file_path': file.path,
+      'mime_type': _mimeType(file.extension),
+      'file_size': await File(file.path).length(),
+      'extracted_text': file.extractedText,
+      'created_at': now,
+    });
+  }
+
+  String? _mimeType(String? extension) {
+    switch (extension) {
+      case 'pdf':
+        return 'application/pdf';
+      case 'docx':
+        return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      case 'txt':
+        return 'text/plain';
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'webp':
+        return 'image/webp';
+      case 'heic':
+        return 'image/heic';
+      default:
+        return null;
+    }
   }
 
   Future<String> _extractTextFromTxt(String path) async {
