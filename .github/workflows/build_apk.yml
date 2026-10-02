@@ -168,7 +168,7 @@ jobs:
           }
           EOF
           
-      - name: Add ML Kit Android dependencies
+      - name: Add Android dependencies
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -176,29 +176,23 @@ jobs:
           path = Path("android/app/build.gradle.kts")
           text = path.read_text()
 
-          dependencies = """dependencies {
-              implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
-              implementation("com.google.mlkit:text-recognition-devanagari:16.0.1")
-              implementation("com.google.mlkit:text-recognition-japanese:16.0.1")
-              implementation("com.google.mlkit:text-recognition-korean:16.0.1")
-          }
-          """
+          additions = [
+              '    implementation("androidx.documentfile:documentfile:1.1.0")',
+              '    implementation("com.google.mlkit:text-recognition-chinese:16.0.1")',
+              '    implementation("com.google.mlkit:text-recognition-devanagari:16.0.1")',
+              '    implementation("com.google.mlkit:text-recognition-japanese:16.0.1")',
+              '    implementation("com.google.mlkit:text-recognition-korean:16.0.1")',
+          ]
 
-          if "dependencies {" in text:
-              if "text-recognition-chinese:16.0.1" not in text:
-                  text = text.replace(
-                      "dependencies {",
-                      dependencies.rstrip(),
-                      1,
-                  )
-          else:
-              text = text.rstrip() + "\n\n" + dependencies
+          if "implementation(\"androidx.documentfile:documentfile:1.1.0\")" not in text:
+              marker = "dependencies {"
+              block = marker + "\n" + "\n".join(additions)
+              text = text.replace(marker, block, 1)
 
           path.write_text(text)
           PY
 
-          grep -n "text-recognition-" android/app/build.gradle.kts
-
+          grep -n "documentfile\|text-recognition-" android/app/build.gradle.kts
       - name: Get dependencies
         run: flutter pub get
 
