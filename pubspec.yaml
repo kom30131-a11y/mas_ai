@@ -17,7 +17,7 @@ dependencies:
   path: ^1.9.1
   file_picker: ^13.1.0
   google_mlkit_text_recognition: ^0.17.1
-  syncfusion_flutter_pdf: ^35.1.37
+  syncfusion_flutter_pdf: ^33.2.13
   docx_dart: ^1.2.0
 
 dev_dependencies:
