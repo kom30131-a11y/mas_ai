@@ -20,6 +20,7 @@ dependencies:
   syncfusion_flutter_pdf: ^33.2.13
   docx_dart: ^1.2.0
   path_provider: ^2.1.5
+  shared_preferences: ^2.5.5
 
 dev_dependencies:
   flutter_test:
