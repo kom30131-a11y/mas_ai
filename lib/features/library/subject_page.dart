@@ -60,7 +60,7 @@ class _SubjectState extends State<SubjectPage>{
     if(t=='text'){
       await Navigator.push(context,MaterialPageRoute(builder:(_)=>TextEditor(
         subjectId:widget.subjectId,folderId:folderId)));
-      if(mounted)load();return;
+      if(!mounted||n==null)return;
     }
     await pickFile(t,widget.subjectId,folderId);await load();
   }
@@ -179,13 +179,11 @@ class _FolderState extends State<FolderPage>{
     c.dispose();return r;
   }
 
-  Future<void> folder([Map<String,dynamic>?x])async{
-    final n=await dialog(x==null?'New folder':'Rename folder',x?['name']);
-    if(n==null)return;
-    x==null
-      ?await repo.insertFolder(name:n,parentId:widget.folderId,subjectId:widget.subjectId)
-      :await repo.renameFolder(folderId:x['id'],name:n);
-    await load();
+  Future<void> rename(Map<String,dynamic>x)async{
+  final n=await dialog('Rename',x['title']);
+  if(!mounted||n==null)return;
+  await repo.updateContent(contentId:x['id'],title:n);
+  await load();
   }
 
   Future<bool> confirm(String t)async=>await showDialog<bool>(
