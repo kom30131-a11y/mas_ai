@@ -22,16 +22,15 @@ class _SubjectPageState extends State<SubjectPage> {
 
   List<Map<String, dynamic>> _folders = [];
   List<Map<String, dynamic>> _content = [];
-
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadSubjectData();
+    _loadData();
   }
 
-  Future<void> _loadSubjectData() async {
+  Future<void> _loadData() async {
     setState(() {
       _isLoading = true;
     });
@@ -62,87 +61,49 @@ class _SubjectPageState extends State<SubjectPage> {
     });
   }
 
-  Future<void> _createFolder() async {
-    final controller = TextEditingController();
-
-    final name = await showDialog<String>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('New Folder'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(
-              labelText: 'Folder name',
-              hintText: 'Example: Cardiovascular',
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                final value = controller.text.trim();
-
-                if (value.isNotEmpty) {
-                  Navigator.pop(context, value);
-                }
-              },
-              child: const Text('Create'),
-            ),
-          ],
-        );
-      },
-    );
-
-    controller.dispose();
-
-    if (name == null || name.trim().isEmpty) return;
-
-    await _repository.insertFolder(
-      name: name.trim(),
-      subjectId: widget.subjectId,
-    );
-
-    await _loadSubjectData();
-  }
-
-  Future<void> _renameFolder(
-    int folderId,
-    String currentName,
-  ) async {
+  Future<String?> _askForName({
+    required String title,
+    String? initialValue,
+    String label = 'Folder name',
+  }) async {
     final controller = TextEditingController(
-      text: currentName,
+      text: initialValue,
     );
 
-    final name = await showDialog<String>(
+    final result = await showDialog<String>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Rename Folder'),
+          title: Text(title),
           content: TextField(
             controller: controller,
             autofocus: true,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(
-              labelText: 'Folder name',
+            textCapitalization:
+                TextCapitalization.sentences,
+            decoration: InputDecoration(
+              labelText: label,
             ),
+            onSubmitted: (value) {
+              final name = value.trim();
+
+              if (name.isNotEmpty) {
+                Navigator.pop(context, name);
+              }
+            },
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                Navigator.pop(context);
+              },
               child: const Text('Cancel'),
             ),
             FilledButton(
               onPressed: () {
-                final value = controller.text.trim();
+                final name = controller.text.trim();
 
-                if (value.isNotEmpty) {
-                  Navigator.pop(context, value);
+                if (name.isNotEmpty) {
+                  Navigator.pop(context, name);
                 }
               },
               child: const Text('Save'),
@@ -154,14 +115,43 @@ class _SubjectPageState extends State<SubjectPage> {
 
     controller.dispose();
 
-    if (name == null || name.trim().isEmpty) return;
+    return result;
+  }
+
+  Future<void> _createFolder() async {
+    final name = await _askForName(
+      title: 'New Folder',
+      label: 'Folder name',
+    );
+
+    if (name == null) return;
+
+    await _repository.insertFolder(
+      name: name,
+      subjectId: widget.subjectId,
+    );
+
+    await _loadData();
+  }
+
+  Future<void> _renameFolder(
+    int folderId,
+    String currentName,
+  ) async {
+    final name = await _askForName(
+      title: 'Rename Folder',
+      initialValue: currentName,
+      label: 'Folder name',
+    );
+
+    if (name == null) return;
 
     await _repository.renameFolder(
       folderId: folderId,
-      name: name.trim(),
+      name: name,
     );
 
-    await _loadSubjectData();
+    await _loadData();
   }
 
   Future<void> _deleteFolder(int folderId) async {
@@ -171,15 +161,19 @@ class _SubjectPageState extends State<SubjectPage> {
         return AlertDialog(
           title: const Text('Delete Folder'),
           content: const Text(
-            'Delete this folder and its subfolders?',
+            'Delete this folder and all subfolders?',
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: () {
+                Navigator.pop(context, false);
+              },
               child: const Text('Cancel'),
             ),
             FilledButton(
-              onPressed: () => Navigator.pop(context, true),
+              onPressed: () {
+                Navigator.pop(context, true);
+              },
               child: const Text('Delete'),
             ),
           ],
@@ -190,7 +184,8 @@ class _SubjectPageState extends State<SubjectPage> {
     if (confirmed != true) return;
 
     await _repository.deleteFolder(folderId);
-    await _loadSubjectData();
+
+    await _loadData();
   }
 
   Future<void> _openFolder(
@@ -208,7 +203,7 @@ class _SubjectPageState extends State<SubjectPage> {
       ),
     );
 
-    await _loadSubjectData();
+    await _loadData();
   }
 
   @override
@@ -219,87 +214,32 @@ class _SubjectPageState extends State<SubjectPage> {
         actions: [
           IconButton(
             onPressed: _createFolder,
+            tooltip: 'New Folder',
             icon: const Icon(
               Icons.create_new_folder_outlined,
             ),
-            tooltip: 'New Folder',
           ),
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: _loadSubjectData,
-        child: _buildBody(),
-      ),
-    );
-  }
-
-  Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
-    }
-
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        16,
-        16,
-        16,
-        24,
-      ),
-      children: [
-        _buildHeader(),
-        const SizedBox(height: 24),
-        _buildFoldersSection(),
-        const SizedBox(height: 24),
-        _buildContentSection(),
-      ],
-    );
-  }
-
-  Widget _buildHeader() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Row(
-          children: [
-            const CircleAvatar(
-              radius: 28,
-              child: Icon(
-                Icons.folder,
-                size: 28,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+        onRefresh: _loadData,
+        child: _isLoading
+            ? const Center(
+                child: CircularProgressIndicator(),
+              )
+            : ListView(
+                padding: const EdgeInsets.all(16),
                 children: [
-                  Text(
-                    widget.subjectName,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '${_folders.length} folders • '
-                    '${_content.length} content items',
-                  ),
+                  _buildFolders(),
+                  const SizedBox(height: 24),
+                  _buildContent(),
                 ],
               ),
-            ),
-          ],
-        ),
       ),
     );
   }
 
-  Widget _buildFoldersSection() {
+  Widget _buildFolders() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -316,11 +256,10 @@ class _SubjectPageState extends State<SubjectPage> {
         if (_folders.isEmpty)
           const Card(
             child: ListTile(
-              leading: Icon(Icons.folder_outlined),
-              title: Text('No folders yet'),
-              subtitle: Text(
-                'Use the add button above to create a folder.',
+              leading: Icon(
+                Icons.folder_outlined,
               ),
+              title: Text('No folders yet'),
             ),
           )
         else
@@ -330,21 +269,30 @@ class _SubjectPageState extends State<SubjectPage> {
               final name = folder['name'] as String;
 
               return Card(
-                margin: const EdgeInsets.only(bottom: 10),
+                margin: const EdgeInsets.only(
+                  bottom: 10,
+                ),
                 child: ListTile(
                   leading: const CircleAvatar(
-                    child: Icon(Icons.folder_outlined),
+                    child: Icon(
+                      Icons.folder_outlined,
+                    ),
                   ),
                   title: Text(name),
-                  trailing: PopupMenuButton<String>(
+                  trailing:
+                      PopupMenuButton<String>(
                     onSelected: (value) {
                       if (value == 'rename') {
-                        _renameFolder(id, name);
+                        _renameFolder(
+                          id,
+                          name,
+                        );
                       } else if (value == 'delete') {
                         _deleteFolder(id);
                       }
                     },
-                    itemBuilder: (context) => const [
+                    itemBuilder: (context) =>
+                        const [
                       PopupMenuItem(
                         value: 'rename',
                         child: Text('Rename'),
@@ -355,7 +303,9 @@ class _SubjectPageState extends State<SubjectPage> {
                       ),
                     ],
                   ),
-                  onTap: () => _openFolder(id, name),
+                  onTap: () {
+                    _openFolder(id, name);
+                  },
                 ),
               );
             },
@@ -364,7 +314,7 @@ class _SubjectPageState extends State<SubjectPage> {
     );
   }
 
-  Widget _buildContentSection() {
+  Widget _buildContent() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -381,24 +331,30 @@ class _SubjectPageState extends State<SubjectPage> {
         if (_content.isEmpty)
           const Card(
             child: ListTile(
-              leading: Icon(Icons.description_outlined),
-              title: Text('No content yet'),
-              subtitle: Text(
-                'Content added to this subject will appear here.',
+              leading: Icon(
+                Icons.description_outlined,
               ),
+              title: Text('No content yet'),
             ),
           )
         else
           ..._content.map(
             (item) {
-              final title = item['title'] as String;
-              final type = item['type'] as String;
+              final title =
+                  item['title'] as String;
+
+              final type =
+                  item['type'] as String;
 
               return Card(
-                margin: const EdgeInsets.only(bottom: 10),
+                margin: const EdgeInsets.only(
+                  bottom: 10,
+                ),
                 child: ListTile(
                   leading: const CircleAvatar(
-                    child: Icon(Icons.description_outlined),
+                    child: Icon(
+                      Icons.description_outlined,
+                    ),
                   ),
                   title: Text(title),
                   subtitle: Text(type),
@@ -433,16 +389,15 @@ class _FolderPageState extends State<FolderPage> {
 
   List<Map<String, dynamic>> _folders = [];
   List<Map<String, dynamic>> _content = [];
-
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadFolderData();
+    _loadData();
   }
 
-  Future<void> _loadFolderData() async {
+  Future<void> _loadData() async {
     setState(() {
       _isLoading = true;
     });
@@ -475,22 +430,32 @@ class _FolderPageState extends State<FolderPage> {
           content: TextField(
             controller: controller,
             autofocus: true,
-            textCapitalization: TextCapitalization.sentences,
+            textCapitalization:
+                TextCapitalization.sentences,
             decoration: const InputDecoration(
               labelText: 'Folder name',
             ),
+            onSubmitted: (value) {
+              final name = value.trim();
+
+              if (name.isNotEmpty) {
+                Navigator.pop(context, name);
+              }
+            },
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                Navigator.pop(context);
+              },
               child: const Text('Cancel'),
             ),
             FilledButton(
               onPressed: () {
-                final value = controller.text.trim();
+                final name = controller.text.trim();
 
-                if (value.isNotEmpty) {
-                  Navigator.pop(context, value);
+                if (name.isNotEmpty) {
+                  Navigator.pop(context, name);
                 }
               },
               child: const Text('Create'),
@@ -502,15 +467,15 @@ class _FolderPageState extends State<FolderPage> {
 
     controller.dispose();
 
-    if (name == null || name.trim().isEmpty) return;
+    if (name == null) return;
 
     await _repository.insertFolder(
-      name: name.trim(),
+      name: name,
       parentId: widget.folderId,
       subjectId: widget.subjectId,
     );
 
-    await _loadFolderData();
+    await _loadData();
   }
 
   Future<void> _renameFolder(
@@ -535,15 +500,17 @@ class _FolderPageState extends State<FolderPage> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                Navigator.pop(context);
+              },
               child: const Text('Cancel'),
             ),
             FilledButton(
               onPressed: () {
-                final value = controller.text.trim();
+                final name = controller.text.trim();
 
-                if (value.isNotEmpty) {
-                  Navigator.pop(context, value);
+                if (name.isNotEmpty) {
+                  Navigator.pop(context, name);
                 }
               },
               child: const Text('Save'),
@@ -555,14 +522,14 @@ class _FolderPageState extends State<FolderPage> {
 
     controller.dispose();
 
-    if (name == null || name.trim().isEmpty) return;
+    if (name == null) return;
 
     await _repository.renameFolder(
       folderId: folderId,
-      name: name.trim(),
+      name: name,
     );
 
-    await _loadFolderData();
+    await _loadData();
   }
 
   Future<void> _deleteFolder(int folderId) async {
@@ -572,15 +539,19 @@ class _FolderPageState extends State<FolderPage> {
         return AlertDialog(
           title: const Text('Delete Folder'),
           content: const Text(
-            'Delete this folder and its subfolders?',
+            'Delete this folder and all subfolders?',
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: () {
+                Navigator.pop(context, false);
+              },
               child: const Text('Cancel'),
             ),
             FilledButton(
-              onPressed: () => Navigator.pop(context, true),
+              onPressed: () {
+                Navigator.pop(context, true);
+              },
               child: const Text('Delete'),
             ),
           ],
@@ -591,7 +562,8 @@ class _FolderPageState extends State<FolderPage> {
     if (confirmed != true) return;
 
     await _repository.deleteFolder(folderId);
-    await _loadFolderData();
+
+    await _loadData();
   }
 
   Future<void> _openFolder(
@@ -609,7 +581,7 @@ class _FolderPageState extends State<FolderPage> {
       ),
     );
 
-    await _loadFolderData();
+    await _loadData();
   }
 
   @override
@@ -620,34 +592,34 @@ class _FolderPageState extends State<FolderPage> {
         actions: [
           IconButton(
             onPressed: _createFolder,
+            tooltip: 'New Folder',
             icon: const Icon(
               Icons.create_new_folder_outlined,
             ),
-            tooltip: 'New Folder',
           ),
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: _loadFolderData,
-        child: _buildBody(),
+        onRefresh: _loadData,
+        child: _isLoading
+            ? const Center(
+                child: CircularProgressIndicator(),
+              )
+            : ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  _buildFolders(),
+                  const SizedBox(height: 24),
+                  _buildContent(),
+                ],
+              ),
       ),
     );
   }
 
-  Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
-    }
-
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        16,
-        16,
-        16,
-        24,
-      ),
+  Widget _buildFolders() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Folders',
@@ -662,11 +634,10 @@ class _FolderPageState extends State<FolderPage> {
         if (_folders.isEmpty)
           const Card(
             child: ListTile(
-              leading: Icon(Icons.folder_outlined),
-              title: Text('No subfolders yet'),
-              subtitle: Text(
-                'Use the add button above to create one.',
+              leading: Icon(
+                Icons.folder_outlined,
               ),
+              title: Text('No subfolders yet'),
             ),
           )
         else
@@ -676,21 +647,30 @@ class _FolderPageState extends State<FolderPage> {
               final name = folder['name'] as String;
 
               return Card(
-                margin: const EdgeInsets.only(bottom: 10),
+                margin: const EdgeInsets.only(
+                  bottom: 10,
+                ),
                 child: ListTile(
                   leading: const CircleAvatar(
-                    child: Icon(Icons.folder_outlined),
+                    child: Icon(
+                      Icons.folder_outlined,
+                    ),
                   ),
                   title: Text(name),
-                  trailing: PopupMenuButton<String>(
+                  trailing:
+                      PopupMenuButton<String>(
                     onSelected: (value) {
                       if (value == 'rename') {
-                        _renameFolder(id, name);
+                        _renameFolder(
+                          id,
+                          name,
+                        );
                       } else if (value == 'delete') {
                         _deleteFolder(id);
                       }
                     },
-                    itemBuilder: (context) => const [
+                    itemBuilder: (context) =>
+                        const [
                       PopupMenuItem(
                         value: 'rename',
                         child: Text('Rename'),
@@ -701,8 +681,66 @@ class _FolderPageState extends State<FolderPage> {
                       ),
                     ],
                   ),
-                  onTap: () => _openFolder(id, name),
+                  onTap: () {
+                    _openFolder(id, name);
+                  },
                 ),
               );
             },
           ),
+      ],
+    );
+  }
+
+  Widget _buildContent() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Content',
+          style: Theme.of(context)
+              .textTheme
+              .titleLarge
+              ?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+        ),
+        const SizedBox(height: 12),
+        if (_content.isEmpty)
+          const Card(
+            child: ListTile(
+              leading: Icon(
+                Icons.description_outlined,
+              ),
+              title: Text('No content yet'),
+            ),
+          )
+        else
+          ..._content.map(
+            (item) {
+              final title =
+                  item['title'] as String;
+
+              final type =
+                  item['type'] as String;
+
+              return Card(
+                margin: const EdgeInsets.only(
+                  bottom: 10,
+                ),
+                child: ListTile(
+                  leading: const CircleAvatar(
+                    child: Icon(
+                      Icons.description_outlined,
+                    ),
+                  ),
+                  title: Text(title),
+                  subtitle: Text(type),
+                ),
+              );
+            },
+          ),
+      ],
+    );
+  }
+}
