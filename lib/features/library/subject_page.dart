@@ -234,7 +234,7 @@ class _FolderState extends State<FolderPage>{
         items:items,
         subjectId:widget.subjectId,
         folderId:widget.folderId,
-      ))).then((_){load();});
+      ))).then((_){load();}));
 
   List<Widget> contentTypes(){
     final types=<String,List<Map<String,dynamic>>>{};
