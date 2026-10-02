@@ -511,13 +511,12 @@ Future<void> pickFile(String type, int subjectId, int? folderId) async {
   ];
 
   try {
-    final files = await FilePicker.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: extensions,
     );
-    if (files.isEmpty) return;
-
-    final f = files.first;
+    if (result == null || result.files.isEmpty) return;
+    final f = result.files.first;
     final path = f.path;
     if (path == null) return;
 
