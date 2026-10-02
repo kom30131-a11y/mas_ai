@@ -45,7 +45,7 @@ class _LibraryPageState extends State<LibraryPage> {
       text: initialValue,
     );
 
-    final name = await showDialog<String>(
+    final result = await showDialog<String>(
       context: context,
       builder: (context) {
         return AlertDialog(
@@ -99,18 +99,19 @@ class _LibraryPageState extends State<LibraryPage> {
 
     controller.dispose();
 
-    return name;
+    return result;
   }
 
   Future<void> _createSubject() async {
     final name = await _askForSubjectName();
 
-    if (name == null) return;
+    if (name == null || name.isEmpty) {
+      return;
+    }
 
     await _repository.insertSubject({
       'name': name,
-      'created_at':
-          DateTime.now().toIso8601String(),
+      'created_at': DateTime.now().toIso8601String(),
     });
 
     await _loadSubjects();
@@ -124,7 +125,9 @@ class _LibraryPageState extends State<LibraryPage> {
       initialValue: currentName,
     );
 
-    if (name == null) return;
+    if (name == null || name.isEmpty) {
+      return;
+    }
 
     await _repository.renameSubject(
       subjectId: id,
@@ -161,10 +164,11 @@ class _LibraryPageState extends State<LibraryPage> {
       },
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true) {
+      return;
+    }
 
     await _repository.deleteSubject(id);
-
     await _loadSubjects();
   }
 
@@ -216,16 +220,14 @@ class _LibraryPageState extends State<LibraryPage> {
 
     if (_subjects.isEmpty) {
       return ListView(
-        physics:
-            const AlwaysScrollableScrollPhysics(),
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(24),
         children: [
           const SizedBox(height: 140),
           Icon(
             Icons.library_books_outlined,
             size: 72,
-            color:
-                Theme.of(context).colorScheme.primary,
+            color: Theme.of(context).colorScheme.primary,
           ),
           const SizedBox(height: 20),
           Text(
@@ -240,12 +242,10 @@ class _LibraryPageState extends State<LibraryPage> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Use the button in the top right '
+            'Use the + button in the top right '
             'to create a subject.',
             textAlign: TextAlign.center,
-            style: Theme.of(context)
-                .textTheme
-                .bodyMedium,
+            style: Theme.of(context).textTheme.bodyMedium,
           ),
         ],
       );
@@ -270,8 +270,7 @@ class _LibraryPageState extends State<LibraryPage> {
             bottom: 12,
           ),
           child: ListTile(
-            contentPadding:
-                const EdgeInsets.symmetric(
+            contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 8,
             ),
