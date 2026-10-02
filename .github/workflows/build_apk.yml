@@ -26,17 +26,28 @@ jobs:
           path = Path("android/app/build.gradle.kts")
           text = path.read_text()
 
-          marker = "dependencies {"
-          additions = """dependencies {
+          dependencies = """dependencies {
               implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
               implementation("com.google.mlkit:text-recognition-devanagari:16.0.1")
               implementation("com.google.mlkit:text-recognition-japanese:16.0.1")
               implementation("com.google.mlkit:text-recognition-korean:16.0.1")
+          }
           """
 
-          text = text.replace(marker, additions, 1)
+          if "dependencies {" in text:
+              if "text-recognition-chinese:16.0.1" not in text:
+                  text = text.replace(
+                      "dependencies {",
+                      dependencies.rstrip(),
+                      1,
+                  )
+          else:
+              text = text.rstrip() + "\n\n" + dependencies
+
           path.write_text(text)
           PY
+
+          grep -n "text-recognition-" android/app/build.gradle.kts
 
       - name: Get dependencies
         run: flutter pub get
