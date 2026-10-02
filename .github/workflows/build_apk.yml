@@ -21,6 +21,10 @@ jobs:
         run: |
           flutter create --platforms=android .
 
+      - name: 3.1 Remove generated Flutter test
+        run: |
+          rm -f test/widget_test.dart
+
       - name: 4. Configure Android storage
         shell: bash
         run: |
