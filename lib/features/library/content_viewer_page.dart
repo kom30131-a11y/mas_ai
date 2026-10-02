@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:docx_dart/docx_dart.dart' as docx;
 import 'package:flutter/material.dart';
 import 'package:pdfx/pdfx.dart';
 
@@ -23,15 +24,49 @@ class ContentViewerPage extends StatefulWidget {
 
 class _ContentViewerPageState extends State<ContentViewerPage> {
   PdfControllerPinch? pdfController;
+  String? wordText;
+  String? error;
 
   @override
   void initState() {
     super.initState();
 
-    if (widget.type.toLowerCase() == 'pdf') {
+    final type = widget.type.toLowerCase();
+
+    if (type == 'pdf') {
       pdfController = PdfControllerPinch(
         document: PdfDocument.openFile(widget.path),
       );
+    } else if (type == 'docx' || type == 'word') {
+      _loadWord();
+    }
+  }
+
+  Future<void> _loadWord() async {
+    try {
+      final document = docx.loadDocxDocument(widget.path);
+      final buffer = StringBuffer();
+
+      for (final paragraph in document.paragraphs) {
+        final text = paragraph.text.trim();
+
+        if (text.isNotEmpty) {
+          buffer.writeln(text);
+          buffer.writeln();
+        }
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        wordText = buffer.toString().trim();
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        error = e.toString();
+      });
     }
   }
 
@@ -95,6 +130,15 @@ class _ContentViewerPageState extends State<ContentViewerPage> {
       );
     }
 
+    if (type == 'docx' || type == 'word') {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(widget.title),
+        ),
+        body: _wordBody(),
+      );
+    }
+
     if (widget.extractedText != null &&
         widget.extractedText!.trim().isNotEmpty) {
       return Scaffold(
@@ -121,6 +165,45 @@ class _ContentViewerPageState extends State<ContentViewerPage> {
       body: const Center(
         child: Text(
           'Preview is not available for this file.',
+        ),
+      ),
+    );
+  }
+
+  Widget _wordBody() {
+    if (error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'Unable to open Word file.\n$error',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
+    if (wordText == null) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    if (wordText!.trim().isEmpty) {
+      return const Center(
+        child: Text(
+          'This Word file contains no readable text.',
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: SelectableText(
+        wordText!,
+        style: const TextStyle(
+          fontSize: 16,
+          height: 1.6,
         ),
       ),
     );
