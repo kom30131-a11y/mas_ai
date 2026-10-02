@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:docx_dart/docx_dart.dart' as docx;
 import 'package:file_picker/file_picker.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
@@ -44,11 +45,15 @@ class FileImportService {
 
     switch (extension) {
       case 'txt':
-        extractedText = await File(path).readAsString();
+        extractedText = await _extractTextFromTxt(path);
         break;
 
       case 'pdf':
         extractedText = await _extractTextFromPdf(path);
+        break;
+
+      case 'docx':
+        extractedText = await _extractTextFromDocx(path);
         break;
 
       case 'jpg':
@@ -68,6 +73,10 @@ class FileImportService {
     );
   }
 
+  Future<String> _extractTextFromTxt(String path) async {
+    return File(path).readAsString();
+  }
+
   Future<String> _extractTextFromPdf(String path) async {
     final bytes = await File(path).readAsBytes();
     final document = PdfDocument(inputBytes: bytes);
@@ -77,6 +86,22 @@ class FileImportService {
     } finally {
       document.dispose();
     }
+  }
+
+  Future<String> _extractTextFromDocx(String path) async {
+    final document = docx.loadDocxDocument(path);
+
+    final buffer = StringBuffer();
+
+    for (final paragraph in document.paragraphs) {
+      final text = paragraph.text.trim();
+
+      if (text.isNotEmpty) {
+        buffer.writeln(text);
+      }
+    }
+
+    return buffer.toString().trim();
   }
 
   Future<String> _extractTextFromImage(String path) async {
