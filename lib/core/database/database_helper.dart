@@ -10,7 +10,9 @@ class DatabaseHelper {
 
   Future<Database> get database async {
     if (_database != null) return _database!;
+
     _database = await _openDatabase();
+
     return _database!;
   }
 
@@ -20,7 +22,7 @@ class DatabaseHelper {
 
     return openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: _createDatabase,
       onUpgrade: _upgradeDatabase,
     );
@@ -50,10 +52,24 @@ class DatabaseHelper {
     ''');
 
     await db.execute('''
+      CREATE TABLE folders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        parent_id INTEGER,
+        subject_id INTEGER,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (parent_id) REFERENCES folders (id),
+        FOREIGN KEY (subject_id) REFERENCES subjects (id)
+      )
+    ''');
+
+    await db.execute('''
       CREATE TABLE content (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         subject_id INTEGER,
         topic_id INTEGER,
+        folder_id INTEGER,
         title TEXT NOT NULL,
         type TEXT NOT NULL,
         content TEXT NOT NULL,
@@ -61,7 +77,8 @@ class DatabaseHelper {
         original_file_name TEXT,
         created_at TEXT NOT NULL,
         FOREIGN KEY (subject_id) REFERENCES subjects (id),
-        FOREIGN KEY (topic_id) REFERENCES topics (id)
+        FOREIGN KEY (topic_id) REFERENCES topics (id),
+        FOREIGN KEY (folder_id) REFERENCES folders (id)
       )
     ''');
 
@@ -174,6 +191,25 @@ class DatabaseHelper {
           created_at TEXT NOT NULL,
           FOREIGN KEY (content_id) REFERENCES content (id)
         )
+      ''');
+    }
+
+    if (oldVersion < 3) {
+      await db.execute('''
+        CREATE TABLE folders (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          parent_id INTEGER,
+          subject_id INTEGER,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          FOREIGN KEY (parent_id) REFERENCES folders (id),
+          FOREIGN KEY (subject_id) REFERENCES subjects (id)
+        )
+      ''');
+
+      await db.execute('''
+        ALTER TABLE content ADD COLUMN folder_id INTEGER
       ''');
     }
   }
