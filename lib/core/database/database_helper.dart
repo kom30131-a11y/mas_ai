@@ -20,8 +20,9 @@ class DatabaseHelper {
 
     return openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _createDatabase,
+      onUpgrade: _upgradeDatabase,
     );
   }
 
@@ -56,6 +57,8 @@ class DatabaseHelper {
         title TEXT NOT NULL,
         type TEXT NOT NULL,
         content TEXT NOT NULL,
+        file_path TEXT,
+        original_file_name TEXT,
         created_at TEXT NOT NULL,
         FOREIGN KEY (subject_id) REFERENCES subjects (id),
         FOREIGN KEY (topic_id) REFERENCES topics (id)
@@ -101,10 +104,83 @@ class DatabaseHelper {
         FOREIGN KEY (topic_id) REFERENCES topics (id)
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE mind_maps (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        content_id INTEGER,
+        topic_id INTEGER,
+        title TEXT NOT NULL,
+        data TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (content_id) REFERENCES content (id),
+        FOREIGN KEY (topic_id) REFERENCES topics (id)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE files (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        content_id INTEGER,
+        file_name TEXT NOT NULL,
+        file_path TEXT NOT NULL,
+        mime_type TEXT,
+        file_size INTEGER,
+        extracted_text TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (content_id) REFERENCES content (id)
+      )
+    ''');
+  }
+
+  Future<void> _upgradeDatabase(
+    Database db,
+    int oldVersion,
+    int newVersion,
+  ) async {
+    if (oldVersion < 2) {
+      await db.execute('''
+        ALTER TABLE content ADD COLUMN file_path TEXT
+      ''');
+
+      await db.execute('''
+        ALTER TABLE content ADD COLUMN original_file_name TEXT
+      ''');
+
+      await db.execute('''
+        CREATE TABLE mind_maps (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          content_id INTEGER,
+          topic_id INTEGER,
+          title TEXT NOT NULL,
+          data TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          FOREIGN KEY (content_id) REFERENCES content (id),
+          FOREIGN KEY (topic_id) REFERENCES topics (id)
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE files (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          content_id INTEGER,
+          file_name TEXT NOT NULL,
+          file_path TEXT NOT NULL,
+          mime_type TEXT,
+          file_size INTEGER,
+          extracted_text TEXT,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (content_id) REFERENCES content (id)
+        )
+      ''');
+    }
   }
 
   Future<void> close() async {
     final db = _database;
+
     if (db != null) {
       await db.close();
       _database = null;
