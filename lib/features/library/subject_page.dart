@@ -37,7 +37,6 @@ class _SubjectPageState extends State<SubjectPage> {
     });
 
     final folders = await _repository.getFolders();
-
     final content = await _repository.getContent();
 
     if (!mounted) return;
@@ -46,14 +45,16 @@ class _SubjectPageState extends State<SubjectPage> {
       _folders = folders
           .where(
             (folder) =>
-                folder['subject_id'] == widget.subjectId,
+                folder['subject_id'] == widget.subjectId &&
+                folder['parent_id'] == null,
           )
           .toList();
 
       _content = content
           .where(
             (item) =>
-                item['subject_id'] == widget.subjectId,
+                item['subject_id'] == widget.subjectId &&
+                item['folder_id'] == null,
           )
           .toList();
 
@@ -203,7 +204,6 @@ class _SubjectPageState extends State<SubjectPage> {
     }
 
     await _repository.deleteFolder(folderId);
-
     await _loadSubjectData();
   }
 
@@ -646,7 +646,6 @@ class _FolderPageState extends State<FolderPage> {
     }
 
     await _repository.deleteFolder(folderId);
-
     await _loadFolderData();
   }
 
@@ -796,7 +795,32 @@ class _FolderPageState extends State<FolderPage> {
               ),
               title: Text('No content yet'),
               subtitle: Text(
-                'Content will appear here.',
+                'Content added to this folder '
+                'will appear here.',
+              ),
+            ),
+          )
+        else
+          ..._content.map(
+            (item) {
+              final title =
+                  item['title'] as String;
+
+              final type =
+                  item['type'] as String;
+
+              return Card(
+                margin: const EdgeInsets.only(
+                  bottom: 10,
+                ),
+                child: ListTile(
+                  leading: Icon(
+                Icons.description_outlined,
+              ),
+              title: Text('No content yet'),
+              subtitle: Text(
+                'Content added to this folder '
+                'will appear here.',
               ),
             ),
           )
@@ -818,4 +842,14 @@ class _FolderPageState extends State<FolderPage> {
                     child: Icon(
                       Icons.description_outlined,
                     ),
-      
+                  ),
+                  title: Text(title),
+                  subtitle: Text(type),
+                ),
+              );
+            },
+          ),
+      ],
+    );
+  }
+}
