@@ -7,6 +7,7 @@ import '../../core/database/database_repository.dart';
 class SubjectPage extends StatefulWidget {
   final int subjectId;
   final String subjectName;
+
   const SubjectPage({
     super.key,
     required this.subjectId,
@@ -32,11 +33,16 @@ class _LibraryState extends State<SubjectPage> {
     final f = await repo.getFolders();
     final c = await repo.getContent();
     if (!mounted) return;
+
     setState(() {
-      folders = f.where((x) =>
-          x['subject_id'] == widget.subjectId && x['parent_id'] == null).toList();
-      content = c.where((x) =>
-          x['subject_id'] == widget.subjectId && x['folder_id'] == null).toList();
+      folders = f
+          .where((x) =>
+              x['subject_id'] == widget.subjectId && x['parent_id'] == null)
+          .toList();
+      content = c
+          .where((x) =>
+              x['subject_id'] == widget.subjectId && x['folder_id'] == null)
+          .toList();
       loading = false;
     });
   }
@@ -53,10 +59,15 @@ class _LibraryState extends State<SubjectPage> {
           decoration: const InputDecoration(labelText: 'Name'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(d), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(d),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
             onPressed: () {
-              if (c.text.trim().isNotEmpty) Navigator.pop(d, c.text.trim());
+              if (c.text.trim().isNotEmpty) {
+                Navigator.pop(d, c.text.trim());
+              }
             },
             child: const Text('Save'),
           ),
@@ -83,6 +94,7 @@ class _LibraryState extends State<SubjectPage> {
     } else {
       await repo.renameFolder(folderId: id, name: name);
     }
+
     await load();
   }
 
@@ -140,13 +152,14 @@ class _LibraryState extends State<SubjectPage> {
       'image': ['jpg', 'jpeg', 'png', 'webp'],
     }[type]!;
 
-    final result = await FilePicker.pickFiles(
+    final files = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ext,
     );
-    if (result == null || result.files.isEmpty) return;
 
-    final file = result.files.first;
+    if (files.isEmpty) return;
+
+    final file = files.first;
     final path = file.path;
     if (path == null) return;
 
@@ -201,7 +214,9 @@ class _LibraryState extends State<SubjectPage> {
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         leading: CircleAvatar(
-          child: Icon(isFolder ? Icons.folder_outlined : iconFor(x['type'])),
+          child: Icon(
+            isFolder ? Icons.folder_outlined : iconFor(x['type']),
+          ),
         ),
         title: Text(name),
         subtitle: isFolder ? null : Text(x['type']),
@@ -211,8 +226,14 @@ class _LibraryState extends State<SubjectPage> {
                     ? folder(id: id, old: name)
                     : deleteFolder(id),
                 itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'rename', child: Text('Rename')),
-                  PopupMenuItem(value: 'delete', child: Text('Delete')),
+                  PopupMenuItem(
+                    value: 'rename',
+                    child: Text('Rename'),
+                  ),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Text('Delete'),
+                  ),
                 ],
               )
             : null,
@@ -221,7 +242,11 @@ class _LibraryState extends State<SubjectPage> {
     );
   }
 
-  Widget section(String title, List<Map<String, dynamic>> data, bool folders) =>
+  Widget section(
+    String title,
+    List<Map<String, dynamic>> data,
+    bool folders,
+  ) =>
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -302,6 +327,7 @@ class _FolderState extends State<FolderPage> {
     final f = await repo.getFolders(parentId: widget.folderId);
     final c = await repo.getContent(folderId: widget.folderId);
     if (!mounted) return;
+
     setState(() {
       folders = f;
       content = c;
@@ -321,10 +347,15 @@ class _FolderState extends State<FolderPage> {
           decoration: const InputDecoration(labelText: 'Name'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(d), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(d),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
             onPressed: () {
-              if (c.text.trim().isNotEmpty) Navigator.pop(d, c.text.trim());
+              if (c.text.trim().isNotEmpty) {
+                Navigator.pop(d, c.text.trim());
+              }
             },
             child: const Text('Save'),
           ),
@@ -344,6 +375,7 @@ class _FolderState extends State<FolderPage> {
       parentId: widget.folderId,
       subjectId: widget.subjectId,
     );
+
     await load();
   }
 
@@ -401,13 +433,14 @@ class _FolderState extends State<FolderPage> {
       'image': ['jpg', 'jpeg', 'png', 'webp'],
     }[type]!;
 
-    final result = await FilePicker.pickFiles(
+    final files = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ext,
     );
-    if (result == null || result.files.isEmpty) return;
 
-    final file = result.files.first;
+    if (files.isEmpty) return;
+
+    final file = files.first;
     final path = file.path;
     if (path == null) return;
 
@@ -462,7 +495,9 @@ class _FolderState extends State<FolderPage> {
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         leading: CircleAvatar(
-          child: Icon(isFolder ? Icons.folder_outlined : iconFor(x['type'])),
+          child: Icon(
+            isFolder ? Icons.folder_outlined : iconFor(x['type']),
+          ),
         ),
         title: Text(name),
         subtitle: isFolder ? null : Text(x['type']),
@@ -472,7 +507,10 @@ class _FolderState extends State<FolderPage> {
                   if (v == 'rename') {
                     final n = await nameDialog('Rename Folder', name);
                     if (n != null) {
-                      await repo.renameFolder(folderId: id, name: n);
+                      await repo.renameFolder(
+                        folderId: id,
+                        name: n,
+                      );
                       await load();
                     }
                   } else {
@@ -480,8 +518,14 @@ class _FolderState extends State<FolderPage> {
                   }
                 },
                 itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'rename', child: Text('Rename')),
-                  PopupMenuItem(value: 'delete', child: Text('Delete')),
+                  PopupMenuItem(
+                    value: 'rename',
+                    child: Text('Rename'),
+                  ),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Text('Delete'),
+                  ),
                 ],
               )
             : null,
@@ -490,7 +534,11 @@ class _FolderState extends State<FolderPage> {
     );
   }
 
-  Widget section(String title, List<Map<String, dynamic>> data, bool folders) =>
+  Widget section(
+    String title,
+    List<Map<String, dynamic>> data,
+    bool folders,
+  ) =>
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -590,4 +638,5 @@ IconData iconFor(String type) => {
       'PowerPoint': Icons.slideshow_outlined,
       'Text': Icons.text_snippet_outlined,
       'Image': Icons.image_outlined,
-    }[type] ?? Icons.insert_drive_file_outlined;
+    }[type] ??
+    Icons.insert_drive_file_outlined;
