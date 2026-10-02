@@ -161,11 +161,6 @@ class _LibraryPageState extends State<LibraryPage> {
         onRefresh: _loadSubjects,
         child: _buildBody(),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _createSubject,
-        icon: const Icon(Icons.add),
-        label: const Text('New Subject'),
-      ),
     );
   }
 
@@ -181,7 +176,7 @@ class _LibraryPageState extends State<LibraryPage> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(24),
         children: [
-          const SizedBox(height: 100),
+          const SizedBox(height: 120),
           Icon(
             Icons.library_books_outlined,
             size: 72,
@@ -195,18 +190,9 @@ class _LibraryPageState extends State<LibraryPage> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Create a subject to start organizing '
-            'your study content.',
+            'Use the add button in the top right to create a subject.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 24),
-          Center(
-            child: FilledButton.icon(
-              onPressed: _createSubject,
-              icon: const Icon(Icons.add),
-              label: const Text('Create Subject'),
-            ),
           ),
         ],
       );
@@ -217,7 +203,7 @@ class _LibraryPageState extends State<LibraryPage> {
         16,
         16,
         16,
-        100,
+        24,
       ),
       itemCount: _subjects.length,
       itemBuilder: (context, index) {
@@ -227,9 +213,7 @@ class _LibraryPageState extends State<LibraryPage> {
         final name = subject['name'] as String;
 
         return Card(
-          margin: const EdgeInsets.only(
-            bottom: 12,
-          ),
+          margin: const EdgeInsets.only(bottom: 12),
           child: ListTile(
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
