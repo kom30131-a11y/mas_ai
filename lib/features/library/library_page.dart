@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/database/repository.dart';
+import 'subject_page.dart';
 
 class LibraryPage extends StatefulWidget {
   const LibraryPage({super.key});
@@ -124,6 +125,23 @@ class _LibraryPageState extends State<LibraryPage> {
     await _loadSubjects();
   }
 
+  Future<void> _openSubject(
+    int id,
+    String name,
+  ) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SubjectPage(
+          subjectId: id,
+          subjectName: name,
+        ),
+      ),
+    );
+
+    await _loadSubjects();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -132,7 +150,9 @@ class _LibraryPageState extends State<LibraryPage> {
         actions: [
           IconButton(
             onPressed: _createSubject,
-            icon: const Icon(Icons.create_new_folder_outlined),
+            icon: const Icon(
+              Icons.create_new_folder_outlined,
+            ),
             tooltip: 'New Subject',
           ),
         ],
@@ -141,7 +161,8 @@ class _LibraryPageState extends State<LibraryPage> {
         onRefresh: _loadSubjects,
         child: _buildBody(),
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton:
+          FloatingActionButton.extended(
         onPressed: _createSubject,
         icon: const Icon(Icons.add),
         label: const Text('New Subject'),
@@ -158,33 +179,43 @@ class _LibraryPageState extends State<LibraryPage> {
 
     if (_subjects.isEmpty) {
       return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
+        physics:
+            const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(24),
         children: [
           const SizedBox(height: 100),
           Icon(
             Icons.library_books_outlined,
             size: 72,
-            color: Theme.of(context).colorScheme.primary,
+            color: Theme.of(context)
+                .colorScheme
+                .primary,
           ),
           const SizedBox(height: 20),
           Text(
             'Your Library is empty',
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.headlineSmall,
+            style: Theme.of(context)
+                .textTheme
+                .headlineSmall,
           ),
           const SizedBox(height: 8),
           Text(
-            'Create a subject to start organizing your study content.',
+            'Create a subject to start organizing '
+            'your study content.',
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium,
+            style: Theme.of(context)
+                .textTheme
+                .bodyMedium,
           ),
           const SizedBox(height: 24),
           Center(
             child: FilledButton.icon(
               onPressed: _createSubject,
               icon: const Icon(Icons.add),
-              label: const Text('Create Subject'),
+              label: const Text(
+                'Create Subject',
+              ),
             ),
           ),
         ],
@@ -192,7 +223,12 @@ class _LibraryPageState extends State<LibraryPage> {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+      padding: const EdgeInsets.fromLTRB(
+        16,
+        16,
+        16,
+        100,
+      ),
       itemCount: _subjects.length,
       itemBuilder: (context, index) {
         final subject = _subjects[index];
@@ -201,14 +237,19 @@ class _LibraryPageState extends State<LibraryPage> {
         final name = subject['name'] as String;
 
         return Card(
-          margin: const EdgeInsets.only(bottom: 12),
+          margin: const EdgeInsets.only(
+            bottom: 12,
+          ),
           child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(
+            contentPadding:
+                const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 8,
             ),
-            leading: CircleAvatar(
-              child: const Icon(Icons.folder_outlined),
+            leading: const CircleAvatar(
+              child: Icon(
+                Icons.folder_outlined,
+              ),
             ),
             title: Text(
               name,
@@ -216,16 +257,16 @@ class _LibraryPageState extends State<LibraryPage> {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            subtitle: const Text(
-              'Subject',
-            ),
-            trailing: PopupMenuButton<String>(
+            subtitle: const Text('Subject'),
+            trailing:
+                PopupMenuButton<String>(
               onSelected: (value) {
                 if (value == 'delete') {
                   _deleteSubject(id);
                 }
               },
-              itemBuilder: (context) => const [
+              itemBuilder: (context) =>
+                  const [
                 PopupMenuItem(
                   value: 'delete',
                   child: Text('Delete'),
@@ -233,7 +274,7 @@ class _LibraryPageState extends State<LibraryPage> {
               ],
             ),
             onTap: () {
-              // سيتم ربط فتح المادة بالمجلدات في الخطوة التالية.
+              _openSubject(id, name);
             },
           ),
         );
