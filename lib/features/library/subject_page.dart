@@ -265,13 +265,13 @@ class _SubjectState extends State<SubjectPage>{
   }
 
   Future<void> add()async{
+    final navigator=Navigator.of(context);
     final t=await choose(context);
 
     if(t==null)return;
 
     if(t=='text'){
-      await Navigator.push(
-        context,
+      await navigator.push(
         MaterialPageRoute(
           builder:(_)=>TextEditor(
             subjectId:widget.subjectId,
@@ -495,13 +495,13 @@ class _FolderState extends State<FolderPage>{
   }
 
   Future<void> add()async{
+    final navigator=Navigator.of(context);
     final t=await choose(context);
 
     if(t==null)return;
 
     if(t=='text'){
-      await Navigator.push(
-        context,
+      await navigator.push(
         MaterialPageRoute(
           builder:(_)=>TextEditor(
             subjectId:widget.subjectId,
@@ -853,5 +853,5 @@ IconData icon(String? t)=>switch(t){
 IconData typeIcon(String t)=>icon(t);
 
 String typeLabel(String t)=> {
-  'Image':'Images',
+  'Image':'Image',
 }[t]??t;
