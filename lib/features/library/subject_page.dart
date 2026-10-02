@@ -527,7 +527,7 @@ Future<void> pickFile(String type, int subjectId, int? folderId) async {
       'folder_id': folderId,
       'title': p.basenameWithoutExtension(path),
       'type': typeName(type),
-      'content': null,
+      'content': '',
       'file_path': path,
       'original_file_name': f.name,
       'created_at': now,
