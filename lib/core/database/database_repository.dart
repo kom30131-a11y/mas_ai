@@ -27,6 +27,22 @@ class DatabaseRepository {
     );
   }
 
+  Future<int> renameSubject({
+    required int subjectId,
+    required String name,
+  }) async {
+    final db = await DatabaseHelper.instance.database;
+
+    return db.update(
+      'subjects',
+      {
+        'name': name.trim(),
+      },
+      where: 'id = ?',
+      whereArgs: [subjectId],
+    );
+  }
+
   Future<int> deleteSubject(int id) async {
     final db = await DatabaseHelper.instance.database;
 
