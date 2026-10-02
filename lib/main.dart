@@ -175,7 +175,15 @@ class StudyPage extends StatelessWidget {
         _ActionCard(
           icon: Icons.folder_outlined,
           title: 'Subjects & topics',
-          subtitle: 'Organize your learning content',
+          subtitle: 'Open your study library',
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const LibraryPage(),
+              ),
+            );
+          },
         ),
         _ActionCard(
           icon: Icons.psychology_outlined,
@@ -394,11 +402,13 @@ class _ActionCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
+  final VoidCallback? onTap;
 
   const _ActionCard({
     required this.icon,
     required this.title,
     required this.subtitle,
+    this.onTap,
   });
 
   @override
@@ -407,7 +417,7 @@ class _ActionCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () {},
+        onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(18),
           child: Row(
