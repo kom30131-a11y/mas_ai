@@ -1,8 +1,10 @@
 import 'dart:io';
 
+import 'package:archive/archive.dart';
 import 'package:docx_dart/docx_dart.dart' as docx;
 import 'package:flutter/material.dart';
 import 'package:pdfx/pdfx.dart';
+import 'package:xml/xml.dart';
 
 class ContentViewerPage extends StatefulWidget {
   final String title;
@@ -24,7 +26,8 @@ class ContentViewerPage extends StatefulWidget {
 
 class _ContentViewerPageState extends State<ContentViewerPage> {
   PdfControllerPinch? pdfController;
-  String? wordText;
+
+  String? documentText;
   String? error;
 
   @override
@@ -39,6 +42,8 @@ class _ContentViewerPageState extends State<ContentViewerPage> {
       );
     } else if (type == 'docx' || type == 'word') {
       _loadWord();
+    } else if (type == 'pptx' || type == 'powerpoint' || type == 'ppt') {
+      _loadPowerPoint();
     }
   }
 
@@ -59,7 +64,7 @@ class _ContentViewerPageState extends State<ContentViewerPage> {
       if (!mounted) return;
 
       setState(() {
-        wordText = buffer.toString().trim();
+        documentText = buffer.toString().trim();
       });
     } catch (e) {
       if (!mounted) return;
@@ -68,6 +73,86 @@ class _ContentViewerPageState extends State<ContentViewerPage> {
         error = e.toString();
       });
     }
+  }
+
+  Future<void> _loadPowerPoint() async {
+    try {
+      final bytes = await File(widget.path).readAsBytes();
+      final archive = ZipDecoder().decodeBytes(bytes);
+
+      final slides = archive.files
+          .where(
+            (file) =>
+                file.isFile &&
+                file.name.startsWith('ppt/slides/slide') &&
+                file.name.endsWith('.xml'),
+          )
+          .toList();
+
+      slides.sort((a, b) {
+        final aNumber = _slideNumber(a.name);
+        final bNumber = _slideNumber(b.name);
+        return aNumber.compareTo(bNumber);
+      });
+
+      final buffer = StringBuffer();
+
+      for (var i = 0; i < slides.length; i++) {
+        final file = slides[i];
+
+        final data = file.content;
+        final xmlText = String.fromCharCodes(
+          data is List<int> ? data : <int>[],
+        );
+
+        if (xmlText.trim().isEmpty) continue;
+
+        final document = XmlDocument.parse(xmlText);
+        final texts = document
+            .findAllElements('t')
+            .map((node) => node.innerText.trim())
+            .where((text) => text.isNotEmpty)
+            .toList();
+
+        if (texts.isEmpty) continue;
+
+        buffer.writeln('Slide ${i + 1}');
+        buffer.writeln();
+
+        for (final text in texts) {
+          buffer.writeln(text);
+        }
+
+        buffer.writeln();
+        buffer.writeln();
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        documentText = buffer.toString().trim();
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        error = e.toString();
+      });
+    }
+  }
+
+  int _slideNumber(String name) {
+    final match = RegExp(r'slide(\d+)\.xml$').firstMatch(name);
+
+    if (match == null) return 0;
+
+    return int.tryParse(match.group(1)!) ?? 0;
+  }
+
+  @override
+  void dispose() {
+    pdfController?.dispose();
+    super.dispose();
   }
 
   @override
@@ -135,7 +220,16 @@ class _ContentViewerPageState extends State<ContentViewerPage> {
         appBar: AppBar(
           title: Text(widget.title),
         ),
-        body: _wordBody(),
+        body: _documentBody('Word'),
+      );
+    }
+
+    if (type == 'pptx' || type == 'powerpoint' || type == 'ppt') {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(widget.title),
+        ),
+        body: _documentBody('PowerPoint'),
       );
     }
 
@@ -170,29 +264,29 @@ class _ContentViewerPageState extends State<ContentViewerPage> {
     );
   }
 
-  Widget _wordBody() {
+  Widget _documentBody(String format) {
     if (error != null) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            'Unable to open Word file.\n$error',
+            'Unable to open $format file.\n$error',
             textAlign: TextAlign.center,
           ),
         ),
       );
     }
 
-    if (wordText == null) {
+    if (documentText == null) {
       return const Center(
         child: CircularProgressIndicator(),
       );
     }
 
-    if (wordText!.trim().isEmpty) {
-      return const Center(
+    if (documentText!.trim().isEmpty) {
+      return Center(
         child: Text(
-          'This Word file contains no readable text.',
+          'This $format file contains no readable text.',
         ),
       );
     }
@@ -200,7 +294,7 @@ class _ContentViewerPageState extends State<ContentViewerPage> {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: SelectableText(
-        wordText!,
+        documentText!,
         style: const TextStyle(
           fontSize: 16,
           height: 1.6,
