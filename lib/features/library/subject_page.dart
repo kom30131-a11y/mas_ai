@@ -455,21 +455,47 @@ class _ContentTypeState extends State<ContentTypePage> {
         false;
   }
 
-  Future<void> rename(Map<String, dynamic> x) async {
-    final n = await dialog(x['title'] ?? 'Untitled');
-    if (!mounted || n == null) return;
-    await repo.updateContent(contentId: x['id'], title: n);
-    if (mounted) setState(() => x['title'] = n);
-  }
-
   Future<void> remove(Map<String, dynamic> x) async {
-    if (await confirm()) {
-      await repo.deleteContent(x['id']);
-      if (mounted) setState(() => items.remove(x));
-    }
+  if (await confirm()) {
+    await repo.deleteContent(x['id']);
+    if (mounted) setState(() => items.remove(x));
+  }
+}
+
+Future<void> openContent(Map<String, dynamic> x) async {
+  final type = x['type']?.toString() ?? '';
+
+  if (type == 'Text') {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TextEditor(
+          subjectId: widget.subjectId,
+          folderId: widget.folderId,
+          item: x,
+        ),
+      ),
+    );
+    return;
   }
 
-  @override Widget build(BuildContext context) => Scaffold(
+  final path = x['file_path']?.toString();
+
+  if (path == null || path.isEmpty || !File(path).existsSync()) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('File is no longer available.'),
+      ),
+    );
+    return;
+  }
+
+  await OpenFilex.open(path);
+}
+  
+@override Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: Text(widget.title)),
     body: items.isEmpty
         ? const Center(child: Text('No content'))
@@ -478,18 +504,7 @@ class _ContentTypeState extends State<ContentTypePage> {
               ListTile(
                 leading: Icon(icon(x['type'])),
                 title: Text(x['title'] ?? 'Untitled'),
-                onTap: x['type'] == 'Text'
-                    ? () async {
-                        if (!mounted) return;
-                        await Navigator.push(context, MaterialPageRoute(
-                          builder: (_) => TextEditor(
-                            subjectId: widget.subjectId,
-                            folderId: widget.folderId,
-                            item: x,
-                          ),
-                        ));
-                      }
-                    : null,
+                onTap: () => openContent(x),
                 trailing: PopupMenuButton<String>(
                   onSelected: (v) => v == 'r' ? rename(x) : remove(x),
                   itemBuilder: (_) => const [
