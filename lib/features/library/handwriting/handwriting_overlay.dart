@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'handwriting_models.dart';
 import 'handwriting_painter.dart';
 
+enum InkTool { pen, highlighter, eraser }
+
 class HandwritingOverlay extends StatefulWidget {
   final String? initialData;
   final ValueChanged<String>? onChanged;
@@ -20,16 +22,14 @@ class HandwritingOverlay extends StatefulWidget {
       _HandwritingOverlayState();
 }
 
-class _HandwritingOverlayState
-    extends State<HandwritingOverlay> {
-  final List<InkStroke> strokes = [];
-  final List<InkStroke> redoStack = [];
+class _HandwritingOverlayState extends State<HandwritingOverlay> {
+  final strokes = <InkStroke>[];
+  final redo = <InkStroke>[];
+  final points = <StrokePoint>[];
 
-  List<StrokePoint> currentPoints = [];
-
-  Color penColor = Colors.red;
-  double penWidth = 4;
-  bool eraser = false;
+  InkTool tool = InkTool.pen;
+  Color color = Colors.red;
+  double width = 4;
 
   @override
   void initState() {
@@ -43,7 +43,6 @@ class _HandwritingOverlayState
 
     try {
       final data = jsonDecode(raw);
-
       if (data is List) {
         strokes.addAll(
           data.map(
@@ -56,7 +55,7 @@ class _HandwritingOverlayState
     } catch (_) {}
   }
 
-  void _notify() {
+  void _changed() {
     widget.onChanged?.call(
       jsonEncode(
         strokes.map((e) => e.toJson()).toList(),
@@ -64,81 +63,90 @@ class _HandwritingOverlayState
     );
   }
 
-  void _start(Offset p) {
-    setState(() {
-      currentPoints = [
-        StrokePoint(x: p.dx, y: p.dy),
-      ];
-    });
-  }
-
-  void _move(Offset p) {
-    setState(() {
-      currentPoints.add(
-        StrokePoint(x: p.dx, y: p.dy),
-      );
-    });
-  }
-
-  void _end() {
-    if (currentPoints.isEmpty) return;
-
-    setState(() {
-      strokes.add(
-        InkStroke(
-          points: List.from(currentPoints),
-          color: penColor.toARGB32(),
-          width: penWidth,
-          eraser: eraser,
+  void _start(DragStartDetails d) {
+    points
+      ..clear()
+      ..add(
+        StrokePoint(
+          x: d.localPosition.dx,
+          y: d.localPosition.dy,
         ),
       );
-      currentPoints.clear();
-      redoStack.clear();
+    setState(() {});
+  }
+
+  void _move(DragUpdateDetails d) {
+    points.add(
+      StrokePoint(
+        x: d.localPosition.dx,
+        y: d.localPosition.dy,
+      ),
+    );
+    setState(() {});
+  }
+
+  void _end(DragEndDetails d) {
+    if (points.isEmpty) return;
+
+    final stroke = InkStroke(
+      points: List.of(points),
+      color: color.toARGB32(),
+      width: width,
+      eraser: tool == InkTool.eraser,
+    );
+
+    setState(() {
+      strokes.add(stroke);
+      points.clear();
+      redo.clear();
     });
 
-    _notify();
+    _changed();
   }
 
   void _undo() {
     if (strokes.isEmpty) return;
-
-    setState(() {
-      redoStack.add(strokes.removeLast());
-    });
-
-    _notify();
+    setState(() => redo.add(strokes.removeLast()));
+    _changed();
   }
 
   void _redo() {
-    if (redoStack.isEmpty) return;
-
-    setState(() {
-      strokes.add(redoStack.removeLast());
-    });
-
-    _notify();
+    if (redo.isEmpty) return;
+    setState(() => strokes.add(redo.removeLast()));
+    _changed();
   }
 
   void _clear() {
     if (strokes.isEmpty) return;
-
     setState(() {
-      redoStack.addAll(strokes);
+      redo.addAll(strokes);
       strokes.clear();
     });
-
-    _notify();
+    _changed();
   }
 
-  void _color() {
+  void _setTool(InkTool value) {
+    setState(() {
+      tool = value;
+      if (value == InkTool.pen) {
+        width = width.clamp(1, 10);
+      } else if (value == InkTool.highlighter) {
+        width = 18;
+      }
+    });
+  }
+
+  void _colors() {
     const colors = [
-      Colors.red,
       Colors.black,
+      Colors.red,
       Colors.blue,
       Colors.green,
       Colors.orange,
       Colors.purple,
       Colors.pink,
+      Colors.yellow,
+      Colors.white,
     ];
 
     showModalBottomSheet(
@@ -147,20 +155,23 @@ class _HandwritingOverlayState
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Wrap(
-            spacing: 16,
-            runSpacing: 16,
+            spacing: 14,
+            runSpacing: 14,
             children: colors.map((c) {
               return InkWell(
                 onTap: () {
-                  setState(() {
-                    penColor = c;
-                    eraser = false;
-                  });
+                  setState(() => color = c);
                   Navigator.pop(context);
                 },
                 child: CircleAvatar(
                   radius: 23,
                   backgroundColor: c,
+                  child: c == Colors.white
+                      ? const Icon(
+                          Icons.circle_outlined,
+                          color: Colors.black26,
+                        )
+                      : null,
                 ),
               );
             }).toList(),
@@ -170,7 +181,7 @@ class _HandwritingOverlayState
     );
   }
 
-  void _width() {
+  void _size() {
     showModalBottomSheet(
       context: context,
       builder: (_) => StatefulBuilder(
@@ -181,7 +192,7 @@ class _HandwritingOverlayState
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
-                  'Pen size',
+                  'Size',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -189,14 +200,14 @@ class _HandwritingOverlayState
                 ),
                 Slider(
                   min: 1,
-                  max: 16,
-                  value: penWidth,
+                  max: 25,
+                  value: width,
                   onChanged: (v) {
-                    setState(() => penWidth = v);
+                    setState(() => width = v);
                     update(() {});
                   },
                 ),
-                Text('${penWidth.round()} px'),
+                Text('${width.round()} px'),
               ],
             ),
           );
@@ -212,85 +223,83 @@ class _HandwritingOverlayState
       children: [
         GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onPanStart: (d) => _start(d.localPosition),
-          onPanUpdate: (d) => _move(d.localPosition),
-          onPanEnd: (_) => _end(),
+          onPanStart: _start,
+          onPanUpdate: _move,
+          onPanEnd: _end,
           child: CustomPaint(
             painter: HandwritingPainter([
               ...strokes,
-              if (currentPoints.isNotEmpty)
+              if (points.isNotEmpty)
                 InkStroke(
-                  points: currentPoints,
-                  color: penColor.toARGB32(),
-                  width: penWidth,
-                  eraser: eraser,
+                  points: List.of(points),
+                  color: color.toARGB32(),
+                  width: width,
+                  eraser: tool == InkTool.eraser,
                 ),
             ]),
           ),
         ),
         Positioned(
-          left: 8,
-          right: 8,
-          bottom: 8,
+          left: 10,
+          right: 10,
+          bottom: 10,
           child: Material(
-            elevation: 5,
-            borderRadius: BorderRadius.circular(18),
+            elevation: 6,
+            borderRadius: BorderRadius.circular(22),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
                   IconButton(
                     tooltip: 'Pen',
-                    onPressed: () {
-                      setState(() => eraser = false);
-                    },
+                    onPressed: () => _setTool(InkTool.pen),
                     icon: Icon(
                       Icons.edit,
-                      color: eraser
-                          ? null
-                          : Theme.of(context)
+                      color: tool == InkTool.pen
+                          ? Theme.of(context)
                               .colorScheme
-                              .primary,
+                              .primary
+                          : null,
                     ),
                   ),
                   IconButton(
                     tooltip: 'Highlighter',
-                    onPressed: () {
-                      setState(() {
-                        eraser = false;
-                        penColor = penColor.withValues(
-                          alpha: .35,
-                        );
-                        penWidth = 14;
-                      });
-                    },
-                    icon: const Icon(
+                    onPressed: () =>
+                        _setTool(InkTool.highlighter),
+                    icon: Icon(
                       Icons.highlight,
+                      color: tool == InkTool.highlighter
+                          ? Theme.of(context)
+                              .colorScheme
+                              .primary
+                          : null,
                     ),
                   ),
                   IconButton(
                     tooltip: 'Eraser',
-                    onPressed: () {
-                      setState(() => eraser = true);
-                    },
-                    icon: const Icon(
+                    onPressed: () =>
+                        _setTool(InkTool.eraser),
+                    icon: Icon(
                       Icons.auto_fix_normal,
+                      color: tool == InkTool.eraser
+                          ? Theme.of(context)
+                              .colorScheme
+                              .primary
+                          : null,
                     ),
                   ),
                   IconButton(
                     tooltip: 'Color',
-                    onPressed: _color,
+                    onPressed: _colors,
                     icon: Icon(
                       Icons.palette_outlined,
-                      color: penColor,
+                      color: color,
                     ),
                   ),
                   IconButton(
                     tooltip: 'Size',
-                    onPressed: _width,
-                    icon: const Icon(
-                      Icons.line_weight,
-                    ),
+                    onPressed: _size,
+                    icon: const Icon(Icons.line_weight),
                   ),
                   IconButton(
                     tooltip: 'Undo',
@@ -301,7 +310,7 @@ class _HandwritingOverlayState
                   IconButton(
                     tooltip: 'Redo',
                     onPressed:
-                        redoStack.isEmpty ? null : _redo,
+                        redo.isEmpty ? null : _redo,
                     icon: const Icon(Icons.redo),
                   ),
                   IconButton(
