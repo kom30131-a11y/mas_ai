@@ -414,19 +414,15 @@ class _TextEditorPageState extends State<TextEditorPage> {
                   _controller.formatSelection(value),
               itemBuilder: (context) => const [
                 PopupMenuItem(
-                  value: Attribute.header,
-                  child: Text('العنوان'),
-                ),
-                PopupMenuItem(
-                  value: HeaderAttribute.h1,
+                  value: Attribute.h1,
                   child: Text('Heading 1'),
                 ),
                 PopupMenuItem(
-                  value: HeaderAttribute.h2,
+                  value: Attribute.h2,
                   child: Text('Heading 2'),
                 ),
                 PopupMenuItem(
-                  value: HeaderAttribute.h3,
+                  value: Attribute.h3,
                   child: Text('Heading 3'),
                 ),
               ],
@@ -435,28 +431,28 @@ class _TextEditorPageState extends State<TextEditorPage> {
               icon: Icons.format_align_right,
               tooltip: 'يمين',
               onPressed: () => _controller.formatSelection(
-                Attribute.alignRight,
+                Attribute.rightAlignment,
               ),
             ),
             _toolButton(
               icon: Icons.format_align_center,
               tooltip: 'وسط',
               onPressed: () => _controller.formatSelection(
-                Attribute.alignCenter,
+                Attribute.centerAlignment,
               ),
             ),
             _toolButton(
               icon: Icons.format_align_left,
               tooltip: 'يسار',
               onPressed: () => _controller.formatSelection(
-                Attribute.alignLeft,
+                Attribute.leftAlignment,
               ),
             ),
             _toolButton(
               icon: Icons.format_align_justify,
               tooltip: 'ضبط',
               onPressed: () => _controller.formatSelection(
-                Attribute.justify,
+                Attribute.justifyAlignment,
               ),
             ),
             const VerticalDivider(
