@@ -42,7 +42,11 @@ class _ContentViewerPageState extends State<ContentViewerPage> {
       );
     } else if (type == 'docx' || type == 'word') {
       _loadWord();
-    } else if (type == 'pptx' || type == 'powerpoint' || type == 'ppt') {
+    } else if (
+        type == 'pptx' ||
+        type == 'powerpoint' ||
+        type == 'ppt'
+    ) {
       _loadPowerPoint();
     }
   }
@@ -89,29 +93,36 @@ class _ContentViewerPageState extends State<ContentViewerPage> {
           )
           .toList();
 
-      slides.sort((a, b) {
-        final aNumber = _slideNumber(a.name);
-        final bNumber = _slideNumber(b.name);
-        return aNumber.compareTo(bNumber);
-      });
+      slides.sort(
+        (a, b) => _slideNumber(a.name).compareTo(
+          _slideNumber(b.name),
+        ),
+      );
 
       final buffer = StringBuffer();
 
       for (var i = 0; i < slides.length; i++) {
         final file = slides[i];
 
-        final xmlText = String.fromCharCodes(data);
+        final xmlText = String.fromCharCodes(
+          file.content,
+        );
 
-        if (xmlText.trim().isEmpty) continue;
+        if (xmlText.trim().isEmpty) {
+          continue;
+        }
 
         final document = XmlDocument.parse(xmlText);
+
         final texts = document
             .findAllElements('t')
             .map((node) => node.innerText.trim())
             .where((text) => text.isNotEmpty)
             .toList();
 
-        if (texts.isEmpty) continue;
+        if (texts.isEmpty) {
+          continue;
+        }
 
         buffer.writeln('Slide ${i + 1}');
         buffer.writeln();
@@ -139,9 +150,13 @@ class _ContentViewerPageState extends State<ContentViewerPage> {
   }
 
   int _slideNumber(String name) {
-    final match = RegExp(r'slide(\d+)\.xml$').firstMatch(name);
+    final match = RegExp(
+      r'slide(\d+)\.xml$',
+    ).firstMatch(name);
 
-    if (match == null) return 0;
+    if (match == null) {
+      return 0;
+    }
 
     return int.tryParse(match.group(1)!) ?? 0;
   }
@@ -221,7 +236,11 @@ class _ContentViewerPageState extends State<ContentViewerPage> {
       );
     }
 
-    if (type == 'pptx' || type == 'powerpoint' || type == 'ppt') {
+    if (
+        type == 'pptx' ||
+        type == 'powerpoint' ||
+        type == 'ppt'
+    ) {
       return Scaffold(
         appBar: AppBar(
           title: Text(widget.title),
