@@ -698,7 +698,7 @@ class _ContentTypeState extends State<ContentTypePage> {
               children: items
                   .map(
                     (x) => ListTile(
-                      leading: Icon(contentIcon(x['type']?.toString()))
+                      leading: Icon(contentIcon(x['type']?.toString())),
                       title: Text(
                         x['title']?.toString() ?? 'Untitled',
                       ),
