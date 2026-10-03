@@ -285,6 +285,8 @@ class _SubjectState extends State<SubjectPage> {
     if (type == null) return;
 
     if (type == 'text') {
+      if (!mounted) return;
+      
       await Navigator.push(
         context,
         MaterialPageRoute(
@@ -570,6 +572,8 @@ class _FolderState extends State<FolderPage> {
     if (type == null) return;
 
     if (type == 'text') {
+      if (!mounted) return;
+      
       await Navigator.push(
         context,
         MaterialPageRoute(
