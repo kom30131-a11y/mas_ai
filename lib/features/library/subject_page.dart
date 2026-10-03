@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 
 import '../../core/database/database_repository.dart';
 import 'content_viewer_page.dart';
+import 'widgets/library_helpers.dart';
 
 final repo = DatabaseRepository.instance;
 
