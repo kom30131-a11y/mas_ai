@@ -538,7 +538,7 @@ class _FolderState extends State<FolderPage> {
     if (t == 'text') {
       await navigator.push(
         MaterialPageRoute(
-          builder: (_) => TextEditor(
+          builder: (_) => TextEditorPage(
             subjectId: widget.subjectId,
             folderId: widget.folderId,
           ),
