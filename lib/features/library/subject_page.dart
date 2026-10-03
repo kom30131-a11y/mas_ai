@@ -104,7 +104,7 @@ Future<void> openContent(
     await Navigator.push(
       c,
       MaterialPageRoute(
-        builder: (_) => TextEditor(
+        builder: (_) => TextEditorPage(
           subjectId: subjectId,
           folderId: folderId,
           item: x,
@@ -320,7 +320,7 @@ class _SubjectState extends State<SubjectPage> {
     if (t == 'text') {
       await navigator.push(
         MaterialPageRoute(
-          builder: (_) => TextEditor(
+          builder: (_) => TextEditorPage(
             subjectId: widget.subjectId,
             folderId: null,
           ),
