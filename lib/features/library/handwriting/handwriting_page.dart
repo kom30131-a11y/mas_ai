@@ -84,7 +84,7 @@ class _HandwritingPageState
       strokes.add(
         InkStroke(
           points: List.from(currentPoints),
-          color: penColor.value,
+          color: penColor.toARGB32(),
           width: penWidth,
           eraser: eraser,
         ),
@@ -259,7 +259,7 @@ class _HandwritingPageState
                       if (currentPoints.isNotEmpty)
                         InkStroke(
                           points: currentPoints,
-                          color: penColor.value,
+                          color: penColor.toARGB32(),
                           width: penWidth,
                           eraser: eraser,
                         ),
