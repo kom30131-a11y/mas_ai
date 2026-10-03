@@ -8,10 +8,8 @@ class DocumentSurface extends StatefulWidget {
   final QuillController controller;
   final FocusNode focusNode;
   final ScrollController scrollController;
-
   final bool rtl;
   final bool penMode;
-
   final String handwritingData;
   final ValueChanged<String> onHandwritingChanged;
 
@@ -28,130 +26,110 @@ class DocumentSurface extends StatefulWidget {
   });
 
   @override
-  State<DocumentSurface> createState() =>
-      _DocumentSurfaceState();
+  State<DocumentSurface> createState() => _DocumentSurfaceState();
 }
 
-class _DocumentSurfaceState
-    extends State<DocumentSurface> {
-  double scale = 1.0;
+class _DocumentSurfaceState extends State<DocumentSurface> {
+  final TransformationController _transform =
+      TransformationController();
 
-  static const double minScale = 0.75;
-  static const double maxScale = 3.0;
+  double _scale = 1;
+
+  @override
+  void dispose() {
+    _transform.dispose();
+    super.dispose();
+  }
+
+  void _zoom(double value) {
+    setState(() {
+      _scale = value.clamp(.75, 3.0);
+      _transform.value = Matrix4.identity()
+        ..scale(_scale);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final direction = widget.rtl
-        ? TextDirection.rtl
-        : TextDirection.ltr;
+    final direction =
+        widget.rtl ? TextDirection.rtl : TextDirection.ltr;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        final height = constraints.maxHeight;
-
-        return GestureDetector(
-          onScaleUpdate: (details) {
-            if (details.pointerCount >= 2) {
-              setState(() {
-                scale = (scale * details.scale)
-                    .clamp(minScale, maxScale);
-              });
-            }
-          },
-          child: ClipRect(
-            child: Transform.scale(
-              scale: scale,
-              alignment: Alignment.topCenter,
-              child: SizedBox(
-                width: width / scale,
-                height: height / scale,
-                child: Material(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .surface,
-                  child: Column(
-                    children: [
-                      Padding(
-                        padding:
-                            const EdgeInsets.fromLTRB(
-                          20,
-                          18,
-                          20,
-                          10,
-                        ),
-                        child: TextField(
-                          controller:
-                              widget.titleController,
-                          textDirection: direction,
-                          textAlign: widget.rtl
-                              ? TextAlign.right
-                              : TextAlign.left,
-                          decoration:
-                              const InputDecoration(
-                            hintText: 'Title',
-                            border: InputBorder.none,
-                          ),
-                          style: Theme.of(context)
-                              .textTheme
-                              .headlineSmall,
-                        ),
-                      ),
-                      const Divider(height: 1),
-                      Expanded(
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            Padding(
-                              padding:
-                                  const EdgeInsets.all(
-                                20,
-                              ),
-                              child: Directionality(
-                                textDirection: direction,
-                                child: QuillEditor.basic(
-                                  controller:
-                                      widget.controller,
-                                  focusNode:
-                                      widget.focusNode,
-                                  scrollController:
-                                      widget.scrollController,
-                                  config:
-                                      const QuillEditorConfig(
-                                    placeholder:
-                                        'Start writing...',
-                                    padding:
-                                        EdgeInsets.zero,
-                                    autoFocus: false,
-                                    expands: false,
-                                    enableInteractiveSelection:
-                                        true,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Positioned.fill(
-                              child: IgnorePointer(
-                                ignoring: !widget.penMode,
-                                child: HandwritingOverlay(
-                                  initialData:
-                                      widget.handwritingData,
-                                  onChanged:
-                                      widget.onHandwritingChanged,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+    return ClipRect(
+      child: InteractiveViewer(
+        transformationController: _transform,
+        minScale: .75,
+        maxScale: 3,
+        scaleEnabled: true,
+        panEnabled: true,
+        constrained: true,
+        boundaryMargin: const EdgeInsets.all(120),
+        child: Container(
+          color: Theme.of(context).colorScheme.surface,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  20,
+                  18,
+                  20,
+                  10,
+                ),
+                child: TextField(
+                  controller: widget.titleController,
+                  textDirection: direction,
+                  textAlign: widget.rtl
+                      ? TextAlign.right
+                      : TextAlign.left,
+                  decoration: const InputDecoration(
+                    hintText: 'Title',
+                    border: InputBorder.none,
                   ),
+                  style: Theme.of(context)
+                      .textTheme
+                      .headlineSmall,
                 ),
               ),
-            ),
+              const Divider(height: 1),
+              SizedBox(
+                height: 600,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Directionality(
+                        textDirection: direction,
+                        child: QuillEditor.basic(
+                          controller: widget.controller,
+                          focusNode: widget.focusNode,
+                          scrollController:
+                              widget.scrollController,
+                          config: const QuillEditorConfig(
+                            placeholder: 'Start writing...',
+                            padding: EdgeInsets.zero,
+                            expands: false,
+                            autoFocus: false,
+                            enableInteractiveSelection: true,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (widget.penMode)
+                      Positioned.fill(
+                        child: HandwritingOverlay(
+                          initialData: widget.handwritingData,
+                          onChanged:
+                              widget.onHandwritingChanged,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
