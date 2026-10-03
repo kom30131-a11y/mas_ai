@@ -1,23 +1,29 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart';
+
+import '../../../core/database/database_repository.dart';
 
 class TextEditorPage extends StatefulWidget {
   const TextEditorPage({
     super.key,
-    this.title,
-    this.initialDocument,
-    this.onSave,
+    required this.subjectId,
+    this.folderId,
+    this.item,
   });
 
-  final String? title;
-  final Document? initialDocument;
-  final ValueChanged<Document>? onSave;
+  final int subjectId;
+  final int? folderId;
+  final Map<String, dynamic>? item;
 
   @override
   State<TextEditorPage> createState() => _TextEditorPageState();
 }
 
 class _TextEditorPageState extends State<TextEditorPage> {
+  final repo = DatabaseRepository.instance;
+
   late final QuillController _controller;
   late final TextEditingController _titleController;
   late final FocusNode _focusNode;
@@ -25,67 +31,152 @@ class _TextEditorPageState extends State<TextEditorPage> {
 
   bool _rtl = true;
   bool _dirty = false;
+  bool _saving = false;
 
   static const _toolbarHeight = 48.0;
+
+  bool get _isNew => widget.item == null;
 
   @override
   void initState() {
     super.initState();
 
-    _titleController = TextEditingController(text: widget.title ?? '');
+    final item = widget.item;
+    final document = _documentFromContent(
+      item?['content']?.toString(),
+    );
+
+    _titleController = TextEditingController(
+      text: item?['title']?.toString() ?? '',
+    );
+
     _focusNode = FocusNode();
     _scrollController = ScrollController();
 
-    _controller = widget.initialDocument == null
-        ? QuillController.basic()
-        : QuillController(
-            document: widget.initialDocument!,
-            selection: const TextSelection.collapsed(offset: 0),
-          );
+    _controller = QuillController(
+      document: document,
+      selection: TextSelection.collapsed(
+        offset: document.length > 0 ? document.length - 1 : 0,
+      ),
+    );
 
     _controller.addListener(_onDocumentChanged);
     _detectDirection();
   }
 
+  Document _documentFromContent(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return Document();
+    }
+
+    try {
+      final decoded = jsonDecode(value);
+
+      if (decoded is List) {
+        return Document.fromJson(decoded);
+      }
+    } catch (_) {}
+
+    final document = Document();
+    document.insert(0, value);
+    return document;
+  }
+
   void _onDocumentChanged() {
     if (!mounted) return;
 
-    final text = _controller.document.toPlainText();
-    final detected = _detectDirectionFromText(text);
+    final detected = _detectDirectionFromText(
+      _controller.document.toPlainText(),
+    );
 
-    if (detected != _rtl) {
-      setState(() => _rtl = detected);
-    }
-
-    if (!_dirty) {
-      setState(() => _dirty = true);
+    if (detected != _rtl || !_dirty) {
+      setState(() {
+        _rtl = detected;
+        _dirty = true;
+      });
     }
   }
 
   bool _detectDirectionFromText(String text) {
-    final arabic = RegExp(r'[\u0600-\u06FF]').allMatches(text).length;
-    final latin = RegExp(r'[A-Za-z]').allMatches(text).length;
+    final arabic =
+        RegExp(r'[\u0600-\u06FF]').allMatches(text).length;
 
-    if (arabic == 0 && latin == 0) return _rtl;
+    final latin =
+        RegExp(r'[A-Za-z]').allMatches(text).length;
+
+    if (arabic == 0 && latin == 0) {
+      return _rtl;
+    }
+
     return arabic >= latin;
   }
 
   void _detectDirection() {
-    _rtl = _detectDirectionFromText(_controller.document.toPlainText());
+    _rtl = _detectDirectionFromText(
+      _controller.document.toPlainText(),
+    );
   }
 
-  void _save() {
-    final document = _controller.document;
+  Future<void> _save() async {
+    if (_saving) return;
 
-    widget.onSave?.call(document);
+    final title = _titleController.text.trim();
 
-    if (mounted) {
-      setState(() => _dirty = false);
+    if (title.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('أدخل عنوان المحتوى.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _saving = true);
+
+    try {
+      final content = jsonEncode(
+        _controller.document.toDelta().toJson(),
+      );
+
+      if (_isNew) {
+        await repo.insertContent({
+          'subject_id': widget.subjectId,
+          'topic_id': null,
+          'folder_id': widget.folderId,
+          'title': title,
+          'type': 'Text',
+          'content': content,
+          'file_path': null,
+          'original_file_name': null,
+          'created_at': DateTime.now().toIso8601String(),
+        });
+      } else {
+        await repo.updateContent(
+          contentId: widget.item!['id'] as int,
+          title: title,
+          content: content,
+        );
+      }
+
+      if (!mounted) return;
+
+      Navigator.pop(context, true);
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() => _saving = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تعذر حفظ المحتوى.'),
+        ),
+      );
     }
   }
 
   void _applyDirection(bool rtl) {
     setState(() => _rtl = rtl);
+
     _controller.formatSelection(
       DirectionAttribute(rtl ? 'rtl' : 'ltr'),
     );
@@ -94,6 +185,7 @@ class _TextEditorPageState extends State<TextEditorPage> {
   String _quillColor(Color color) {
     final value = color.toARGB32();
     final rgb = value & 0x00FFFFFF;
+
     return '#${rgb.toRadixString(16).padLeft(6, '0')}';
   }
 
@@ -146,7 +238,12 @@ class _TextEditorPageState extends State<TextEditorPage> {
       builder: (context) {
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+            padding: const EdgeInsets.fromLTRB(
+              20,
+              8,
+              20,
+              24,
+            ),
             child: Wrap(
               spacing: 12,
               runSpacing: 12,
@@ -154,15 +251,21 @@ class _TextEditorPageState extends State<TextEditorPage> {
                 for (final color in colors)
                   InkWell(
                     borderRadius: BorderRadius.circular(12),
-                    onTap: () => Navigator.pop(context, color),
+                    onTap: () => Navigator.pop(
+                      context,
+                      color,
+                    ),
                     child: Container(
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
                         color: color == Colors.transparent
-                            ? Theme.of(context).colorScheme.surface
+                            ? Theme.of(context)
+                                .colorScheme
+                                .surface
                             : color,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius:
+                            BorderRadius.circular(12),
                         border: Border.all(
                           color: Theme.of(context)
                               .colorScheme
@@ -171,7 +274,9 @@ class _TextEditorPageState extends State<TextEditorPage> {
                         ),
                       ),
                       child: color == Colors.transparent
-                          ? const Icon(Icons.format_color_reset)
+                          ? const Icon(
+                              Icons.format_color_reset,
+                            )
                           : null,
                     ),
                   ),
@@ -214,7 +319,9 @@ class _TextEditorPageState extends State<TextEditorPage> {
         height: 58,
         child: ListView(
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 8,
+          ),
           children: [
             _toolButton(
               icon: Icons.undo,
@@ -226,60 +333,80 @@ class _TextEditorPageState extends State<TextEditorPage> {
               tooltip: 'إعادة',
               onPressed: _controller.redo,
             ),
-            const VerticalDivider(width: 12, indent: 10, endIndent: 10),
-
+            const VerticalDivider(
+              width: 12,
+              indent: 10,
+              endIndent: 10,
+            ),
             _toolButton(
               icon: Icons.format_bold,
               tooltip: 'عريض',
-              onPressed: () =>
-                  _controller.formatSelection(Attribute.bold),
+              onPressed: () => _controller.formatSelection(
+                Attribute.bold,
+              ),
             ),
             _toolButton(
               icon: Icons.format_italic,
               tooltip: 'مائل',
-              onPressed: () =>
-                  _controller.formatSelection(Attribute.italic),
+              onPressed: () => _controller.formatSelection(
+                Attribute.italic,
+              ),
             ),
             _toolButton(
               icon: Icons.format_underlined,
               tooltip: 'تحته خط',
-              onPressed: () =>
-                  _controller.formatSelection(Attribute.underline),
+              onPressed: () => _controller.formatSelection(
+                Attribute.underline,
+              ),
             ),
             _toolButton(
               icon: Icons.strikethrough_s,
               tooltip: 'شطب',
-              onPressed: () =>
-                  _controller.formatSelection(Attribute.strikeThrough),
+              onPressed: () => _controller.formatSelection(
+                Attribute.strikeThrough,
+              ),
             ),
-            const VerticalDivider(width: 12, indent: 10, endIndent: 10),
-
+            const VerticalDivider(
+              width: 12,
+              indent: 10,
+              endIndent: 10,
+            ),
             _toolButton(
               icon: Icons.format_color_text,
               tooltip: 'لون النص',
-              onPressed: () => _pickColor(background: false),
+              onPressed: () =>
+                  _pickColor(background: false),
             ),
             _toolButton(
               icon: Icons.format_color_fill,
               tooltip: 'تظليل',
-              onPressed: () => _pickColor(background: true),
+              onPressed: () =>
+                  _pickColor(background: true),
             ),
-            const VerticalDivider(width: 12, indent: 10, endIndent: 10),
-
+            const VerticalDivider(
+              width: 12,
+              indent: 10,
+              endIndent: 10,
+            ),
             _toolButton(
               icon: Icons.format_list_bulleted,
               tooltip: 'قائمة نقطية',
-              onPressed: () =>
-                  _controller.formatSelection(Attribute.ul),
+              onPressed: () => _controller.formatSelection(
+                Attribute.ul,
+              ),
             ),
             _toolButton(
               icon: Icons.format_list_numbered,
               tooltip: 'قائمة رقمية',
-              onPressed: () =>
-                  _controller.formatSelection(Attribute.ol),
+              onPressed: () => _controller.formatSelection(
+                Attribute.ol,
+              ),
             ),
-            const VerticalDivider(width: 12, indent: 10, endIndent: 10),
-
+            const VerticalDivider(
+              width: 12,
+              indent: 10,
+              endIndent: 10,
+            ),
             PopupMenuButton<Attribute<dynamic>>(
               tooltip: 'العناوين',
               icon: const Icon(Icons.title),
@@ -304,33 +431,39 @@ class _TextEditorPageState extends State<TextEditorPage> {
                 ),
               ],
             ),
-
             _toolButton(
               icon: Icons.format_align_right,
               tooltip: 'يمين',
-              onPressed: () =>
-                  _controller.formatSelection(Attribute.alignRight),
+              onPressed: () => _controller.formatSelection(
+                Attribute.alignRight,
+              ),
             ),
             _toolButton(
               icon: Icons.format_align_center,
               tooltip: 'وسط',
-              onPressed: () =>
-                  _controller.formatSelection(Attribute.alignCenter),
+              onPressed: () => _controller.formatSelection(
+                Attribute.alignCenter,
+              ),
             ),
             _toolButton(
               icon: Icons.format_align_left,
               tooltip: 'يسار',
-              onPressed: () =>
-                  _controller.formatSelection(Attribute.alignLeft),
+              onPressed: () => _controller.formatSelection(
+                Attribute.alignLeft,
+              ),
             ),
             _toolButton(
               icon: Icons.format_align_justify,
               tooltip: 'ضبط',
-              onPressed: () =>
-                  _controller.formatSelection(Attribute.justify),
+              onPressed: () => _controller.formatSelection(
+                Attribute.justify,
+              ),
             ),
-            const VerticalDivider(width: 12, indent: 10, endIndent: 10),
-
+            const VerticalDivider(
+              width: 12,
+              indent: 10,
+              endIndent: 10,
+            ),
             _toolButton(
               icon: Icons.format_textdirection_r_to_l,
               tooltip: 'العربية RTL',
@@ -350,7 +483,8 @@ class _TextEditorPageState extends State<TextEditorPage> {
 
   @override
   Widget build(BuildContext context) {
-    final direction = _rtl ? TextDirection.rtl : TextDirection.ltr;
+    final direction =
+        _rtl ? TextDirection.rtl : TextDirection.ltr;
 
     return Scaffold(
       appBar: AppBar(
@@ -358,7 +492,13 @@ class _TextEditorPageState extends State<TextEditorPage> {
         title: TextField(
           controller: _titleController,
           textDirection: direction,
-          textAlign: _rtl ? TextAlign.right : TextAlign.left,
+          textAlign:
+              _rtl ? TextAlign.right : TextAlign.left,
+          onChanged: (_) {
+            if (!_dirty && mounted) {
+              setState(() => _dirty = true);
+            }
+          },
           decoration: const InputDecoration(
             hintText: 'العنوان',
             border: InputBorder.none,
@@ -371,10 +511,18 @@ class _TextEditorPageState extends State<TextEditorPage> {
         actions: [
           IconButton(
             tooltip: 'حفظ',
-            onPressed: _save,
-            icon: Icon(
-              _dirty ? Icons.save : Icons.check,
-            ),
+            onPressed: _saving ? null : _save,
+            icon: _saving
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                    ),
+                  )
+                : Icon(
+                    _dirty ? Icons.save : Icons.check,
+                  ),
           ),
         ],
       ),
@@ -404,7 +552,8 @@ class _TextEditorPageState extends State<TextEditorPage> {
                   enableSelectionToolbar: true,
                   showCursor: true,
                   scrollable: true,
-                  textCapitalization: TextCapitalization.sentences,
+                  textCapitalization:
+                      TextCapitalization.sentences,
                   keyboardAppearance:
                       Theme.of(context).brightness,
                 ),
