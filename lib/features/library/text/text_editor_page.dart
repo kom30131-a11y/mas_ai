@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 
 import '../../../core/database/database_repository.dart';
-import '../handwriting/handwriting_page.dart';
+import '../handwriting/handwriting_overlay.dart';
 
 final repo = DatabaseRepository.instance;
 
@@ -21,17 +21,26 @@ class TextEditorPage extends StatefulWidget {
   });
 
   @override
-  State<TextEditorPage> createState() => _TextEditorPageState();
+  State<TextEditorPage> createState() =>
+      _TextEditorPageState();
 }
 
-class _TextEditorPageState extends State<TextEditorPage> {
+class _TextEditorPageState
+    extends State<TextEditorPage> {
   late final QuillController controller;
   late final TextEditingController titleController;
+  late final FocusNode editorFocusNode;
+  late final ScrollController editorScrollController;
 
-  String? handwritingData;
+  String handwritingData = '';
 
   bool rtl = false;
   bool saving = false;
+  bool penMode = false;
+
+  final TransformationController
+      transformController =
+      TransformationController();
 
   @override
   void initState() {
@@ -41,6 +50,9 @@ class _TextEditorPageState extends State<TextEditorPage> {
       text: widget.item?['title']?.toString() ?? '',
     );
 
+    editorFocusNode = FocusNode();
+    editorScrollController = ScrollController();
+
     controller = _createController();
 
     rtl = _detectArabic(
@@ -49,7 +61,8 @@ class _TextEditorPageState extends State<TextEditorPage> {
   }
 
   QuillController _createController() {
-    final raw = widget.item?['content']?.toString() ?? '';
+    final raw =
+        widget.item?['content']?.toString() ?? '';
 
     if (raw.trim().isEmpty) {
       return QuillController.basic();
@@ -60,21 +73,30 @@ class _TextEditorPageState extends State<TextEditorPage> {
 
       if (decoded is Map) {
         final textData = decoded['text'];
-        final handwriting = decoded['handwriting'];
+        final handwriting =
+            decoded['handwriting'];
 
-        if (handwriting is List && handwriting.isNotEmpty) {
-          handwritingData = jsonEncode(handwriting);
+        if (handwriting is List &&
+            handwriting.isNotEmpty) {
+          handwritingData =
+              jsonEncode(handwriting);
         }
 
         if (textData is List) {
           final document = Document.fromJson(
-            List<Map<String, dynamic>>.from(textData),
+            List<Map<String, dynamic>>.from(
+              textData,
+            ),
           );
 
           return QuillController(
             document: document,
-            selection: TextSelection.collapsed(
-              offset: document.length - 1,
+            selection:
+                TextSelection.collapsed(
+              offset:
+                  document.length > 0
+                      ? document.length - 1
+                      : 0,
             ),
           );
         }
@@ -82,40 +104,56 @@ class _TextEditorPageState extends State<TextEditorPage> {
 
       if (decoded is List) {
         final document = Document.fromJson(
-          List<Map<String, dynamic>>.from(decoded),
+          List<Map<String, dynamic>>.from(
+            decoded,
+          ),
         );
 
         return QuillController(
           document: document,
-          selection: TextSelection.collapsed(
-            offset: document.length - 1,
+          selection:
+              TextSelection.collapsed(
+            offset:
+                document.length > 0
+                    ? document.length - 1
+                    : 0,
           ),
         );
       }
     } catch (_) {}
 
     final document = Document();
-    document.insert(0, raw);
+
+    if (raw.isNotEmpty) {
+      document.insert(0, raw);
+    }
 
     return QuillController(
       document: document,
       selection: TextSelection.collapsed(
-        offset: document.length - 1,
+        offset:
+            document.length > 0
+                ? document.length - 1
+                : 0,
       ),
     );
   }
 
   bool _detectArabic(String text) {
-    final arabic = RegExp(r'[\u0600-\u06FF]');
+    final arabic =
+        RegExp(r'[\u0600-\u06FF]');
     final latin = RegExp(r'[A-Za-z]');
 
-    final arabicMatch = arabic.firstMatch(text);
-    final latinMatch = latin.firstMatch(text);
+    final arabicMatch =
+        arabic.firstMatch(text);
+    final latinMatch =
+        latin.firstMatch(text);
 
     if (arabicMatch == null) return false;
     if (latinMatch == null) return true;
 
-    return arabicMatch.start < latinMatch.start;
+    return arabicMatch.start <
+        latinMatch.start;
   }
 
   void _toggleDirection() {
@@ -124,29 +162,27 @@ class _TextEditorPageState extends State<TextEditorPage> {
     });
   }
 
-  Future<void> _openHandwriting() async {
-    final result = await Navigator.push<String>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => HandwritingPage(
-          initialData: handwritingData,
-        ),
-      ),
-    );
-
-    if (result == null || !mounted) return;
-
+  void _togglePen() {
     setState(() {
-      handwritingData = result;
+      penMode = !penMode;
+
+      if (penMode) {
+        editorFocusNode.unfocus();
+      } else {
+        editorFocusNode.requestFocus();
+      }
     });
   }
 
   Future<void> save() async {
     if (saving) return;
 
-    final title = titleController.text.trim();
-    final plainText =
-        controller.document.toPlainText().trim();
+    final title =
+        titleController.text.trim();
+
+    final plainText = controller.document
+        .toPlainText()
+        .trim();
 
     if (title.isEmpty) {
       _message('Please enter a title.');
@@ -154,9 +190,10 @@ class _TextEditorPageState extends State<TextEditorPage> {
     }
 
     if (plainText.isEmpty &&
-        (handwritingData == null ||
-            handwritingData!.trim().isEmpty)) {
-      _message('Please write something first.');
+        handwritingData.trim().isEmpty) {
+      _message(
+        'Please write something first.',
+      );
       return;
     }
 
@@ -165,25 +202,13 @@ class _TextEditorPageState extends State<TextEditorPage> {
     });
 
     try {
-      final textDelta =
-          controller.document.toDelta().toJson();
-
-      List<dynamic> handwriting = [];
-
-      if (handwritingData != null &&
-          handwritingData!.trim().isNotEmpty) {
-        try {
-          final decoded = jsonDecode(handwritingData!);
-
-          if (decoded is List) {
-            handwriting = decoded;
-          }
-        } catch (_) {}
-      }
-
       final content = jsonEncode({
-        'text': textDelta,
-        'handwriting': handwriting,
+        'text':
+            controller.document.toDelta().toJson(),
+        'handwriting':
+            handwritingData.isEmpty
+                ? []
+                : jsonDecode(handwritingData),
       });
 
       if (widget.item == null) {
@@ -197,7 +222,8 @@ class _TextEditorPageState extends State<TextEditorPage> {
           'file_path': null,
           'original_file_name': null,
           'created_at':
-              DateTime.now().toIso8601String(),
+              DateTime.now()
+                  .toIso8601String(),
         });
       } else {
         await repo.updateContent(
@@ -212,7 +238,9 @@ class _TextEditorPageState extends State<TextEditorPage> {
       Navigator.of(context).pop(true);
     } catch (_) {
       if (mounted) {
-        _message('Could not save the note.');
+        _message(
+          'Could not save the note.',
+        );
       }
     } finally {
       if (mounted) {
@@ -224,7 +252,8 @@ class _TextEditorPageState extends State<TextEditorPage> {
   }
 
   void _message(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
       SnackBar(
         content: Text(message),
       ),
@@ -235,13 +264,18 @@ class _TextEditorPageState extends State<TextEditorPage> {
   void dispose() {
     controller.dispose();
     titleController.dispose();
+    editorFocusNode.dispose();
+    editorScrollController.dispose();
+    transformController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final direction =
-        rtl ? TextDirection.rtl : TextDirection.ltr;
+        rtl
+            ? TextDirection.rtl
+            : TextDirection.ltr;
 
     return Scaffold(
       appBar: AppBar(
@@ -258,36 +292,46 @@ class _TextEditorPageState extends State<TextEditorPage> {
             onPressed: _toggleDirection,
             icon: Icon(
               rtl
-                  ? Icons.format_textdirection_r_to_l
-                  : Icons.format_textdirection_l_to_r,
+                  ? Icons
+                      .format_textdirection_r_to_l
+                  : Icons
+                      .format_textdirection_l_to_r,
             ),
           ),
           IconButton(
-            tooltip: 'Handwriting',
-            onPressed: _openHandwriting,
-            icon: const Icon(
-              Icons.draw_outlined,
+            tooltip:
+                penMode ? 'Text' : 'Pen',
+            onPressed: _togglePen,
+            icon: Icon(
+              penMode
+                  ? Icons.text_fields
+                  : Icons.draw_outlined,
             ),
           ),
           IconButton(
             tooltip: 'Save',
-            onPressed: saving ? null : save,
+            onPressed:
+                saving ? null : save,
             icon: saving
                 ? const SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(
+                    child:
+                        CircularProgressIndicator(
                       strokeWidth: 2,
                     ),
                   )
-                : const Icon(Icons.check),
+                : const Icon(
+                    Icons.check,
+                  ),
           ),
         ],
       ),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(
+            padding:
+                const EdgeInsets.fromLTRB(
               16,
               12,
               16,
@@ -301,7 +345,8 @@ class _TextEditorPageState extends State<TextEditorPage> {
                   : TextAlign.left,
               textInputAction:
                   TextInputAction.next,
-              decoration: const InputDecoration(
+              decoration:
+                  const InputDecoration(
                 hintText: 'Title',
                 border: InputBorder.none,
               ),
@@ -313,81 +358,108 @@ class _TextEditorPageState extends State<TextEditorPage> {
 
           const Divider(height: 1),
 
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Theme.of(context)
-                  .colorScheme
-                  .surfaceContainerHighest,
-            ),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: QuillSimpleToolbar(
-                controller: controller,
-                config:
-                    const QuillSimpleToolbarConfig(
-                  multiRowsDisplay: true,
-
-                  showBoldButton: true,
-                  showItalicButton: true,
-                  showUnderLineButton: true,
-                  showStrikeThrough: true,
-
-                  showFontSize: true,
-                  showFontFamily: true,
-
-                  showColorButton: true,
-                  showBackgroundColorButton: true,
-
-                  showAlignmentButtons: true,
-                  showHeaderStyle: true,
-
-                  showListNumbers: true,
-                  showListBullets: true,
-                  showListCheck: true,
-
-                  showIndent: true,
-                  showQuote: true,
-                  showCodeBlock: true,
-
-                  showLink: true,
-
-                  showUndo: true,
-                  showRedo: true,
-                  showClearFormat: true,
-
-                  showDirection: true,
-
-                  showSearchButton: true,
+          if (!penMode)
+            Container(
+              width: double.infinity,
+              decoration:
+                  BoxDecoration(
+                color: Theme.of(context)
+                    .colorScheme
+                    .surfaceContainerHighest,
+              ),
+              child:
+                  SingleChildScrollView(
+                scrollDirection:
+                    Axis.horizontal,
+                child: QuillSimpleToolbar(
+                  controller: controller,
+                  config:
+                      const QuillSimpleToolbarConfig(
+                    multiRowsDisplay: true,
+                    showBoldButton: true,
+                    showItalicButton: true,
+                    showUnderLineButton: true,
+                    showStrikeThrough: true,
+                    showFontSize: true,
+                    showFontFamily: true,
+                    showColorButton: true,
+                    showBackgroundColorButton:
+                        true,
+                    showAlignmentButtons: true,
+                    showHeaderStyle: true,
+                    showListNumbers: true,
+                    showListBullets: true,
+                    showListCheck: true,
+                    showIndent: true,
+                    showQuote: true,
+                    showCodeBlock: true,
+                    showLink: true,
+                    showUndo: true,
+                    showRedo: true,
+                    showClearFormat: true,
+                    showDirection: true,
+                    showSearchButton: true,
+                  ),
                 ),
               ),
             ),
-          ),
 
-          const Divider(height: 1),
+          if (!penMode)
+            const Divider(height: 1),
 
           Expanded(
-            child: Container(
-              color: Theme.of(context)
-                  .colorScheme
-                  .surface,
-              child: Directionality(
-                textDirection: direction,
-                child: Padding(
-                  padding:
-                      const EdgeInsets.all(16),
-                  child: QuillEditor.basic(
-                    controller: controller,
-                    config:
-                        const QuillEditorConfig(
-                      placeholder:
-                          'Start writing...',
-                      padding: EdgeInsets.zero,
-                      expands: true,
-                      autoFocus: false,
+            child: InteractiveViewer(
+              transformationController:
+                  transformController,
+              minScale: 0.7,
+              maxScale: 3.0,
+              panEnabled: true,
+              scaleEnabled: true,
+              boundaryMargin:
+                  const EdgeInsets.all(200),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Container(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .surface,
+                    padding:
+                        const EdgeInsets.all(16),
+                    child: Directionality(
+                      textDirection:
+                          direction,
+                      child: QuillEditor.basic(
+                        controller:
+                            controller,
+                        focusNode:
+                            editorFocusNode,
+                        scrollController:
+                            editorScrollController,
+                        config:
+                            const QuillEditorConfig(
+                          placeholder:
+                              'Start writing...',
+                          padding:
+                              EdgeInsets.zero,
+                          expands: true,
+                          autoFocus: false,
+                          enableInteractiveSelection:
+                              true,
+                        ),
+                      ),
                     ),
                   ),
-                ),
+
+                  HandwritingOverlay(
+                    initialData:
+                        handwritingData,
+                    onChanged: (value) {
+                      handwritingData =
+                          value;
+                    },
+                  ),
+                ],
               ),
             ),
           ),
