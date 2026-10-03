@@ -8,6 +8,7 @@ import '../../core/database/database_repository.dart';
 import 'content_viewer_page.dart';
 import 'widgets/library_helpers.dart';
 import 'actions/content_actions.dart' as actions;
+import 'text/text_editor_page.dart';
 
 final repo = DatabaseRepository.instance;
 
