@@ -183,7 +183,7 @@ Future<void> pickFile(
       'content_id': id,
       'file_name': f.name,
       'file_path': path,
-      'mime_type': mime(type),
+      'mime_type': mimeType(type),
       'file_size': f.size,
       'extracted_text': null,
       'created_at': now,
@@ -342,7 +342,7 @@ class _SubjectState extends State<SubjectPage> {
   ) {
     return ListTile(
       leading: Icon(
-        isFolder ? Icons.folder_outlined : icon(x['type']?.toString()),
+      isFolder ? Icons.folder_outlined : contentIcon(x['type']?.toString()),
       ),
       title: Text(
         isFolder
@@ -698,7 +698,7 @@ class _ContentTypeState extends State<ContentTypePage> {
               children: items
                   .map(
                     (x) => ListTile(
-                      leading: Icon(icon(x['type']?.toString())),
+                      leading: Icon(contentIcon(x['type']?.toString()))
                       title: Text(
                         x['title']?.toString() ?? 'Untitled',
                       ),
@@ -854,36 +854,3 @@ class _TextEditorState extends State<TextEditor> {
     );
   }
 }
-
-String typeName(String t) => {
-      'pdf': 'PDF',
-      'word': 'Word',
-      'ppt': 'PowerPoint',
-      'image': 'Image',
-    }[t] ??
-    'Text';
-
-String? mime(String t) => {
-      'pdf': 'application/pdf',
-      'word':
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'ppt':
-          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      'image': 'image/*',
-    }[t];
-
-IconData icon(String? t) => switch (t) {
-      'PDF' => Icons.picture_as_pdf_outlined,
-      'Word' => Icons.description_outlined,
-      'PowerPoint' => Icons.slideshow_outlined,
-      'Image' => Icons.image_outlined,
-      'Text' => Icons.article_outlined,
-      _ => Icons.insert_drive_file_outlined,
-    };
-
-IconData typeIcon(String t) => icon(t);
-
-String typeLabel(String t) => {
-      'Image': 'Images',
-    }[t] ??
-    t;
