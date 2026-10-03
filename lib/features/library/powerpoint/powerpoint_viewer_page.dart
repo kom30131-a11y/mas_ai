@@ -1,56 +1,88 @@
-import 'package:flutter/material.dart';
+import 'dart:io';
 
-class PowerPointViewerPage extends StatelessWidget {
+import 'package:flutter/material.dart';
+import 'package:microsoft_viewer/microsoft_viewer.dart';
+
+class PowerPointViewerPage extends StatefulWidget {
   final String title;
   final String path;
-  final VoidCallback onOpen;
 
   const PowerPointViewerPage({
     super.key,
     required this.title,
     required this.path,
-    required this.onOpen,
   });
+
+  @override
+  State<PowerPointViewerPage> createState() =>
+      _PowerPointViewerPageState();
+}
+
+class _PowerPointViewerPageState
+    extends State<PowerPointViewerPage> {
+  MicrosoftViewer? _viewer;
+  String? _error;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFile();
+  }
+
+  Future<void> _loadFile() async {
+    try {
+      final bytes = await File(widget.path).readAsBytes();
+
+      if (!mounted) return;
+
+      setState(() {
+        _viewer = MicrosoftViewer(
+          bytes,
+          false,
+          key: ValueKey(widget.path),
+        );
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _error = 'Unable to open PowerPoint file.\n$e';
+        _loading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(title),
+        title: Text(widget.title),
       ),
-      body: Center(
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_loading) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    if (_error != null) {
+      return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.slideshow_outlined,
-                size: 72,
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'PowerPoint presentation',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'This file will be opened with a compatible app.',
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              FilledButton.icon(
-                onPressed: onOpen,
-                icon: const Icon(Icons.open_in_new),
-                label: const Text('Open file'),
-              ),
-            ],
+          child: Text(
+            _error!,
+            textAlign: TextAlign.center,
           ),
         ),
-      ),
-    );
+      );
+    }
+
+    return _viewer ?? const SizedBox.shrink();
   }
 }
