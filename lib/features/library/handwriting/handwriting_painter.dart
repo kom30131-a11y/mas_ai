@@ -4,50 +4,56 @@ import 'handwriting_models.dart';
 
 class HandwritingPainter extends CustomPainter {
   final List<InkStroke> strokes;
+  final double scrollOffset;
 
-  const HandwritingPainter(this.strokes);
+  const HandwritingPainter(
+    this.strokes, {
+    this.scrollOffset = 0,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
+    canvas.save();
+    canvas.clipRect(Offset.zero & size);
+
     for (final stroke in strokes) {
-      if (stroke.points.isEmpty) continue;
+      if (stroke.points.isEmpty || stroke.eraser) {
+        continue;
+      }
 
       final paint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
-        ..strokeWidth = stroke.eraser
-            ? stroke.width * 2.5
-            : stroke.width
-        ..color = Color(stroke.color)
-        ..blendMode = stroke.eraser
-            ? BlendMode.clear
-            : BlendMode.srcOver;
+        ..strokeWidth = stroke.width
+        ..color = Color(stroke.color);
 
-      if (!stroke.eraser &&
-          stroke.width >= 14) {
-        paint.color = Color(stroke.color).withValues(
-          alpha: .32,
-        );
-      }
+      final first = stroke.points.first;
 
       final path = Path()
         ..moveTo(
-          stroke.points.first.x,
-          stroke.points.first.y,
+          first.x,
+          first.y - scrollOffset,
         );
 
-      for (final p in stroke.points.skip(1)) {
-        path.lineTo(p.x, p.y);
+      for (final point
+          in stroke.points.skip(1)) {
+        path.lineTo(
+          point.x,
+          point.y - scrollOffset,
+        );
       }
 
       canvas.drawPath(path, paint);
     }
+
+    canvas.restore();
   }
 
   @override
   bool shouldRepaint(
     covariant HandwritingPainter oldDelegate,
-  ) =>
-      true;
+  ) {
+    return true;
+  }
 }
