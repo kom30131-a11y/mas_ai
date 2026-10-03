@@ -1,67 +1,73 @@
 import 'dart:io';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:path/path.dart' as p;
 
 import '../../core/database/database_repository.dart';
-import 'content_viewer_page.dart';
-import 'widgets/library_helpers.dart';
 import 'actions/content_actions.dart' as actions;
+import 'content_viewer_page.dart';
 import 'text/text_editor_page.dart';
+import 'widgets/library_helpers.dart';
 
 final repo = DatabaseRepository.instance;
 
 Future<String?> ask(
-  BuildContext c,
+  BuildContext context,
   String title, [
   String? old,
 ]) async {
-  final x = TextEditingController(text: old);
+  final controller = TextEditingController(text: old);
 
-  final r = await showDialog<String>(
-    context: c,
+  final result = await showDialog<String>(
+    context: context,
     builder: (_) => AlertDialog(
       title: Text(title),
       content: TextField(
-        controller: x,
+        controller: controller,
         autofocus: true,
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(c),
+          onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
         FilledButton(
-          onPressed: () => x.text.trim().isEmpty
-              ? null
-              : Navigator.pop(c, x.text.trim()),
+          onPressed: () {
+            final value = controller.text.trim();
+
+            if (value.isNotEmpty) {
+              Navigator.pop(context, value);
+            }
+          },
           child: const Text('Save'),
         ),
       ],
     ),
   );
 
-  x.dispose();
-  return r;
+  controller.dispose();
+  return result;
 }
 
 Future<bool> sure(
-  BuildContext c,
+  BuildContext context,
   String title,
 ) async {
   return await showDialog<bool>(
-        context: c,
+        context: context,
         builder: (_) => AlertDialog(
           title: Text(title),
-          content: const Text('This item will be deleted.'),
+          content: const Text(
+            'This item will be deleted.',
+          ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(c, false),
+              onPressed: () =>
+                  Navigator.pop(context, false),
               child: const Text('Cancel'),
             ),
             FilledButton(
-              onPressed: () => Navigator.pop(c, true),
+              onPressed: () =>
+                  Navigator.pop(context, true),
               child: const Text('Delete'),
             ),
           ],
@@ -70,23 +76,46 @@ Future<bool> sure(
       false;
 }
 
-Future<String?> choose(BuildContext c) {
+Future<String?> choose(BuildContext context) {
   return showModalBottomSheet<String>(
-    context: c,
+    context: context,
     builder: (_) => Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ['PDF', 'pdf', Icons.picture_as_pdf_outlined],
-        ['Word', 'word', Icons.description_outlined],
-        ['PowerPoint', 'ppt', Icons.slideshow_outlined],
-        ['Text', 'text', Icons.edit_note_outlined],
-        ['Image', 'image', Icons.image_outlined],
+        [
+          'PDF',
+          'pdf',
+          Icons.picture_as_pdf_outlined,
+        ],
+        [
+          'Word',
+          'word',
+          Icons.description_outlined,
+        ],
+        [
+          'PowerPoint',
+          'ppt',
+          Icons.slideshow_outlined,
+        ],
+        [
+          'Text',
+          'text',
+          Icons.edit_note_outlined,
+        ],
+        [
+          'Image',
+          'image',
+          Icons.image_outlined,
+        ],
       ]
           .map(
-            (x) => ListTile(
-              leading: Icon(x[2] as IconData),
-              title: Text(x[0] as String),
-              onTap: () => Navigator.pop(c, x[1]),
+            (item) => ListTile(
+              leading: Icon(item[2] as IconData),
+              title: Text(item[0] as String),
+              onTap: () => Navigator.pop(
+                context,
+                item[1] as String,
+              ),
             ),
           )
           .toList(),
@@ -95,130 +124,58 @@ Future<String?> choose(BuildContext c) {
 }
 
 Future<void> openContent(
-  BuildContext c,
-  Map<String, dynamic> x,
+  BuildContext context,
+  Map<String, dynamic> item,
   int subjectId,
   int? folderId,
 ) async {
-  if (x['type'] == 'Text') {
+  if (item['type'] == 'Text') {
     await Navigator.push(
-      c,
+      context,
       MaterialPageRoute(
         builder: (_) => TextEditorPage(
           subjectId: subjectId,
           folderId: folderId,
-          item: x,
+          item: item,
         ),
       ),
     );
+
     return;
   }
 
-  final path = x['file_path']?.toString();
+  final path = item['file_path']?.toString();
 
-  if (path == null || path.isEmpty || !File(path).existsSync()) {
-    if (c.mounted) {
-      ScaffoldMessenger.of(c).showSnackBar(
+  if (path == null ||
+      path.isEmpty ||
+      !File(path).existsSync()) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('File is no longer available.'),
+          content: Text(
+            'File is no longer available.',
+          ),
         ),
       );
     }
+
     return;
   }
 
   await Navigator.push(
-    c,
+    context,
     MaterialPageRoute(
       builder: (_) => ContentViewerPage(
-        title: x['title']?.toString() ?? 'Content',
+        title:
+            item['title']?.toString() ?? 'Content',
         path: path,
-        type: x['type']?.toString() ?? '',
-        extractedText: x['content']?.toString(),
+        type:
+            item['type']?.toString() ?? '',
+        extractedText:
+            item['content']?.toString(),
       ),
     ),
   );
-}
-
-Future<void> pickFile(
-  String type,
-  int subjectId,
-  int? folderId,
-) async {
-  final ext = {
-    'pdf': ['pdf'],
-    'word': ['doc', 'docx'],
-    'ppt': ['ppt', 'pptx'],
-    'image': ['jpg', 'jpeg', 'png', 'webp'],
-  }[type];
-
-  if (ext == null) return;
-
-  try {
-    final result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ext,
-    );
-
-    if (result == null || result.files.isEmpty) return;
-
-    final f = result.files.first;
-    final path = f.path;
-
-    if (path == null || path.isEmpty) return;
-
-    final now = DateTime.now().toIso8601String();
-
-    final id = await repo.insertContent({
-      'subject_id': subjectId,
-      'topic_id': null,
-      'folder_id': folderId,
-      'title': p.basenameWithoutExtension(path),
-      'type': typeName(type),
-      'content': '',
-      'file_path': path,
-      'original_file_name': f.name,
-      'created_at': now,
-    });
-
-    await repo.insertFile({
-      'content_id': id,
-      'file_name': f.name,
-      'file_path': path,
-      'mime_type': mimeType(type),
-      'file_size': f.size,
-      'extracted_text': null,
-      'created_at': now,
-    });
-  } catch (_) {}
-}
-
-Future<void> editContent(
-  BuildContext c,
-  Map<String, dynamic> x,
-  VoidCallback refresh,
-) async {
-  final n = await ask(c, 'Rename', x['title']?.toString());
-
-  if (n == null) return;
-
-  await repo.updateContent(
-    contentId: x['id'],
-    title: n,
-  );
-
-  refresh();
-}
-
-Future<void> removeContent(
-  BuildContext c,
-  Map<String, dynamic> x,
-  VoidCallback refresh,
-) async {
-  if (await sure(c, 'Delete content?')) {
-    await repo.deleteContent(x['id']);
-    refresh();
-  }
 }
 
 class SubjectPage extends StatefulWidget {
@@ -247,25 +204,27 @@ class _SubjectState extends State<SubjectPage> {
   }
 
   Future<void> load() async {
-    final f = await repo.getFolders();
-    final c = await repo.getContent();
+    final allFolders = await repo.getFolders();
+    final allContent = await repo.getContent();
 
     if (!mounted) return;
 
     setState(() {
-      folders = f
+      folders = allFolders
           .where(
-            (x) =>
-                x['subject_id'] == widget.subjectId &&
-                x['parent_id'] == null,
+            (item) =>
+                item['subject_id'] ==
+                    widget.subjectId &&
+                item['parent_id'] == null,
           )
           .toList();
 
-      content = c
+      content = allContent
           .where(
-            (x) =>
-                x['subject_id'] == widget.subjectId &&
-                x['folder_id'] == null,
+            (item) =>
+                item['subject_id'] ==
+                    widget.subjectId &&
+                item['folder_id'] == null,
           )
           .toList();
 
@@ -274,131 +233,167 @@ class _SubjectState extends State<SubjectPage> {
   }
 
   Future<void> folder([
-    Map<String, dynamic>? x,
+    Map<String, dynamic>? item,
   ]) async {
-    final n = await ask(
+    final name = await ask(
       context,
-      x == null ? 'New folder' : 'Rename folder',
-      x?['name']?.toString(),
+      item == null
+          ? 'New folder'
+          : 'Rename folder',
+      item?['name']?.toString(),
     );
 
-    if (n == null) return;
+    if (name == null) return;
 
-    if (x == null) {
+    if (item == null) {
       await repo.insertFolder(
-        name: n,
+        name: name,
         subjectId: widget.subjectId,
       );
     } else {
       await repo.renameFolder(
-        folderId: x['id'],
-        name: n,
+        folderId: item['id'] as int,
+        name: name,
       );
     }
 
     if (!mounted) return;
+
     await load();
   }
 
   Future<void> deleteFolder(
-    Map<String, dynamic> x,
+    Map<String, dynamic> item,
   ) async {
-    if (await sure(context, 'Delete folder?')) {
-      await repo.deleteFolder(x['id']);
-
-      if (!mounted) return;
-      await load();
+    if (!await sure(
+      context,
+      'Delete folder?',
+    )) {
+      return;
     }
+
+    await repo.deleteFolder(item['id'] as int);
+
+    if (!mounted) return;
+
+    await load();
   }
 
   Future<void> add() async {
-    final navigator = Navigator.of(context);
-    final t = await choose(context);
+    final type = await choose(context);
 
-    if (t == null) return;
+    if (type == null) return;
 
-    if (t == 'text') {
-      await navigator.push(
+    if (type == 'text') {
+      await Navigator.push(
+        context,
         MaterialPageRoute(
           builder: (_) => TextEditorPage(
             subjectId: widget.subjectId,
-            folderId: null,
           ),
         ),
       );
     } else {
       await actions.pickFile(
-        t,
+        type,
         widget.subjectId,
         null,
       );
     }
 
     if (!mounted) return;
+
     await load();
   }
 
   Widget row(
-    Map<String, dynamic> x,
+    Map<String, dynamic> item,
     bool isFolder,
   ) {
+    final title = isFolder
+        ? item['name']?.toString() ?? 'Untitled'
+        : item['title']?.toString() ?? 'Untitled';
+
     return ListTile(
       leading: Icon(
         isFolder
             ? Icons.folder_outlined
-            : contentIcon(x['type']?.toString()),
+            : contentIcon(
+                item['type']?.toString(),
+              ),
       ),
-      title: Text(
-        isFolder
-            ? x['name']?.toString() ?? 'Untitled'
-            : x['title']?.toString() ?? 'Untitled',
-      ),
+      title: Text(title),
       onTap: () async {
         if (isFolder) {
-          final navigator = Navigator.of(context);
-
-          await navigator.push(
+          await Navigator.push(
+            context,
             MaterialPageRoute(
               builder: (_) => FolderPage(
                 subjectId: widget.subjectId,
-                folderId: x['id'],
-                folderName: x['name']?.toString() ?? 'Folder',
+                folderId: item['id'] as int,
+                folderName:
+                    item['name']?.toString() ??
+                        'Folder',
               ),
             ),
           );
 
           if (!mounted) return;
+
           await load();
         } else {
           await openContent(
             context,
-            x,
+            item,
             widget.subjectId,
             null,
           );
 
           if (!mounted) return;
+
           await load();
         }
       },
       trailing: PopupMenuButton<String>(
-        onSelected: (v) {
+        onSelected: (value) {
           if (isFolder) {
-            v == 'r' ? folder(x) : deleteFolder(x);
+            if (value == 'r') {
+              folder(item);
+            } else {
+              deleteFolder(item);
+            }
           } else {
-            v == 'r'
-                ? actions.editContent(context, x, load)
-                : actions.removeContent(context, x, load);
+            if (value == 'r') {
+              actions.editContent(
+                context,
+                item,
+                load,
+              );
+            } else {
+              actions.removeContent(
+                context,
+                item,
+                load,
+              );
+            }
           }
         },
         itemBuilder: (_) => [
           PopupMenuItem(
             value: 'r',
-            child: Text(isFolder ? 'Rename folder' : 'Rename'),
+            child: Text(
+              isFolder
+                  ? 'Rename folder'
+                  : 'Rename',
+            ),
           ),
           PopupMenuItem(
             value: 'd',
-            child: Text(isFolder ? 'Delete folder' : 'Delete'),
+            child: Text(
+              isFolder
+                  ? 'Delete folder'
+                  : 'Delete',
+            ),
           ),
         ],
       ),
@@ -406,14 +401,16 @@ class _SubjectState extends State<SubjectPage> {
   }
 
   @override
-  Widget build(BuildContext c) {
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.subjectName),
         actions: [
           IconButton(
             onPressed: folder,
-            icon: const Icon(Icons.create_new_folder_outlined),
+            icon: const Icon(
+              Icons.create_new_folder_outlined,
+            ),
           ),
           IconButton(
             onPressed: add,
@@ -431,18 +428,42 @@ class _SubjectState extends State<SubjectPage> {
                 children: [
                   if (folders.isNotEmpty) ...[
                     const Padding(
-                      padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                      padding: EdgeInsets.fromLTRB(
+                        16,
+                        16,
+                        16,
+                        8,
+                      ),
                       child: Text('Folders'),
                     ),
-                    ...folders.map((x) => row(x, true)),
+                    ...folders.map(
+                      (item) => row(item, true),
+                    ),
                   ],
                   if (content.isNotEmpty) ...[
                     const Padding(
-                      padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                      padding: EdgeInsets.fromLTRB(
+                        16,
+                        16,
+                        16,
+                        8,
+                      ),
                       child: Text('Content'),
                     ),
-                    ...content.map((x) => row(x, false)),
+                    ...content.map(
+                      (item) => row(item, false),
+                    ),
                   ],
+                  if (folders.isEmpty &&
+                      content.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.all(32),
+                      child: Center(
+                        child: Text(
+                          'No content yet.',
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -478,65 +499,79 @@ class _FolderState extends State<FolderPage> {
   }
 
   Future<void> load() async {
-    final f = await repo.getFolders(parentId: widget.folderId);
-    final c = await repo.getContent(folderId: widget.folderId);
+    final folderItems = await repo.getFolders(
+      parentId: widget.folderId,
+    );
+
+    final contentItems = await repo.getContent(
+      folderId: widget.folderId,
+    );
 
     if (!mounted) return;
 
     setState(() {
-      folders = f;
-      content = c;
+      folders = folderItems;
+      content = contentItems;
       loading = false;
     });
   }
 
   Future<void> folder([
-    Map<String, dynamic>? x,
+    Map<String, dynamic>? item,
   ]) async {
-    final n = await ask(
+    final name = await ask(
       context,
-      x == null ? 'New folder' : 'Rename folder',
-      x?['name']?.toString(),
+      item == null
+          ? 'New folder'
+          : 'Rename folder',
+      item?['name']?.toString(),
     );
 
-    if (n == null) return;
+    if (name == null) return;
 
-    if (x == null) {
+    if (item == null) {
       await repo.insertFolder(
-        name: n,
+        name: name,
         parentId: widget.folderId,
         subjectId: widget.subjectId,
       );
     } else {
       await repo.renameFolder(
-        folderId: x['id'],
-        name: n,
+        folderId: item['id'] as int,
+        name: name,
       );
     }
 
     if (!mounted) return;
+
     await load();
   }
 
   Future<void> deleteFolder(
-    Map<String, dynamic> x,
+    Map<String, dynamic> item,
   ) async {
-    if (await sure(context, 'Delete folder?')) {
-      await repo.deleteFolder(x['id']);
-
-      if (!mounted) return;
-      await load();
+    if (!await sure(
+      context,
+      'Delete folder?',
+    )) {
+      return;
     }
+
+    await repo.deleteFolder(item['id'] as int);
+
+    if (!mounted) return;
+
+    await load();
   }
 
   Future<void> add() async {
-    final navigator = Navigator.of(context);
-    final t = await choose(context);
+    final type = await choose(context);
 
-    if (t == null) return;
+    if (type == null) return;
 
-    if (t == 'text') {
-      await navigator.push(
+    if (type == 'text') {
+      await Navigator.push(
+        context,
         MaterialPageRoute(
           builder: (_) => TextEditorPage(
             subjectId: widget.subjectId,
@@ -546,27 +581,32 @@ class _FolderState extends State<FolderPage> {
       );
     } else {
       await actions.pickFile(
-        t,
+        type,
         widget.subjectId,
         widget.folderId,
       );
     }
 
     if (!mounted) return;
+
     await load();
   }
 
   @override
-  Widget build(BuildContext c) {
-    final types = <String, List<Map<String, dynamic>>>{};
+  Widget build(BuildContext context) {
+    final types =
+        <String, List<Map<String, dynamic>>>{};
 
-    for (final x in content) {
+    for (final item in content) {
+      final type =
+          item['type']?.toString() ?? 'Other';
+
       types
           .putIfAbsent(
-            x['type']?.toString() ?? 'Other',
+            type,
             () => <Map<String, dynamic>>[],
           )
-          .add(x);
+          .add(item);
     }
 
     return Scaffold(
@@ -575,7 +615,9 @@ class _FolderState extends State<FolderPage> {
         actions: [
           IconButton(
             onPressed: folder,
-            icon: const Icon(Icons.create_new_folder_outlined),
+            icon: const Icon(
+              Icons.create_new_folder_outlined,
+            ),
           ),
           IconButton(
             onPressed: add,
@@ -593,41 +635,66 @@ class _FolderState extends State<FolderPage> {
                 children: [
                   if (folders.isNotEmpty) ...[
                     const Padding(
-                      padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                      padding: EdgeInsets.fromLTRB(
+                        16,
+                        16,
+                        16,
+                        8,
+                      ),
                       child: Text('Folders'),
                     ),
                     ...folders.map(
-                      (x) => ListTile(
-                        leading: const Icon(Icons.folder_outlined),
-                        title: Text(x['name']?.toString() ?? 'Folder'),
+                      (item) => ListTile(
+                        leading: const Icon(
+                          Icons.folder_outlined,
+                        ),
+                        title: Text(
+                          item['name']?.toString() ??
+                              'Folder',
+                        ),
                         onTap: () async {
-                          final navigator = Navigator.of(context);
-
-                          await navigator.push(
+                          await Navigator.push(
+                            context,
                             MaterialPageRoute(
-                              builder: (_) => FolderPage(
-                                subjectId: widget.subjectId,
-                                folderId: x['id'],
+                              builder: (_) =>
+                                  FolderPage(
+                                subjectId:
+                                    widget.subjectId,
+                                folderId:
+                                    item['id'] as int,
                                 folderName:
-                                    x['name']?.toString() ?? 'Folder',
+                                    item['name']
+                                            ?.toString() ??
+                                        'Folder',
                               ),
                             ),
                           );
 
                           if (!mounted) return;
+
                           await load();
                         },
-                        trailing: PopupMenuButton<String>(
-                          onSelected: (v) =>
-                              v == 'r' ? folder(x) : deleteFolder(x),
+                        trailing:
+                            PopupMenuButton<String>(
+                          onSelected: (value) {
+                            if (value == 'r') {
+                              folder(item);
+                            } else {
+                              deleteFolder(item);
+                            }
+                          },
                           itemBuilder: (_) => const [
                             PopupMenuItem(
                               value: 'r',
-                              child: Text('Rename folder'),
+                              child: Text(
+                                'Rename folder',
+                              ),
                             ),
                             PopupMenuItem(
                               value: 'd',
-                              child: Text('Delete folder'),
+                              child: Text(
+                                'Delete folder',
+                              ),
                             ),
                           ],
                         ),
@@ -635,25 +702,49 @@ class _FolderState extends State<FolderPage> {
                     ),
                   ],
                   ...types.entries.map(
-                    (e) => ListTile(
-                      leading: Icon(typeIcon(e.key)),
-                      title: Text(typeLabel(e.key)),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ContentTypePage(
-                            title: typeLabel(e.key),
-                            items: e.value,
-                            subjectId: widget.subjectId,
-                            folderId: widget.folderId,
+                    (entry) => ListTile(
+                      leading: Icon(
+                        typeIcon(entry.key),
+                      ),
+                      title: Text(
+                        typeLabel(entry.key),
+                      ),
+                      trailing: const Icon(
+                        Icons.chevron_right,
+                      ),
+                      onTap: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                ContentTypePage(
+                              title:
+                                  typeLabel(entry.key),
+                              items: entry.value,
+                              subjectId:
+                                  widget.subjectId,
+                              folderId:
+                                  widget.folderId,
+                            ),
                           ),
-                        ),
-                      ).then((_) {
-                        if (mounted) load();
-                      }),
+                        );
+
+                        if (!mounted) return;
+
+                        await load();
+                      },
                     ),
                   ),
+                  if (folders.isEmpty &&
+                      types.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.all(32),
+                      child: Center(
+                        child: Text(
+                          'No content yet.',
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -676,20 +767,43 @@ class ContentTypePage extends StatefulWidget {
   });
 
   @override
-  State<ContentTypePage> createState() => _ContentTypeState();
+  State<ContentTypePage> createState() =>
+      _ContentTypeState();
 }
 
-class _ContentTypeState extends State<ContentTypePage> {
+class _ContentTypeState
+    extends State<ContentTypePage> {
   late List<Map<String, dynamic>> items;
 
   @override
   void initState() {
     super.initState();
-    items = List<Map<String, dynamic>>.from(widget.items);
+
+    items = List<Map<String, dynamic>>.from(
+      widget.items,
+    );
+  }
+
+  Future<void> refreshItems() async {
+    final latest = await repo.getContent(
+      folderId: widget.folderId,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      items = latest
+          .where(
+            (item) =>
+                item['type']?.toString() ==
+                widget.items.first['type']?.toString(),
+          )
+          .toList();
+    });
   }
 
   @override
-  Widget build(BuildContext c) {
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
@@ -699,47 +813,61 @@ class _ContentTypeState extends State<ContentTypePage> {
               child: Text('No content'),
             )
           : ListView(
-              children: items
-                  .map(
-                    (x) => ListTile(
-                      leading: Icon(contentIcon(x['type']?.toString())),
-                      title: Text(
-                        x['title']?.toString() ?? 'Untitled',
-                      ),
-                      onTap: () => openContent(
-                        c,
-                        x,
-                        widget.subjectId,
-                        widget.folderId,
-                      ),
-                      trailing: PopupMenuButton<String>(
-                        onSelected: (v) => v == 'r'
-                            ? actions.editContent(
-                                c,
-                                x,
-                                () => setState(() {}),
-                              )
-                            : actions.removeContent(
-                                c,
-                                x,
-                                () => setState(
-                                  () => items.remove(x),
-                                ),
-                              ),
-                        itemBuilder: (_) => const [
-                          PopupMenuItem(
-                            value: 'r',
-                            child: Text('Rename'),
-                          ),
-                          PopupMenuItem(
-                            value: 'd',
-                            child: Text('Delete'),
-                          ),
-                        ],
+              children: items.map(
+                (item) {
+                  return ListTile(
+                    leading: Icon(
+                      contentIcon(
+                        item['type']?.toString(),
                       ),
                     ),
-                  )
-                  .toList(),
+                    title: Text(
+                      item['title']?.toString() ??
+                          'Untitled',
+                    ),
+                    onTap: () async {
+                      await openContent(
+                        context,
+                        item,
+                        widget.subjectId,
+                        widget.folderId,
+                      );
+
+                      if (!mounted) return;
+
+                      await refreshItems();
+                    },
+                    trailing:
+                        PopupMenuButton<String>(
+                      onSelected: (value) async {
+                        if (value == 'r') {
+                          await actions.editContent(
+                            context,
+                            item,
+                            refreshItems,
+                          );
+                        } else {
+                          await actions.removeContent(
+                            context,
+                            item,
+                            refreshItems,
+                          );
+                        }
+                      },
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(
+                          value: 'r',
+                          child: Text('Rename'),
+                        ),
+                        PopupMenuItem(
+                          value: 'd',
+                          child: Text('Delete'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ).toList(),
             ),
     );
   }
