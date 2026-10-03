@@ -13,16 +13,16 @@ class HandwritingPainter extends CustomPainter {
       if (stroke.points.isEmpty) continue;
 
       final paint = Paint()
-        ..color = Color(stroke.color)
         ..strokeWidth = stroke.width
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
-        ..style = PaintingStyle.stroke;
+        ..style = PaintingStyle.stroke
+        ..color = Color(stroke.color);
 
       if (stroke.eraser) {
         paint
-          ..color = Colors.white
-          ..strokeWidth = stroke.width * 3;
+          ..blendMode = BlendMode.clear
+          ..strokeWidth = stroke.width * 2.5;
       }
 
       final path = Path()
