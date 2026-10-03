@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 
@@ -9,27 +10,31 @@ enum InkTool { pen, highlighter, eraser }
 
 class HandwritingOverlay extends StatefulWidget {
   final String? initialData;
+  final ScrollController scrollController;
   final ValueChanged<String>? onChanged;
 
   const HandwritingOverlay({
     super.key,
     this.initialData,
+    required this.scrollController,
     this.onChanged,
   });
 
   @override
   State<HandwritingOverlay> createState() =>
-      _HandwritingOverlayState();
+      HandwritingOverlayState();
 }
 
-class _HandwritingOverlayState extends State<HandwritingOverlay> {
+class HandwritingOverlayState
+    extends State<HandwritingOverlay> {
   final strokes = <InkStroke>[];
-  final redo = <InkStroke>[];
-  final points = <StrokePoint>[];
+  final redoStack = <InkStroke>[];
+  final currentPoints = <StrokePoint>[];
 
   InkTool tool = InkTool.pen;
-  Color color = Colors.red;
-  double width = 4;
+  Color baseColor = Colors.red;
+  double penWidth = 4;
+  double highlighterWidth = 18;
 
   @override
   void initState() {
@@ -39,10 +44,14 @@ class _HandwritingOverlayState extends State<HandwritingOverlay> {
 
   void _load() {
     final raw = widget.initialData;
-    if (raw == null || raw.isEmpty) return;
+
+    if (raw == null || raw.trim().isEmpty) {
+      return;
+    }
 
     try {
       final data = jsonDecode(raw);
+
       if (data is List) {
         strokes.addAll(
           data.map(
@@ -55,7 +64,33 @@ class _HandwritingOverlayState extends State<HandwritingOverlay> {
     } catch (_) {}
   }
 
-  void _changed() {
+  Offset _contentOffset(Offset p) {
+    final scroll =
+        widget.scrollController.hasClients
+            ? widget.scrollController.offset
+            : 0;
+
+    return Offset(
+      p.dx,
+      p.dy + scroll,
+    );
+  }
+
+  Color get _strokeColor {
+    if (tool == InkTool.highlighter) {
+      return baseColor.withValues(alpha: .30);
+    }
+
+    return baseColor;
+  }
+
+  double get _strokeWidth {
+    return tool == InkTool.highlighter
+        ? highlighterWidth
+        : penWidth;
+  }
+
+  void _notify() {
     widget.onChanged?.call(
       jsonEncode(
         strokes.map((e) => e.toJson()).toList(),
@@ -64,269 +99,382 @@ class _HandwritingOverlayState extends State<HandwritingOverlay> {
   }
 
   void _start(DragStartDetails d) {
-    points
+    if (tool == InkTool.eraser) {
+      _eraseAt(
+        _contentOffset(d.localPosition),
+      );
+      return;
+    }
+
+    currentPoints
       ..clear()
       ..add(
-        StrokePoint(
-          x: d.localPosition.dx,
-          y: d.localPosition.dy,
+        _point(
+          _contentOffset(d.localPosition),
         ),
       );
+
     setState(() {});
   }
 
   void _move(DragUpdateDetails d) {
-    points.add(
-      StrokePoint(
-        x: d.localPosition.dx,
-        y: d.localPosition.dy,
-      ),
-    );
+    final p = _contentOffset(d.localPosition);
+
+    if (tool == InkTool.eraser) {
+      _eraseAt(p);
+      return;
+    }
+
+    currentPoints.add(_point(p));
     setState(() {});
   }
 
   void _end(DragEndDetails d) {
-    if (points.isEmpty) return;
-
-    final stroke = InkStroke(
-      points: List.of(points),
-      color: color.toARGB32(),
-      width: width,
-      eraser: tool == InkTool.eraser,
-    );
+    if (tool == InkTool.eraser ||
+        currentPoints.isEmpty) {
+      return;
+    }
 
     setState(() {
-      strokes.add(stroke);
-      points.clear();
-      redo.clear();
+      strokes.add(
+        InkStroke(
+          points: List.of(currentPoints),
+          color: _strokeColor.toARGB32(),
+          width: _strokeWidth,
+          eraser: false,
+        ),
+      );
+
+      currentPoints.clear();
+      redoStack.clear();
     });
 
-    _changed();
+    _notify();
   }
 
-  void _undo() {
-    if (strokes.isEmpty) return;
-    setState(() => redo.add(strokes.removeLast()));
-    _changed();
+  StrokePoint _point(Offset p) {
+    return StrokePoint(
+      x: p.dx,
+      y: p.dy,
+    );
   }
 
-  void _redo() {
-    if (redo.isEmpty) return;
-    setState(() => strokes.add(redo.removeLast()));
-    _changed();
-  }
+  void _eraseAt(Offset p) {
+    final radius = max(12.0, _strokeWidth * 2);
 
-  void _clear() {
-    if (strokes.isEmpty) return;
+    bool changed = false;
+
     setState(() {
-      redo.addAll(strokes);
+      strokes.removeWhere((stroke) {
+        final hit = stroke.points.any(
+          (point) {
+            final dx = point.x - p.dx;
+            final dy = point.y - p.dy;
+            return dx * dx + dy * dy <=
+                radius * radius;
+          },
+        );
+
+        if (hit) {
+          changed = true;
+        }
+
+        return hit;
+      });
+    });
+
+    if (changed) {
+      _notify();
+    }
+  }
+
+  void setPen() {
+    setState(() => tool = InkTool.pen);
+  }
+
+  void setHighlighter() {
+    setState(() => tool = InkTool.highlighter);
+  }
+
+  void setEraser() {
+    setState(() => tool = InkTool.eraser);
+  }
+
+  void undo() {
+    if (strokes.isEmpty) {
+      return;
+    }
+
+    setState(() {
+      redoStack.add(strokes.removeLast());
+    });
+
+    _notify();
+  }
+
+  void redo() {
+    if (redoStack.isEmpty) {
+      return;
+    }
+
+    setState(() {
+      strokes.add(redoStack.removeLast());
+    });
+
+    _notify();
+  }
+
+  void clear() {
+    if (strokes.isEmpty) {
+      return;
+    }
+
+    setState(() {
+      redoStack.addAll(strokes);
       strokes.clear();
     });
-    _changed();
+
+    _notify();
   }
 
-  void _setTool(InkTool value) {
-    setState(() {
-      tool = value;
-      if (value == InkTool.pen) {
-        width = width.clamp(1, 10);
-      } else if (value == InkTool.highlighter) {
-        width = 18;
-      }
-    });
-  }
-
-  void _colors() {
-    const colors = [
-      Colors.black,
-      Colors.red,
-      Colors.blue,
-      Colors.green,
-      Colors.orange,
-      Colors.purple,
-      Colors.pink,
-      Colors.yellow,
-      Colors.white,
-    ];
-
-    showModalBottomSheet(
+  void showColors() {
+    showModalBottomSheet<void>(
       context: context,
-      builder: (_) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Wrap(
-            spacing: 14,
-            runSpacing: 14,
-            children: colors.map((c) {
-              return InkWell(
-                onTap: () {
-                  setState(() => color = c);
-                  Navigator.pop(context);
-                },
-                child: CircleAvatar(
-                  radius: 23,
-                  backgroundColor: c,
-                  child: c == Colors.white
-                      ? const Icon(
-                          Icons.circle_outlined,
-                          color: Colors.black26,
-                        )
-                      : null,
-                ),
-              );
-            }).toList(),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _size() {
-    showModalBottomSheet(
-      context: context,
-      builder: (_) => StatefulBuilder(
-        builder: (context, update) {
-          return Padding(
+      isScrollControlled: true,
+      builder: (_) {
+        return SafeArea(
+          child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
-                  'Size',
+                  'Choose color',
                   style: TextStyle(
                     fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                Slider(
-                  min: 1,
-                  max: 25,
-                  value: width,
-                  onChanged: (v) {
-                    setState(() => width = v);
-                    update(() {});
+                const SizedBox(height: 16),
+                GestureDetector(
+                  onPanDown: (d) {
+                    _pickWheelColor(d.localPosition);
                   },
+                  onPanUpdate: (d) {
+                    _pickWheelColor(d.localPosition);
+                  },
+                  child: CustomPaint(
+                    size: const Size.square(280),
+                    painter: _ColorWheelPainter(
+                      color: baseColor,
+                    ),
+                  ),
                 ),
-                Text('${width.round()} px'),
+                const SizedBox(height: 12),
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: baseColor,
+                ),
               ],
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _pickWheelColor(Offset p) {
+    const size = 280.0;
+    final center = Offset(size / 2, size / 2);
+    final dx = p.dx - center.dx;
+    final dy = p.dy - center.dy;
+    final radius = min(center.dx, center.dy);
+    final distance = sqrt(dx * dx + dy * dy);
+
+    if (distance > radius) {
+      return;
+    }
+
+    var hue = atan2(dy, dx) * 180 / pi;
+    hue = (hue + 90 + 360) % 360;
+
+    final saturation =
+        (distance / radius).clamp(0.0, 1.0);
+
+    setState(() {
+      baseColor = HSVColor.fromAHSV(
+        1,
+        hue,
+        saturation,
+        1,
+      ).toColor();
+    });
+  }
+
+  void showSize() {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (_) {
+        return StatefulBuilder(
+          builder: (context, update) {
+            final value = tool == InkTool.highlighter
+                ? highlighterWidth
+                : penWidth;
+
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Size',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Slider(
+                      min: 1,
+                      max: 30,
+                      value: value,
+                      onChanged: (v) {
+                        setState(() {
+                          if (tool ==
+                              InkTool.highlighter) {
+                            highlighterWidth = v;
+                          } else {
+                            penWidth = v;
+                          }
+                        });
+                        update(() {});
+                      },
+                    ),
+                    Text(
+                      '${value.round()} px',
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        GestureDetector(
+    final scroll =
+        widget.scrollController.hasClients
+            ? widget.scrollController.offset
+            : 0.0;
+
+    return AnimatedBuilder(
+      animation: widget.scrollController,
+      builder: (context, _) {
+        return GestureDetector(
           behavior: HitTestBehavior.opaque,
           onPanStart: _start,
           onPanUpdate: _move,
           onPanEnd: _end,
           child: CustomPaint(
-            painter: HandwritingPainter([
-              ...strokes,
-              if (points.isNotEmpty)
-                InkStroke(
-                  points: List.of(points),
-                  color: color.toARGB32(),
-                  width: width,
-                  eraser: tool == InkTool.eraser,
-                ),
-            ]),
-          ),
-        ),
-        Positioned(
-          left: 10,
-          right: 10,
-          bottom: 10,
-          child: Material(
-            elevation: 6,
-            borderRadius: BorderRadius.circular(22),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  IconButton(
-                    tooltip: 'Pen',
-                    onPressed: () => _setTool(InkTool.pen),
-                    icon: Icon(
-                      Icons.edit,
-                      color: tool == InkTool.pen
-                          ? Theme.of(context)
-                              .colorScheme
-                              .primary
-                          : null,
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Highlighter',
-                    onPressed: () =>
-                        _setTool(InkTool.highlighter),
-                    icon: Icon(
-                      Icons.highlight,
-                      color: tool == InkTool.highlighter
-                          ? Theme.of(context)
-                              .colorScheme
-                              .primary
-                          : null,
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Eraser',
-                    onPressed: () =>
-                        _setTool(InkTool.eraser),
-                    icon: Icon(
-                      Icons.auto_fix_normal,
-                      color: tool == InkTool.eraser
-                          ? Theme.of(context)
-                              .colorScheme
-                              .primary
-                          : null,
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Color',
-                    onPressed: _colors,
-                    icon: Icon(
-                      Icons.palette_outlined,
-                      color: color,
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Size',
-                    onPressed: _size,
-                    icon: const Icon(Icons.line_weight),
-                  ),
-                  IconButton(
-                    tooltip: 'Undo',
-                    onPressed:
-                        strokes.isEmpty ? null : _undo,
-                    icon: const Icon(Icons.undo),
-                  ),
-                  IconButton(
-                    tooltip: 'Redo',
-                    onPressed:
-                        redo.isEmpty ? null : _redo,
-                    icon: const Icon(Icons.redo),
-                  ),
-                  IconButton(
-                    tooltip: 'Clear',
-                    onPressed:
-                        strokes.isEmpty ? null : _clear,
-                    icon: const Icon(
-                      Icons.delete_outline,
-                    ),
-                  ),
-                ],
-              ),
+            painter: HandwritingPainter(
+              strokes,
+              scrollOffset: scroll,
             ),
           ),
-        ),
-      ],
+        );
+      },
     );
+  }
+}
+
+class _ColorWheelPainter extends CustomPainter {
+  final Color color;
+
+  const _ColorWheelPainter({
+    required this.color,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final radius = size.shortestSide / 2;
+
+    final rect = Rect.fromCircle(
+      center: center,
+      radius: radius,
+    );
+
+    final colors = List<Color>.generate(
+      13,
+      (i) => HSVColor.fromAHSV(
+        1,
+        i * 30.0,
+        1,
+        1,
+      ).toColor(),
+    );
+
+    final wheelPaint = Paint()
+      ..shader = SweepGradient(
+        colors: colors,
+      ).createShader(rect);
+
+    canvas.drawCircle(
+      center,
+      radius,
+      wheelPaint,
+    );
+
+    final whitePaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          Colors.white,
+          Colors.white.withValues(alpha: 0),
+        ],
+      ).createShader(rect);
+
+    canvas.drawCircle(
+      center,
+      radius,
+      whitePaint,
+    );
+
+    final hsv = HSVColor.fromColor(color);
+    final angle =
+        hsv.hue * pi / 180 - pi / 2;
+    final pointRadius =
+        hsv.saturation * radius;
+
+    final point = Offset(
+      center.dx + cos(angle) * pointRadius,
+      center.dy + sin(angle) * pointRadius,
+    );
+
+    final marker = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..color = Colors.white;
+
+    canvas.drawCircle(
+      point,
+      9,
+      marker,
+    );
+
+    canvas.drawCircle(
+      point,
+      5,
+      Paint()..color = Colors.black,
+    );
+  }
+
+  @override
+  bool shouldRepaint(
+    covariant _ColorWheelPainter oldDelegate,
+  ) {
+    return oldDelegate.color != color;
   }
 }
