@@ -13,16 +13,22 @@ class HandwritingPainter extends CustomPainter {
       if (stroke.points.isEmpty) continue;
 
       final paint = Paint()
-        ..strokeWidth = stroke.width
+        ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
-        ..style = PaintingStyle.stroke
-        ..color = Color(stroke.color);
+        ..strokeWidth = stroke.eraser
+            ? stroke.width * 2.5
+            : stroke.width
+        ..color = Color(stroke.color)
+        ..blendMode = stroke.eraser
+            ? BlendMode.clear
+            : BlendMode.srcOver;
 
-      if (stroke.eraser) {
-        paint
-          ..blendMode = BlendMode.clear
-          ..strokeWidth = stroke.width * 2.5;
+      if (!stroke.eraser &&
+          stroke.width >= 14) {
+        paint.color = Color(stroke.color).withValues(
+          alpha: .32,
+        );
       }
 
       final path = Path()
@@ -31,8 +37,8 @@ class HandwritingPainter extends CustomPainter {
           stroke.points.first.y,
         );
 
-      for (final point in stroke.points.skip(1)) {
-        path.lineTo(point.x, point.y);
+      for (final p in stroke.points.skip(1)) {
+        path.lineTo(p.x, p.y);
       }
 
       canvas.drawPath(path, paint);
@@ -42,7 +48,6 @@ class HandwritingPainter extends CustomPainter {
   @override
   bool shouldRepaint(
     covariant HandwritingPainter oldDelegate,
-  ) {
-    return oldDelegate.strokes != strokes;
-  }
+  ) =>
+      true;
 }
