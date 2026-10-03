@@ -38,21 +38,20 @@ class _TextEditorPageState extends State<TextEditorPage> {
   @override
   void initState() {
     super.initState();
-
     titleController = TextEditingController(
       text: widget.item?['title']?.toString() ?? '',
     );
-
     editorFocusNode = FocusNode();
     editorScrollController = ScrollController();
     controller = _loadDocument();
-
     rtl = _detectDirection(controller.document.toPlainText());
   }
 
   QuillController _loadDocument() {
     final raw = widget.item?['content']?.toString() ?? '';
-    if (raw.trim().isEmpty) return QuillController.basic();
+    if (raw.trim().isEmpty) {
+      return QuillController.basic();
+    }
 
     try {
       final decoded = jsonDecode(raw);
@@ -61,18 +60,15 @@ class _TextEditorPageState extends State<TextEditorPage> {
         final text = decoded['text'];
         final ink = decoded['handwriting'];
 
-        if (ink is List) handwritingData = jsonEncode(ink);
+        if (ink is List) {
+          handwritingData = jsonEncode(ink);
+        }
 
         if (text is List) {
           final doc = Document.fromJson(
             List<Map<String, dynamic>>.from(text),
           );
-          return QuillController(
-            document: doc,
-            selection: TextSelection.collapsed(
-              offset: doc.length > 0 ? doc.length - 1 : 0,
-            ),
-          );
+          return _controllerFrom(doc);
         }
       }
 
@@ -80,16 +76,15 @@ class _TextEditorPageState extends State<TextEditorPage> {
         final doc = Document.fromJson(
           List<Map<String, dynamic>>.from(decoded),
         );
-        return QuillController(
-          document: doc,
-          selection: TextSelection.collapsed(
-            offset: doc.length > 0 ? doc.length - 1 : 0,
-          ),
-        );
+        return _controllerFrom(doc);
       }
     } catch (_) {}
 
     final doc = Document()..insert(0, raw);
+    return _controllerFrom(doc);
+  }
+
+  QuillController _controllerFrom(Document doc) {
     return QuillController(
       document: doc,
       selection: TextSelection.collapsed(
@@ -99,11 +94,18 @@ class _TextEditorPageState extends State<TextEditorPage> {
   }
 
   bool _detectDirection(String text) {
-    final a = RegExp(r'[\u0600-\u06FF]').firstMatch(text);
-    final l = RegExp(r'[A-Za-z]').firstMatch(text);
-    if (a == null) return false;
-    if (l == null) return true;
-    return a.start < l.start;
+    final arabic = RegExp(r'[\u0600-\u06FF]').firstMatch(text);
+    final latin = RegExp(r'[A-Za-z]').firstMatch(text);
+
+    if (arabic == null) {
+      return false;
+    }
+
+    if (latin == null) {
+      return true;
+    }
+
+    return arabic.start < latin.start;
   }
 
   void _toggleDirection() {
@@ -113,13 +115,19 @@ class _TextEditorPageState extends State<TextEditorPage> {
   void _togglePen() {
     setState(() {
       penMode = !penMode;
-      if (!penMode) editorFocusNode.requestFocus();
-      else editorFocusNode.unfocus();
+
+      if (penMode) {
+        editorFocusNode.unfocus();
+      } else {
+        editorFocusNode.requestFocus();
+      }
     });
   }
 
   Future<void> _save() async {
-    if (saving) return;
+    if (saving) {
+      return;
+    }
 
     final title = titleController.text.trim();
     final text = controller.document.toPlainText().trim();
@@ -164,11 +172,19 @@ class _TextEditorPageState extends State<TextEditorPage> {
         );
       }
 
-      if (mounted) Navigator.pop(context, true);
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.pop(context, true);
     } catch (_) {
-      if (mounted) _msg('Could not save the note.');
+      if (mounted) {
+        _msg('Could not save the note.');
+      }
     } finally {
-      if (mounted) setState(() => saving = false);
+      if (mounted) {
+        setState(() => saving = false);
+      }
     }
   }
 
@@ -191,7 +207,9 @@ class _TextEditorPageState extends State<TextEditorPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.item == null ? 'New Note' : 'Edit Note'),
+        title: Text(
+          widget.item == null ? 'New Note' : 'Edit Note',
+        ),
         actions: [
           IconButton(
             tooltip: rtl ? 'Left to Right' : 'Right to Left',
@@ -216,7 +234,9 @@ class _TextEditorPageState extends State<TextEditorPage> {
                 ? const SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                    ),
                   )
                 : const Icon(Icons.check),
           ),
