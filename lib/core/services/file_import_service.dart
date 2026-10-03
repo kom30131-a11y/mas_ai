@@ -21,18 +21,26 @@ class ImportedFile {
   });
 
   bool get hasExtractedText =>
-      extractedText != null && extractedText!.trim().isNotEmpty;
+      extractedText != null &&
+      extractedText!.trim().isNotEmpty;
 }
 
 class FileImportService {
   FileImportService._();
 
-  static final FileImportService instance = FileImportService._();
+  static final FileImportService instance =
+      FileImportService._();
 
   Future<ImportedFile?> pickFile() async {
-    final file = await FilePicker.pickFile();
+    final result = await FilePicker.pickFiles();
 
-    if (file == null || file.path == null) {
+    if (result == null || result.files.isEmpty) {
+      return null;
+    }
+
+    final file = result.files.first;
+
+    if (file.path == null) {
       return null;
     }
 
@@ -75,10 +83,13 @@ class FileImportService {
     return importedFile;
   }
 
-  Future<void> _saveImportedFile(ImportedFile file) async {
+  Future<void> _saveImportedFile(
+    ImportedFile file,
+  ) async {
     final now = DateTime.now().toIso8601String();
 
-    final contentId = await DatabaseRepository.instance.insertContent({
+    final contentId =
+        await DatabaseRepository.instance.insertContent({
       'title': file.fileName,
       'type': file.extension ?? 'unknown',
       'content': file.extractedText ?? '',
@@ -122,18 +133,31 @@ class FileImportService {
       case 'heic':
         return 'image/heic';
 
+      case 'ppt':
+        return 'application/vnd.ms-powerpoint';
+
+      case 'pptx':
+        return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+
       default:
         return null;
     }
   }
 
-  Future<String> _extractTextFromTxt(String path) async {
+  Future<String> _extractTextFromTxt(
+    String path,
+  ) async {
     return File(path).readAsString();
   }
 
-  Future<String> _extractTextFromPdf(String path) async {
+  Future<String> _extractTextFromPdf(
+    String path,
+  ) async {
     final bytes = await File(path).readAsBytes();
-    final document = PdfDocument(inputBytes: bytes);
+
+    final document = PdfDocument(
+      inputBytes: bytes,
+    );
 
     try {
       return PdfTextExtractor(document).extractText();
@@ -142,7 +166,9 @@ class FileImportService {
     }
   }
 
-  Future<String> _extractTextFromDocx(String path) async {
+  Future<String> _extractTextFromDocx(
+    String path,
+  ) async {
     final document = docx.loadDocxDocument(path);
     final buffer = StringBuffer();
 
@@ -157,12 +183,18 @@ class FileImportService {
     return buffer.toString().trim();
   }
 
-  Future<String> _extractTextFromImage(String path) async {
-    final inputImage = InputImage.fromFilePath(path);
+  Future<String> _extractTextFromImage(
+    String path,
+  ) async {
+    final inputImage =
+        InputImage.fromFilePath(path);
+
     final recognizer = TextRecognizer();
 
     try {
-      final result = await recognizer.processImage(inputImage);
+      final result =
+          await recognizer.processImage(inputImage);
+
       return result.text;
     } finally {
       await recognizer.close();
