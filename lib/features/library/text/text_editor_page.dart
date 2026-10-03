@@ -58,7 +58,9 @@ class _TextEditorPageState extends State<TextEditorPage> {
             document: Document.fromJson(
               List<Map<String, dynamic>>.from(data),
             ),
-            selection: const TextSelection.collapsed(offset: 0),
+            selection: const TextSelection.collapsed(
+              offset: 0,
+            ),
           );
         }
       } catch (_) {}
@@ -72,7 +74,9 @@ class _TextEditorPageState extends State<TextEditorPage> {
 
     return QuillController(
       document: document,
-      selection: const TextSelection.collapsed(offset: 0),
+      selection: const TextSelection.collapsed(
+        offset: 0,
+      ),
     );
   }
 
@@ -107,7 +111,8 @@ class _TextEditorPageState extends State<TextEditorPage> {
 
   Future<void> save() async {
     final title = titleController.text.trim();
-    final plainText = controller.document.toPlainText().trim();
+    final plainText =
+        controller.document.toPlainText().trim();
 
     if (title.isEmpty || plainText.isEmpty) return;
 
@@ -200,17 +205,57 @@ class _TextEditorPageState extends State<TextEditorPage> {
                   .titleLarge,
             ),
           ),
+
           const Divider(height: 1),
+
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: QuillSimpleToolbar(
               controller: controller,
               config: const QuillSimpleToolbarConfig(
-                multiRowsDisplay: false,
+                multiRowsDisplay: true,
+
+                showBoldButton: true,
+                showItalicButton: true,
+                showUnderLineButton: true,
+                showStrikeThrough: true,
+
+                showFontSize: true,
+                showFontFamily: true,
+
+                showColorButton: true,
+                showBackgroundColorButton: true,
+
+                showAlignmentButtons: true,
+                showHeaderStyle: true,
+
+                showListNumbers: true,
+                showListBullets: true,
+                showListCheck: true,
+
+                showIndent: true,
+                showQuote: true,
+                showCodeBlock: true,
+
+                showLink: true,
+
+                showUndo: true,
+                showRedo: true,
+                showClearFormat: true,
+
+                showDirection: true,
+
+                showSearchButton: true,
+
+                showClipboardCut: true,
+                showClipboardCopy: true,
+                showClipboardPaste: true,
               ),
             ),
           ),
+
           const Divider(height: 1),
+
           Expanded(
             child: Directionality(
               textDirection: direction,
