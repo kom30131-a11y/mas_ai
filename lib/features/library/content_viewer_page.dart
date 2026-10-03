@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:open_filex/open_filex.dart';
 
 import 'image/image_viewer_page.dart';
 import 'pdf/pdf_viewer_page.dart';
@@ -20,50 +19,6 @@ class ContentViewerPage extends StatelessWidget {
     this.extractedText,
   });
 
-  bool get isWord {
-    final value = type.toLowerCase();
-
-    return value == 'word' ||
-        value == 'doc' ||
-        value == 'docx';
-  }
-
-  bool get isPowerPoint {
-    final value = type.toLowerCase();
-
-    return value == 'ppt' ||
-        value == 'pptx' ||
-        value == 'powerpoint';
-  }
-
-  bool get isImage {
-    return [
-      'jpg',
-      'jpeg',
-      'png',
-      'webp',
-      'heic',
-      'image',
-    ].contains(type.toLowerCase());
-  }
-
-  Future<void> _openOfficeFile(BuildContext context) async {
-    final result = await OpenFilex.open(path);
-
-    if (!context.mounted) return;
-
-    if (result.type != ResultType.done) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'No compatible app was found to open this file.\n'
-            '${result.message}',
-          ),
-        ),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final value = type.toLowerCase();
@@ -75,26 +30,24 @@ class ContentViewerPage extends StatelessWidget {
       );
     }
 
-    if (isImage) {
+    if (_isImage(value)) {
       return ImageViewerPage(
         title: title,
         path: path,
       );
     }
 
-    if (isWord) {
+    if (_isWord(value)) {
       return WordViewerPage(
         title: title,
         path: path,
-        onOpen: () => _openOfficeFile(context),
       );
     }
 
-    if (isPowerPoint) {
+    if (_isPowerPoint(value)) {
       return PowerPointViewerPage(
         title: title,
         path: path,
-        onOpen: () => _openOfficeFile(context),
       );
     }
 
@@ -113,6 +66,27 @@ class ContentViewerPage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  bool _isWord(String value) {
+    return value == 'word' ||
+        value == 'doc' ||
+        value == 'docx';
+  }
+
+  bool _isPowerPoint(String value) {
+    return value == 'ppt' ||
+        value == 'pptx' ||
+        value == 'powerpoint';
+  }
+
+  bool _isImage(String value) {
+    return value == 'jpg' ||
+        value == 'jpeg' ||
+        value == 'png' ||
+        value == 'webp' ||
+        value == 'heic' ||
+        value == 'image';
   }
 
   Widget _textViewer(BuildContext context, String text) {
