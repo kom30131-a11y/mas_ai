@@ -326,7 +326,7 @@ class _SubjectState extends State<SubjectPage> {
         ),
       );
     } else {
-      await pickFile(
+      await actions.pickFile(
         t,
         widget.subjectId,
         null,
@@ -542,7 +542,7 @@ class _FolderState extends State<FolderPage> {
         ),
       );
     } else {
-      await pickFile(
+      await actions.pickFile(
         t,
         widget.subjectId,
         widget.folderId,
