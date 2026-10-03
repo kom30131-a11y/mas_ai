@@ -72,16 +72,18 @@ final file = File(widget.path);
     }
   }
 
+  var result = buffer.toString().trim();
+
+  if (result.isEmpty &&
+      widget.extractedText != null &&
+      widget.extractedText!.trim().isNotEmpty) {
+    result = widget.extractedText!.trim();
+  }
+
   if (!mounted) return;
 
   setState(() {
-    documentText = buffer.toString().trim();
-
-    if (documentText!.isEmpty &&
-        widget.extractedText != null &&
-        widget.extractedText!.trim().isNotEmpty) {
-      documentText = widget.extractedText!.trim();
-    }
+    documentText = result;
   });
 } catch (e) {
   if (!mounted) return;
@@ -128,7 +130,7 @@ final file = File(widget.path);
 
   if (slides.isEmpty) {
     throw Exception(
-      'No readable PowerPoint slides were found.',
+      'No PowerPoint slides were found.',
     );
   }
 
@@ -147,11 +149,17 @@ final file = File(widget.path);
 
     final document = XmlDocument.parse(xmlText);
 
-    final texts = document
-        .findAllElements('t')
-        .map((node) => node.innerText.trim())
-        .where((text) => text.isNotEmpty)
-        .toList();
+    final texts = <String>[];
+
+    for (final element in document.descendants.whereType<XmlElement>()) {
+      if (element.localName == 't') {
+        final text = element.innerText.trim();
+
+        if (text.isNotEmpty) {
+          texts.add(text);
+        }
+      }
+    }
 
     if (texts.isEmpty) {
       continue;
