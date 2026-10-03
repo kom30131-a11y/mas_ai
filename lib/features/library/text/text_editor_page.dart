@@ -246,10 +246,6 @@ class _TextEditorPageState extends State<TextEditorPage> {
                 showDirection: true,
 
                 showSearchButton: true,
-
-                showClipboardCut: true,
-                showClipboardCopy: true,
-                showClipboardPaste: true,
               ),
             ),
           ),
