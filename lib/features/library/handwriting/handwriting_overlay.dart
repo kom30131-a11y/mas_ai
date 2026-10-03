@@ -29,7 +29,6 @@ class _HandwritingOverlayState
 
   Color penColor = Colors.red;
   double penWidth = 4;
-  bool penEnabled = false;
   bool eraser = false;
 
   @override
@@ -40,62 +39,49 @@ class _HandwritingOverlayState
 
   void _load() {
     final raw = widget.initialData;
-
-    if (raw == null || raw.trim().isEmpty) return;
+    if (raw == null || raw.isEmpty) return;
 
     try {
-      final decoded = jsonDecode(raw);
+      final data = jsonDecode(raw);
 
-      if (decoded is! List) return;
-
-      strokes.addAll(
-        decoded.map(
-          (e) => InkStroke.fromJson(
-            Map<String, dynamic>.from(e),
+      if (data is List) {
+        strokes.addAll(
+          data.map(
+            (e) => InkStroke.fromJson(
+              Map<String, dynamic>.from(e),
+            ),
           ),
-        ),
-      );
+        );
+      }
     } catch (_) {}
   }
 
-  String _serialize() {
-    return jsonEncode(
-      strokes.map((e) => e.toJson()).toList(),
+  void _notify() {
+    widget.onChanged?.call(
+      jsonEncode(
+        strokes.map((e) => e.toJson()).toList(),
+      ),
     );
   }
 
-  void _notify() {
-    widget.onChanged?.call(_serialize());
-  }
-
-  void _start(Offset position) {
-    if (!penEnabled) return;
-
+  void _start(Offset p) {
     setState(() {
       currentPoints = [
-        StrokePoint(
-          x: position.dx,
-          y: position.dy,
-        ),
+        StrokePoint(x: p.dx, y: p.dy),
       ];
     });
   }
 
-  void _update(Offset position) {
-    if (!penEnabled) return;
-
+  void _move(Offset p) {
     setState(() {
       currentPoints.add(
-        StrokePoint(
-          x: position.dx,
-          y: position.dy,
-        ),
+        StrokePoint(x: p.dx, y: p.dy),
       );
     });
   }
 
   void _end() {
-    if (!penEnabled || currentPoints.isEmpty) return;
+    if (currentPoints.isEmpty) return;
 
     setState(() {
       strokes.add(
@@ -106,15 +92,14 @@ class _HandwritingOverlayState
           eraser: eraser,
         ),
       );
-
-      currentPoints = [];
+      currentPoints.clear();
       redoStack.clear();
     });
 
     _notify();
   }
 
-  void undo() {
+  void _undo() {
     if (strokes.isEmpty) return;
 
     setState(() {
@@ -124,7 +109,7 @@ class _HandwritingOverlayState
     _notify();
   }
 
-  void redo() {
+  void _redo() {
     if (redoStack.isEmpty) return;
 
     setState(() {
@@ -134,7 +119,7 @@ class _HandwritingOverlayState
     _notify();
   }
 
-  void clear() {
+  void _clear() {
     if (strokes.isEmpty) return;
 
     setState(() {
@@ -145,29 +130,7 @@ class _HandwritingOverlayState
     _notify();
   }
 
-  void setPen() {
-    setState(() {
-      penEnabled = true;
-      eraser = false;
-    });
-  }
-
-  void setEraser() {
-    setState(() {
-      penEnabled = true;
-      eraser = true;
-    });
-  }
-
-  void disablePen() {
-    setState(() {
-      penEnabled = false;
-      eraser = false;
-      currentPoints = [];
-    });
-  }
-
-  void _pickColor() {
+  void _color() {
     const colors = [
       Colors.red,
       Colors.black,
@@ -178,80 +141,67 @@ class _HandwritingOverlayState
       Colors.pink,
     ];
 
-    showModalBottomSheet<void>(
+    showModalBottomSheet(
       context: context,
-      builder: (_) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Wrap(
-              spacing: 18,
-              runSpacing: 18,
-              children: colors.map((color) {
-                return InkWell(
-                  onTap: () {
-                    setState(() {
-                      penColor = color;
-                      eraser = false;
-                      penEnabled = true;
-                    });
-
-                    Navigator.pop(context);
-                  },
-                  child: CircleAvatar(
-                    radius: 24,
-                    backgroundColor: color,
-                  ),
-                );
-              }).toList(),
-            ),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Wrap(
+            spacing: 16,
+            runSpacing: 16,
+            children: colors.map((c) {
+              return InkWell(
+                onTap: () {
+                  setState(() {
+                    penColor = c;
+                    eraser = false;
+                  });
+                  Navigator.pop(context);
+                },
+                child: CircleAvatar(
+                  radius: 23,
+                  backgroundColor: c,
+                ),
+              );
+            }).toList(),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
-  void _pickWidth() {
-    showModalBottomSheet<void>(
+  void _width() {
+    showModalBottomSheet(
       context: context,
-      builder: (_) {
-        return SafeArea(
-          child: StatefulBuilder(
-            builder: (context, setSheetState) {
-              return Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      'Pen size',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Slider(
-                      min: 1,
-                      max: 16,
-                      value: penWidth,
-                      onChanged: (value) {
-                        setState(() {
-                          penWidth = value;
-                        });
-
-                        setSheetState(() {});
-                      },
-                    ),
-                    Text(
-                      '${penWidth.toStringAsFixed(0)} px',
-                    ),
-                  ],
+      builder: (_) => StatefulBuilder(
+        builder: (context, update) {
+          return Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Pen size',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              );
-            },
-          ),
-        );
-      },
+                Slider(
+                  min: 1,
+                  max: 16,
+                  value: penWidth,
+                  onChanged: (v) {
+                    setState(() => penWidth = v);
+                    update(() {});
+                  },
+                ),
+                Text('${penWidth.round()} px'),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -260,127 +210,113 @@ class _HandwritingOverlayState
     return Stack(
       fit: StackFit.expand,
       children: [
-        IgnorePointer(
-          ignoring: !penEnabled,
-          child: GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onPanStart: (details) {
-              _start(details.localPosition);
-            },
-            onPanUpdate: (details) {
-              _update(details.localPosition);
-            },
-            onPanEnd: (_) {
-              _end();
-            },
-            child: CustomPaint(
-              painter: HandwritingPainter(
-                [
-                  ...strokes,
-                  if (currentPoints.isNotEmpty)
-                    InkStroke(
-                      points: currentPoints,
-                      color: penColor.toARGB32(),
-                      width: penWidth,
-                      eraser: eraser,
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onPanStart: (d) => _start(d.localPosition),
+          onPanUpdate: (d) => _move(d.localPosition),
+          onPanEnd: (_) => _end(),
+          child: CustomPaint(
+            painter: HandwritingPainter([
+              ...strokes,
+              if (currentPoints.isNotEmpty)
+                InkStroke(
+                  points: currentPoints,
+                  color: penColor.toARGB32(),
+                  width: penWidth,
+                  eraser: eraser,
+                ),
+            ]),
+          ),
+        ),
+        Positioned(
+          left: 8,
+          right: 8,
+          bottom: 8,
+          child: Material(
+            elevation: 5,
+            borderRadius: BorderRadius.circular(18),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  IconButton(
+                    tooltip: 'Pen',
+                    onPressed: () {
+                      setState(() => eraser = false);
+                    },
+                    icon: Icon(
+                      Icons.edit,
+                      color: eraser
+                          ? null
+                          : Theme.of(context)
+                              .colorScheme
+                              .primary,
                     ),
+                  ),
+                  IconButton(
+                    tooltip: 'Highlighter',
+                    onPressed: () {
+                      setState(() {
+                        eraser = false;
+                        penColor = penColor.withValues(
+                          alpha: .35,
+                        );
+                        penWidth = 14;
+                      });
+                    },
+                    icon: const Icon(
+                      Icons.highlight,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Eraser',
+                    onPressed: () {
+                      setState(() => eraser = true);
+                    },
+                    icon: const Icon(
+                      Icons.auto_fix_normal,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Color',
+                    onPressed: _color,
+                    icon: Icon(
+                      Icons.palette_outlined,
+                      color: penColor,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Size',
+                    onPressed: _width,
+                    icon: const Icon(
+                      Icons.line_weight,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Undo',
+                    onPressed:
+                        strokes.isEmpty ? null : _undo,
+                    icon: const Icon(Icons.undo),
+                  ),
+                  IconButton(
+                    tooltip: 'Redo',
+                    onPressed:
+                        redoStack.isEmpty ? null : _redo,
+                    icon: const Icon(Icons.redo),
+                  ),
+                  IconButton(
+                    tooltip: 'Clear',
+                    onPressed:
+                        strokes.isEmpty ? null : _clear,
+                    icon: const Icon(
+                      Icons.delete_outline,
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
         ),
-        if (penEnabled)
-          Positioned(
-            left: 8,
-            right: 8,
-            bottom: 8,
-            child: Material(
-              elevation: 4,
-              borderRadius:
-                  BorderRadius.circular(18),
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(
-                  horizontal: 6,
-                  vertical: 4,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      tooltip: 'Text mode',
-                      onPressed: disablePen,
-                      icon: const Icon(
-                        Icons.text_fields,
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Pen',
-                      onPressed: setPen,
-                      icon: Icon(
-                        Icons.edit,
-                        color: eraser
-                            ? null
-                            : Theme.of(context)
-                                .colorScheme
-                                .primary,
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Eraser',
-                      onPressed: setEraser,
-                      icon: Icon(
-                        Icons.auto_fix_normal,
-                        color: eraser
-                            ? Theme.of(context)
-                                .colorScheme
-                                .primary
-                            : null,
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Color',
-                      onPressed: _pickColor,
-                      icon: Icon(
-                        Icons.palette_outlined,
-                        color: penColor,
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Pen size',
-                      onPressed: _pickWidth,
-                      icon: const Icon(
-                        Icons.line_weight,
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Undo',
-                      onPressed: strokes.isEmpty
-                          ? null
-                          : undo,
-                      icon: const Icon(Icons.undo),
-                    ),
-                    IconButton(
-                      tooltip: 'Redo',
-                      onPressed: redoStack.isEmpty
-                          ? null
-                          : redo,
-                      icon: const Icon(Icons.redo),
-                    ),
-                    IconButton(
-                      tooltip: 'Clear',
-                      onPressed: strokes.isEmpty
-                          ? null
-                          : clear,
-                      icon: const Icon(
-                        Icons.delete_outline,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
       ],
     );
   }
