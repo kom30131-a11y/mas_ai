@@ -30,25 +30,6 @@ class DocumentSurface extends StatefulWidget {
 }
 
 class _DocumentSurfaceState extends State<DocumentSurface> {
-  final TransformationController _transform =
-      TransformationController();
-
-  double _scale = 1;
-
-  @override
-  void dispose() {
-    _transform.dispose();
-    super.dispose();
-  }
-
-  void _zoom(double value) {
-    setState(() {
-      _scale = value.clamp(.75, 3.0);
-      _transform.value = Matrix4.identity()
-        ..scale(_scale);
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final direction =
@@ -56,7 +37,6 @@ class _DocumentSurfaceState extends State<DocumentSurface> {
 
     return ClipRect(
       child: InteractiveViewer(
-        transformationController: _transform,
         minScale: .75,
         maxScale: 3,
         scaleEnabled: true,
