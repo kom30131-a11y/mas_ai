@@ -49,6 +49,7 @@ class _TextEditorPageState extends State<TextEditorPage> {
 
   QuillController _loadDocument() {
     final raw = widget.item?['content']?.toString() ?? '';
+
     if (raw.trim().isEmpty) {
       return QuillController.basic();
     }
@@ -65,26 +66,29 @@ class _TextEditorPageState extends State<TextEditorPage> {
         }
 
         if (text is List) {
-          final doc = Document.fromJson(
-            List<Map<String, dynamic>>.from(text),
+          return _fromDocument(
+            Document.fromJson(
+              List<Map<String, dynamic>>.from(text),
+            ),
           );
-          return _controllerFrom(doc);
         }
       }
 
       if (decoded is List) {
-        final doc = Document.fromJson(
-          List<Map<String, dynamic>>.from(decoded),
+        return _fromDocument(
+          Document.fromJson(
+            List<Map<String, dynamic>>.from(decoded),
+          ),
         );
-        return _controllerFrom(doc);
       }
     } catch (_) {}
 
-    final doc = Document()..insert(0, raw);
-    return _controllerFrom(doc);
+    return _fromDocument(
+      Document()..insert(0, raw),
+    );
   }
 
-  QuillController _controllerFrom(Document doc) {
+  QuillController _fromDocument(Document doc) {
     return QuillController(
       document: doc,
       selection: TextSelection.collapsed(
@@ -94,18 +98,18 @@ class _TextEditorPageState extends State<TextEditorPage> {
   }
 
   bool _detectDirection(String text) {
-    final arabic = RegExp(r'[\u0600-\u06FF]').firstMatch(text);
-    final latin = RegExp(r'[A-Za-z]').firstMatch(text);
+    final a = RegExp(r'[\u0600-\u06FF]').firstMatch(text);
+    final l = RegExp(r'[A-Za-z]').firstMatch(text);
 
-    if (arabic == null) {
+    if (a == null) {
       return false;
     }
 
-    if (latin == null) {
+    if (l == null) {
       return true;
     }
 
-    return arabic.start < latin.start;
+    return a.start < l.start;
   }
 
   void _toggleDirection() {
