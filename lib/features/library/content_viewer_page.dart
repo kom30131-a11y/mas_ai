@@ -100,10 +100,7 @@ class _ContentViewerPageState extends State<ContentViewerPage> {
       for (var i = 0; i < slides.length; i++) {
         final file = slides[i];
 
-        final data = file.content;
-        final xmlText = String.fromCharCodes(
-          data is List<int> ? data : <int>[],
-        );
+        final xmlText = String.fromCharCodes(data);
 
         if (xmlText.trim().isEmpty) continue;
 
