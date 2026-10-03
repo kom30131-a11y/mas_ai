@@ -1,10 +1,12 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
-import 'package:pdfx/pdfx.dart';
 
-class ContentViewerPage extends StatefulWidget {
+import 'image/image_viewer_page.dart';
+import 'pdf/pdf_viewer_page.dart';
+import 'powerpoint/powerpoint_viewer_page.dart';
+import 'word/word_viewer_page.dart';
+
+class ContentViewerPage extends StatelessWidget {
   final String title;
   final String path;
   final String type;
@@ -18,48 +20,23 @@ class ContentViewerPage extends StatefulWidget {
     this.extractedText,
   });
 
-  @override
-  State<ContentViewerPage> createState() =>
-      _ContentViewerPageState();
-}
-
-class _ContentViewerPageState
-    extends State<ContentViewerPage> {
-  PdfControllerPinch? pdfController;
-
-  @override
-  void initState() {
-    super.initState();
-
-    if (widget.type.toLowerCase() == 'pdf') {
-      pdfController = PdfControllerPinch(
-        document: PdfDocument.openFile(widget.path),
-      );
-    }
-  }
-
-  @override
-  void dispose() {
-    pdfController?.dispose();
-    super.dispose();
-  }
-
   bool get isWord {
-    final type = widget.type.toLowerCase();
-    return type == 'word' ||
-        type == 'doc' ||
-        type == 'docx';
+    final value = type.toLowerCase();
+
+    return value == 'word' ||
+        value == 'doc' ||
+        value == 'docx';
   }
 
   bool get isPowerPoint {
-    final type = widget.type.toLowerCase();
-    return type == 'ppt' ||
-        type == 'pptx' ||
-        type == 'powerpoint';
+    final value = type.toLowerCase();
+
+    return value == 'ppt' ||
+        value == 'pptx' ||
+        value == 'powerpoint';
   }
 
   bool get isImage {
-    final type = widget.type.toLowerCase();
     return [
       'jpg',
       'jpeg',
@@ -67,13 +44,13 @@ class _ContentViewerPageState
       'webp',
       'heic',
       'image',
-    ].contains(type);
+    ].contains(type.toLowerCase());
   }
 
-  Future<void> _openOfficeFile() async {
-    final result = await OpenFilex.open(widget.path);
+  Future<void> _openOfficeFile(BuildContext context) async {
+    final result = await OpenFilex.open(path);
 
-    if (!mounted) return;
+    if (!context.mounted) return;
 
     if (result.type != ResultType.done) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -89,30 +66,46 @@ class _ContentViewerPageState
 
   @override
   Widget build(BuildContext context) {
-    final type = widget.type.toLowerCase();
+    final value = type.toLowerCase();
 
-    if (type == 'pdf' && pdfController != null) {
-      return _pdfViewer();
+    if (value == 'pdf') {
+      return PdfViewerPage(
+        title: title,
+        path: path,
+      );
     }
 
     if (isImage) {
-      return _imageViewer();
-    }
-
-    if (isWord || isPowerPoint) {
-      return _officeViewer();
-    }
-
-    if (widget.extractedText != null &&
-        widget.extractedText!.trim().isNotEmpty) {
-      return _textViewer(
-        widget.extractedText!,
+      return ImageViewerPage(
+        title: title,
+        path: path,
       );
+    }
+
+    if (isWord) {
+      return WordViewerPage(
+        title: title,
+        path: path,
+        onOpen: () => _openOfficeFile(context),
+      );
+    }
+
+    if (isPowerPoint) {
+      return PowerPointViewerPage(
+        title: title,
+        path: path,
+        onOpen: () => _openOfficeFile(context),
+      );
+    }
+
+    if (extractedText != null &&
+        extractedText!.trim().isNotEmpty) {
+      return _textViewer(context, extractedText!);
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.title),
+        title: Text(title),
       ),
       body: const Center(
         child: Text(
@@ -122,129 +115,24 @@ class _ContentViewerPageState
     );
   }
 
-  Widget _pdfViewer() {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-      ),
-      body: PdfViewPinch(
-        controller: pdfController!,
-        minScale: 1,
-        maxScale: 5,
-        builders:
-            PdfViewPinchBuilders<DefaultBuilderOptions>(
-          options: const DefaultBuilderOptions(),
-          documentLoaderBuilder: (_) =>
-              const Center(
-            child: CircularProgressIndicator(),
-          ),
-          pageLoaderBuilder: (_) =>
-              const Center(
-            child: CircularProgressIndicator(),
-          ),
-          errorBuilder: (_, error) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(
-                'Unable to open PDF.\n$error',
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _imageViewer() {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-      ),
-      body: Center(
-        child: InteractiveViewer(
-          minScale: 0.5,
-          maxScale: 5,
-          child: Image.file(
-            File(widget.path),
-            fit: BoxFit.contain,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _officeViewer() {
-    final format =
-        isWord ? 'Word' : 'PowerPoint';
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment:
-                MainAxisAlignment.center,
-            children: [
-              Icon(
-                isWord
-                    ? Icons.description_outlined
-                    : Icons.slideshow_outlined,
-                size: 72,
-              ),
-              const SizedBox(height: 20),
-              Text(
-                format,
-                style: Theme.of(context)
-                    .textTheme
-                    .headlineSmall,
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Open the original file with the '
-                'compatible Android application.',
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              FilledButton.icon(
-                onPressed: _openOfficeFile,
-                icon: const Icon(
-                  Icons.open_in_new,
-                ),
-                label: const Text(
-                  'Open file',
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _textViewer(String text) {
+  Widget _textViewer(BuildContext context, String text) {
     final isArabic = RegExp(
       r'[\u0600-\u06FF]',
     ).hasMatch(text);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.title),
+        title: Text(title),
       ),
       body: Directionality(
-        textDirection: isArabic
-            ? TextDirection.rtl
-            : TextDirection.ltr,
+        textDirection:
+            isArabic ? TextDirection.rtl : TextDirection.ltr,
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: SelectableText(
             text,
-            textAlign: isArabic
-                ? TextAlign.right
-                : TextAlign.left,
+            textAlign:
+                isArabic ? TextAlign.right : TextAlign.left,
             style: const TextStyle(
               fontSize: 16,
               height: 1.6,
