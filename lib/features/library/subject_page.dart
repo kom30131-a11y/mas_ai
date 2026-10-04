@@ -8,6 +8,31 @@ import 'widgets/library_helpers.dart';
 
 final repo = DatabaseRepository.instance;
 
+class SubjectPage extends StatefulWidget {
+  final int subjectId;
+  final String subjectName;
+
+  const SubjectPage({
+    super.key,
+    required this.subjectId,
+    required this.subjectName,
+  });
+
+  @override
+  State<SubjectPage> createState() => _SubjectState();
+}
+
+class _SubjectState extends State<SubjectPage> {
+  List<Map<String, dynamic>> folders = [];
+  List<Map<String, dynamic>> content = [];
+  bool loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    load();
+  }
+
   Future<void> load() async {
     final allFolders = await repo.getFolders();
     final allContent = await repo.getContent();
@@ -18,8 +43,7 @@ final repo = DatabaseRepository.instance;
       folders = allFolders
           .where(
             (item) =>
-                item['subject_id'] ==
-                    widget.subjectId &&
+                item['subject_id'] == widget.subjectId &&
                 item['parent_id'] == null,
           )
           .toList();
@@ -27,8 +51,7 @@ final repo = DatabaseRepository.instance;
       content = allContent
           .where(
             (item) =>
-                item['subject_id'] ==
-                    widget.subjectId &&
+                item['subject_id'] == widget.subjectId &&
                 item['folder_id'] == null,
           )
           .toList();
@@ -42,9 +65,7 @@ final repo = DatabaseRepository.instance;
   ]) async {
     final name = await ask(
       context,
-      item == null
-          ? 'New folder'
-          : 'Rename folder',
+      item == null ? 'New folder' : 'Rename folder',
       item?['name']?.toString(),
     );
 
@@ -70,10 +91,7 @@ final repo = DatabaseRepository.instance;
   Future<void> deleteFolder(
     Map<String, dynamic> item,
   ) async {
-    if (!await sure(
-      context,
-      'Delete folder?',
-    )) {
+    if (!await sure(context, 'Delete folder?')) {
       return;
     }
 
@@ -91,7 +109,7 @@ final repo = DatabaseRepository.instance;
 
     if (type == 'text') {
       if (!mounted) return;
-      
+
       await Navigator.push(
         context,
         MaterialPageRoute(
@@ -125,9 +143,7 @@ final repo = DatabaseRepository.instance;
       leading: Icon(
         isFolder
             ? Icons.folder_outlined
-            : contentIcon(
-                item['type']?.toString(),
-              ),
+            : contentIcon(item['type']?.toString()),
       ),
       title: Text(title),
       onTap: () async {
@@ -139,8 +155,7 @@ final repo = DatabaseRepository.instance;
                 subjectId: widget.subjectId,
                 folderId: item['id'] as int,
                 folderName:
-                    item['name']?.toString() ??
-                        'Folder',
+                    item['name']?.toString() ?? 'Folder',
               ),
             ),
           );
@@ -189,17 +204,13 @@ final repo = DatabaseRepository.instance;
           PopupMenuItem(
             value: 'r',
             child: Text(
-              isFolder
-                  ? 'Rename folder'
-                  : 'Rename',
+              isFolder ? 'Rename folder' : 'Rename',
             ),
           ),
           PopupMenuItem(
             value: 'd',
             child: Text(
-              isFolder
-                  ? 'Delete folder'
-                  : 'Delete',
+              isFolder ? 'Delete folder' : 'Delete',
             ),
           ),
         ],
@@ -261,14 +272,11 @@ final repo = DatabaseRepository.instance;
                       (item) => row(item, false),
                     ),
                   ],
-                  if (folders.isEmpty &&
-                      content.isEmpty)
+                  if (folders.isEmpty && content.isEmpty)
                     const Padding(
                       padding: EdgeInsets.all(32),
                       child: Center(
-                        child: Text(
-                          'No content yet.',
-                        ),
+                        child: Text('No content yet.'),
                       ),
                     ),
                 ],
@@ -328,9 +336,7 @@ class _FolderState extends State<FolderPage> {
   ]) async {
     final name = await ask(
       context,
-      item == null
-          ? 'New folder'
-          : 'Rename folder',
+      item == null ? 'New folder' : 'Rename folder',
       item?['name']?.toString(),
     );
 
@@ -357,10 +363,7 @@ class _FolderState extends State<FolderPage> {
   Future<void> deleteFolder(
     Map<String, dynamic> item,
   ) async {
-    if (!await sure(
-      context,
-      'Delete folder?',
-    )) {
+    if (!await sure(context, 'Delete folder?')) {
       return;
     }
 
@@ -378,7 +381,7 @@ class _FolderState extends State<FolderPage> {
 
     if (type == 'text') {
       if (!mounted) return;
-      
+
       await Navigator.push(
         context,
         MaterialPageRoute(
@@ -403,12 +406,10 @@ class _FolderState extends State<FolderPage> {
 
   @override
   Widget build(BuildContext context) {
-    final types =
-        <String, List<Map<String, dynamic>>>{};
+    final types = <String, List<Map<String, dynamic>>>{};
 
     for (final item in content) {
-      final type =
-          item['type']?.toString() ?? 'Other';
+      final type = item['type']?.toString() ?? 'Other';
 
       types
           .putIfAbsent(
@@ -458,22 +459,17 @@ class _FolderState extends State<FolderPage> {
                           Icons.folder_outlined,
                         ),
                         title: Text(
-                          item['name']?.toString() ??
-                              'Folder',
+                          item['name']?.toString() ?? 'Folder',
                         ),
                         onTap: () async {
                           await Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) =>
-                                  FolderPage(
-                                subjectId:
-                                    widget.subjectId,
-                                folderId:
-                                    item['id'] as int,
+                              builder: (_) => FolderPage(
+                                subjectId: widget.subjectId,
+                                folderId: item['id'] as int,
                                 folderName:
-                                    item['name']
-                                            ?.toString() ??
+                                    item['name']?.toString() ??
                                         'Folder',
                               ),
                             ),
@@ -483,8 +479,7 @@ class _FolderState extends State<FolderPage> {
 
                           await load();
                         },
-                        trailing:
-                            PopupMenuButton<String>(
+                        trailing: PopupMenuButton<String>(
                           onSelected: (value) {
                             if (value == 'r') {
                               folder(item);
@@ -495,15 +490,11 @@ class _FolderState extends State<FolderPage> {
                           itemBuilder: (_) => const [
                             PopupMenuItem(
                               value: 'r',
-                              child: Text(
-                                'Rename folder',
-                              ),
+                              child: Text('Rename folder'),
                             ),
                             PopupMenuItem(
                               value: 'd',
-                              child: Text(
-                                'Delete folder',
-                              ),
+                              child: Text('Delete folder'),
                             ),
                           ],
                         ),
@@ -525,15 +516,11 @@ class _FolderState extends State<FolderPage> {
                         await Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) =>
-                                ContentTypePage(
-                              title:
-                                  typeLabel(entry.key),
+                            builder: (_) => ContentTypePage(
+                              title: typeLabel(entry.key),
                               items: entry.value,
-                              subjectId:
-                                  widget.subjectId,
-                              folderId:
-                                  widget.folderId,
+                              subjectId: widget.subjectId,
+                              folderId: widget.folderId,
                             ),
                           ),
                         );
@@ -544,14 +531,11 @@ class _FolderState extends State<FolderPage> {
                       },
                     ),
                   ),
-                  if (folders.isEmpty &&
-                      types.isEmpty)
+                  if (folders.isEmpty && types.isEmpty)
                     const Padding(
                       padding: EdgeInsets.all(32),
                       child: Center(
-                        child: Text(
-                          'No content yet.',
-                        ),
+                        child: Text('No content yet.'),
                       ),
                     ),
                 ],
@@ -576,21 +560,16 @@ class ContentTypePage extends StatefulWidget {
   });
 
   @override
-  State<ContentTypePage> createState() =>
-      _ContentTypeState();
+  State<ContentTypePage> createState() => _ContentTypeState();
 }
 
-class _ContentTypeState
-    extends State<ContentTypePage> {
+class _ContentTypeState extends State<ContentTypePage> {
   late List<Map<String, dynamic>> items;
 
   @override
   void initState() {
     super.initState();
-
-    items = List<Map<String, dynamic>>.from(
-      widget.items,
-    );
+    items = List<Map<String, dynamic>>.from(widget.items);
   }
 
   Future<void> refreshItems() async {
@@ -631,8 +610,7 @@ class _ContentTypeState
                       ),
                     ),
                     title: Text(
-                      item['title']?.toString() ??
-                          'Untitled',
+                      item['title']?.toString() ?? 'Untitled',
                     ),
                     onTap: () async {
                       await openContent(
@@ -646,8 +624,7 @@ class _ContentTypeState
 
                       await refreshItems();
                     },
-                    trailing:
-                        PopupMenuButton<String>(
+                    trailing: PopupMenuButton<String>(
                       onSelected: (value) async {
                         if (value == 'r') {
                           await actions.editContent(
