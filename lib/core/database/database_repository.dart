@@ -242,6 +242,30 @@ class DatabaseRepository {
     );
   }
 
+  // ============================================================
+  // Study Content
+  // ============================================================
+
+  Future<List<Map<String, dynamic>>> getContentForTopics(
+    List<int> topicIds,
+  ) async {
+    if (topicIds.isEmpty) return [];
+
+    final db = await DatabaseHelper.instance.database;
+
+    final placeholders = List.filled(
+      topicIds.length,
+      '?',
+    ).join(',');
+
+    return db.query(
+      'content',
+      where: 'topic_id IN ($placeholders)',
+      whereArgs: topicIds,
+      orderBy: 'id DESC',
+    );
+  }
+
   Future<int> updateContent({
     required int contentId,
     String? title,
