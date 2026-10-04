@@ -1,323 +1,243 @@
-import 'dart:convert';
-
 import '../../../core/database/database_repository.dart';
 
 class LibrarySearchResult {
-  final Map<String, dynamic> item;
-  final String? folderName;
-  final String snippet;
-  final bool isFolder;
-  final int? folderId;
+final Map<String, dynamic> item;
+final String path;
+final String matchedName;
+final bool isFolder;
 
-  const LibrarySearchResult({
-    required this.item,
-    required this.folderName,
-    required this.snippet,
-    this.isFolder = false,
-    this.folderId,
-  });
+const LibrarySearchResult({
+required this.item,
+required this.path,
+required this.matchedName,
+required this.isFolder,
+});
 }
 
 class LibrarySearch {
-  LibrarySearch._();
+LibrarySearch._();
 
-  static final _repo = DatabaseRepository.instance;
+static final _repo = DatabaseRepository.instance;
 
-  static Future<List<Map<String, dynamic>>> _allFolders() async {
-    final result = <Map<String, dynamic>>[];
+static Future<List<Map<String, dynamic>>> _getAllFolders() async {
+final result = <Map<String, dynamic>>[];
+final visited = <int>{};
 
-    Future<void> load(int? parentId) async {
-      final folders = await _repo.getFolders(
-        parentId: parentId,
-      );
+Future<void> load(int? parentId) async {
+  final folders = await _repo.getFolders(
+    parentId: parentId,
+  );
 
-      result.addAll(folders);
+  for (final folder in folders) {
+    final id = folder['id'];
 
-      for (final folder in folders) {
-        final id = folder['id'];
-
-        if (id is int) {
-          await load(id);
-        }
-      }
+    if (id is! int || !visited.add(id)) {
+      continue;
     }
 
-    await load(null);
+    result.add(folder);
+    await load(id);
+  }
+}
 
-    return result;
+await load(null);
+
+return result;
+
+}
+
+static Future<List<LibrarySearchResult>> search(
+String query,
+) async {
+final value = query.trim().toLowerCase();
+
+if (value.isEmpty) {
+  return [];
+}
+
+final subjects = await _repo.getSubjects();
+final folders = await _getAllFolders();
+final materials = await _repo.getContent();
+
+final subjectNames = <int, String>{};
+
+for (final subject in subjects) {
+  final id = subject['id'];
+
+  if (id is int) {
+    subjectNames[id] =
+        subject['name']?.toString() ?? 'Subject';
+  }
+}
+
+final folderById = <int, Map<String, dynamic>>{};
+final folderParent = <int, int?>{};
+
+for (final folder in folders) {
+  final id = folder['id'];
+
+  if (id is! int) {
+    continue;
   }
 
-  static Future<List<LibrarySearchResult>> search(
-    String query,
-  ) async {
-    final value = query.trim().toLowerCase();
+  folderById[id] = folder;
 
-    if (value.isEmpty) return [];
+  final parentId = folder['parent_id'];
 
-    final folders = await _allFolders();
-    final content = await _repo.getContent();
-    final files = await _repo.getFiles();
+  folderParent[id] =
+      parentId is int ? parentId : null;
+}
 
-    final folderNames = <int, String>{};
-    final folderParents = <int, int?>{};
+String subjectPath(int subjectId) {
+  return subjectNames[subjectId] ?? 'Subject';
+}
 
-    for (final folder in folders) {
-      final id = folder['id'];
+String folderPath(int folderId) {
+  final names = <String>[];
+  final visited = <int>{};
 
-      if (id is! int) continue;
+  int? current = folderId;
 
-      folderNames[id] =
-          folder['name']?.toString() ?? '';
+  while (current != null &&
+      visited.add(current)) {
+    final folder = folderById[current];
 
-      final parent = folder['parent_id'];
-
-      folderParents[id] =
-          parent is int ? parent : null;
+    if (folder == null) {
+      break;
     }
 
-    String folderPath(int folderId) {
-      final names = <String>[];
-      int? current = folderId;
+    final name =
+        folder['name']?.toString().trim() ?? '';
 
-      while (current != null) {
-        final name = folderNames[current];
-
-        if (name != null && name.isNotEmpty) {
-          names.insert(0, name);
-        }
-
-        current = folderParents[current];
-      }
-
-      return names.join(' / ');
+    if (name.isNotEmpty) {
+      names.insert(0, name);
     }
 
-    final folderResults =
-        <LibrarySearchResult>[];
-
-    for (final folder in folders) {
-      final id = folder['id'];
-
-      if (id is! int) continue;
-
-      final name =
-          folder['name']?.toString() ?? '';
-
-      final path = folderPath(id);
-
-      if (name.toLowerCase().contains(value) ||
-          path.toLowerCase().contains(value)) {
-        folderResults.add(
-          LibrarySearchResult(
-            item: folder,
-            folderName: path,
-            snippet: _snippet(
-              path,
-              value,
-            ),
-            isFolder: true,
-            folderId: id,
-          ),
-        );
-      }
-    }
-
-    final filesByContent =
-        <int, List<Map<String, dynamic>>>{};
-
-    for (final file in files) {
-      final contentId = file['content_id'];
-
-      if (contentId is int) {
-        filesByContent
-            .putIfAbsent(
-              contentId,
-              () => <Map<String, dynamic>>[],
-            )
-            .add(file);
-      }
-    }
-
-    final results = <LibrarySearchResult>[
-      ...folderResults,
-    ];
-
-    for (final item in content) {
-      final title =
-          item['title']?.toString() ?? '';
-
-      final originalFileName =
-          item['original_file_name']?.toString() ?? '';
-
-      final folderId =
-          item['folder_id'] is int
-              ? item['folder_id'] as int
-              : null;
-
-      final folderName = folderId == null
-          ? null
-          : folderPath(folderId);
-
-      final contentText = _plainText(
-        item['content']?.toString(),
-      );
-
-      final extractedTexts = <String>[];
-
-      final linkedFiles =
-          filesByContent[item['id']];
-
-      if (linkedFiles != null) {
-        for (final file in linkedFiles) {
-          final extracted =
-              file['extracted_text']?.toString();
-
-          if (extracted != null &&
-              extracted.trim().isNotEmpty) {
-            extractedTexts.add(extracted);
-          }
-        }
-      }
-
-      final extractedText =
-          extractedTexts.join('\n');
-
-      final titleMatch =
-          title.toLowerCase().contains(value);
-
-      final fileNameMatch =
-          originalFileName
-              .toLowerCase()
-              .contains(value);
-
-      final folderMatch =
-          folderName
-                  ?.toLowerCase()
-                  .contains(value) ??
-              false;
-
-      final contentMatch =
-          contentText.toLowerCase().contains(value);
-
-      final extractedTextMatch =
-          extractedText
-              .toLowerCase()
-              .contains(value);
-
-      if (!titleMatch &&
-          !fileNameMatch &&
-          !folderMatch &&
-          !contentMatch &&
-          !extractedTextMatch) {
-        continue;
-      }
-
-      String sourceText;
-
-      if (contentMatch) {
-        sourceText = contentText;
-      } else if (extractedTextMatch) {
-        sourceText = extractedText;
-      } else if (fileNameMatch) {
-        sourceText = originalFileName;
-      } else if (titleMatch) {
-        sourceText = title;
-      } else {
-        sourceText = folderName ?? '';
-      }
-
-      results.add(
-        LibrarySearchResult(
-          item: item,
-          folderName: folderName,
-          snippet: _snippet(
-            sourceText,
-            value,
-          ),
-        ),
-      );
-    }
-
-    return results;
+    current = folderParent[current];
   }
 
-  static String _plainText(String? content) {
-    if (content == null ||
-        content.trim().isEmpty) {
-      return '';
-    }
+  final folder = folderById[folderId];
 
-    try {
-      final decoded = jsonDecode(content);
+  final subjectId = folder?['subject_id'];
 
-      if (decoded is List) {
-        return _deltaText(decoded);
-      }
-
-      if (decoded is Map) {
-        final ops = decoded['ops'];
-
-        if (ops is List) {
-          return _deltaText(ops);
-        }
-      }
-    } catch (_) {}
-
-    return content;
+  if (subjectId is int) {
+    names.insert(
+      0,
+      subjectPath(subjectId),
+    );
   }
 
-  static String _deltaText(List<dynamic> operations) {
-    final buffer = StringBuffer();
+  return names.join(' > ');
+}
 
-    for (final operation in operations) {
-      if (operation is! Map) continue;
+final results = <LibrarySearchResult>[];
 
-      final insert = operation['insert'];
+// ------------------------------------------------------------
+// FOLDERS
+// ------------------------------------------------------------
 
-      if (insert is String) {
-        buffer.write(insert);
-      } else if (insert is Map) {
-        final text = insert['text'];
+for (final folder in folders) {
+  final id = folder['id'];
 
-        if (text is String) {
-          buffer.write(text);
-        }
-      }
-    }
-
-    return buffer.toString();
+  if (id is! int) {
+    continue;
   }
 
-  static String _snippet(
-    String text,
-    String query,
-  ) {
-    final lower = text.toLowerCase();
-    final index = lower.indexOf(query);
+  final name =
+      folder['name']?.toString().trim() ?? '';
 
-    if (index < 0) {
-      return text.length > 140
-          ? '${text.substring(0, 140)}…'
-          : text;
+  if (name.isEmpty) {
+    continue;
+  }
+
+  if (!name.toLowerCase().contains(value)) {
+    continue;
+  }
+
+  results.add(
+    LibrarySearchResult(
+      item: folder,
+      path: folderPath(id),
+      matchedName: name,
+      isFolder: true,
+    ),
+  );
+}
+
+// ------------------------------------------------------------
+// MATERIALS
+// ------------------------------------------------------------
+
+for (final material in materials) {
+  final title =
+      material['title']?.toString().trim() ?? '';
+
+  final originalFileName =
+      material['original_file_name']
+              ?.toString()
+              .trim() ??
+          '';
+
+  final folderId = material['folder_id'];
+
+  String path;
+
+  if (folderId is int) {
+    final parentPath = folderPath(folderId);
+
+    path = parentPath.isEmpty
+        ? title
+        : '$parentPath > $title';
+  } else {
+    final subjectId = material['subject_id'];
+
+    final subjectName = subjectId is int
+        ? subjectPath(subjectId)
+        : 'Subject';
+
+    path = '$subjectName > $title';
+  }
+
+  final titleMatch =
+      title.toLowerCase().contains(value);
+
+  final fileNameMatch =
+      originalFileName
+          .toLowerCase()
+          .contains(value);
+
+  if (!titleMatch && !fileNameMatch) {
+    continue;
+  }
+
+  results.add(
+    LibrarySearchResult(
+      item: material,
+      path: path,
+      matchedName: title.isNotEmpty
+          ? title
+          : originalFileName,
+      isFolder: false,
+    ),
+  );
+}
+
+results.sort(
+  (a, b) {
+    final folderCompare =
+        a.isFolder == b.isFolder ? 0 : a.isFolder ? -1 : 1;
+
+    if (folderCompare != 0) {
+      return folderCompare;
     }
 
-    const radius = 70;
+    return a.path
+        .toLowerCase()
+        .compareTo(b.path.toLowerCase());
+  },
+);
 
-    final start =
-        (index - radius).clamp(0, text.length);
+return results;
 
-    final end =
-        (index + query.length + radius)
-            .clamp(0, text.length);
-
-    final prefix = start > 0 ? '…' : '';
-    final suffix =
-        end < text.length ? '…' : '';
-
-    return '$prefix'
-        '${text.substring(start, index)}'
-        '${text.substring(index, index + query.length)}'
-        '${text.substring(index + query.length, end)}'
-        '$suffix';
-  }
+}
 }
