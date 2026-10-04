@@ -52,16 +52,43 @@ class _StudySessionPageState
       topicId: widget.topicId,
     );
 
-    if (!mounted) return;
-
     Map<String, dynamic>? found;
 
     for (final item in content) {
       if (item['id'] == widget.contentId) {
-        found = item;
+        found = Map<String, dynamic>.from(item);
         break;
       }
     }
+
+    if (found != null) {
+      final files = await repo.getFiles(
+        contentId: widget.contentId,
+      );
+
+      final parts = <String>[];
+
+      final directText =
+          found['content']?.toString().trim() ?? '';
+
+      if (directText.isNotEmpty) {
+        parts.add(directText);
+      }
+
+      for (final file in files) {
+        final text =
+            file['extracted_text']?.toString().trim() ?? '';
+
+        if (text.isNotEmpty) {
+          parts.add(text);
+        }
+      }
+
+      found['study_text'] =
+          parts.join('\n\n');
+    }
+
+    if (!mounted) return;
 
     setState(() {
       material = found;
@@ -198,12 +225,14 @@ class _StudySessionPageState
   }
 
   Widget _stageContent() {
+    final studyText =
+        material!['study_text']?.toString() ?? '';
+
     switch (stage) {
       case 0:
         return LearnStage(
           title: widget.title,
-          content:
-              material!['content']?.toString() ?? '',
+          content: studyText,
         );
 
       case 1:
@@ -212,7 +241,9 @@ class _StudySessionPageState
         );
 
       case 2:
-        return const ExplainStage();
+        return ExplainStage(
+          content: studyText,
+        );
 
       case 3:
         return _quickTest();
