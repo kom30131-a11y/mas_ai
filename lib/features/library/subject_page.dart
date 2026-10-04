@@ -1,31 +1,19 @@
 import 'package:flutter/material.dart';
 
 import '../../core/database/database_repository.dart';
-import 'actions/content_actions.dart' as content_actions;
-import 'content/library_content_helper.dart';
-import 'folder_page.dart';
-import 'text/text_editor_page.dart';
-import 'widgets/library_helpers.dart';
+import 'topic_page.dart';
 
-final _repo = DatabaseRepository.instance;
-
-class SubjectPage extends StatefulWidget {
-  final int subjectId;
-  final String subjectName;
-
-  const SubjectPage({
-    super.key,
-    required this.subjectId,
-    required this.subjectName,
-  });
+class StudyPage extends StatefulWidget {
+  const StudyPage({super.key});
 
   @override
-  State<SubjectPage> createState() => _SubjectPageState();
+  State<StudyPage> createState() => _StudyPageState();
 }
 
-class _SubjectPageState extends State<SubjectPage> {
-  List<Map<String, dynamic>> folders = [];
-  List<Map<String, dynamic>> content = [];
+class _StudyPageState extends State<StudyPage> {
+  final repo = DatabaseRepository.instance;
+
+  List<Map<String, dynamic>> subjects = [];
   bool loading = true;
 
   @override
@@ -35,209 +23,30 @@ class _SubjectPageState extends State<SubjectPage> {
   }
 
   Future<void> load() async {
-    final allFolders = await _repo.getFolders();
-    final allContent = await _repo.getContent();
+    final data = await repo.getSubjects();
 
     if (!mounted) return;
 
     setState(() {
-      folders = allFolders
-          .where(
-            (item) =>
-                item['subject_id'] == widget.subjectId &&
-                item['parent_id'] == null,
-          )
-          .toList();
-
-      content = allContent
-          .where(
-            (item) =>
-                item['subject_id'] == widget.subjectId &&
-                item['folder_id'] == null,
-          )
-          .toList();
-
+      subjects = data;
       loading = false;
     });
   }
 
-  Future<String?> _ask(
-    String title, [
-    String? old,
-  ]) async {
-    final controller = TextEditingController(
-      text: old ?? '',
-    );
-
-    final result = await showDialog<String>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final value = controller.text.trim();
-
-              if (value.isNotEmpty) {
-                Navigator.pop(context, value);
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-
-    controller.dispose();
-    return result;
-  }
-
-  Future<bool> _confirm(String title) async {
-    return await showDialog<bool>(
-          context: context,
-          builder: (_) => AlertDialog(
-            title: Text(title),
-            content: const Text(
-              'This item will be deleted.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(
-                  context,
-                  false,
-                ),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(
-                  context,
-                  true,
-                ),
-                child: const Text('Delete'),
-              ),
-            ],
-          ),
-        ) ??
-        false;
-  }
-
-  Future<void> _folder([
-    Map<String, dynamic>? item,
-  ]) async {
-    final name = await _ask(
-      item == null ? 'New folder' : 'Rename folder',
-      item?['name']?.toString(),
-    );
-
-    if (!mounted || name == null) return;
-
-    if (item == null) {
-      await _repo.insertFolder(
-        name: name,
-        subjectId: widget.subjectId,
-      );
-    } else {
-      await _repo.renameFolder(
-        folderId: item['id'],
-        name: name,
-      );
-    }
-
-    await load();
-  }
-
-  Future<void> _deleteFolder(
-    Map<String, dynamic> item,
+  Future<void> openSubject(
+    Map<String, dynamic> subject,
   ) async {
-    if (!await _confirm('Delete folder?')) {
-      return;
-    }
+    final id = subject['id'];
 
-    await _repo.deleteFolder(item['id']);
-    await load();
-  }
-
-  Future<void> _deleteContent(
-    Map<String, dynamic> item,
-  ) async {
-    if (!await _confirm('Delete content?')) {
-      return;
-    }
-
-    await _repo.deleteContent(item['id']);
-    await load();
-  }
-
-  Future<void> _renameContent(
-    Map<String, dynamic> item,
-  ) async {
-    await content_actions.editContent(
-      context,
-      item,
-      load,
-    );
-  }
-
-  Future<void> _addContent() async {
-    final type = await choose(context);
-
-    if (!mounted || type == null) {
-      return;
-    }
-
-    if (type == 'text') {
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => TextEditorPage(
-            subjectId: widget.subjectId,
-          ),
-        ),
-      );
-
-      if (mounted) {
-        await load();
-      }
-
-      return;
-    }
-
-    await content_actions.pickFile(
-      type,
-      widget.subjectId,
-      null,
-    );
-
-    if (mounted) {
-      await load();
-    }
-  }
-
-  Future<void> _openFolder(
-    Map<String, dynamic> item,
-  ) async {
-    final folderId = item['id'];
-
-    if (folderId is! int) {
-      return;
-    }
+    if (id is! int) return;
 
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => FolderPage(
-          subjectId: widget.subjectId,
-          folderId: folderId,
-          folderName:
-              item['name']?.toString() ?? 'Folder',
+        builder: (_) => TopicPage(
+          subjectId: id,
+          subjectName:
+              subject['name']?.toString() ?? 'Subject',
         ),
       ),
     );
@@ -245,121 +54,13 @@ class _SubjectPageState extends State<SubjectPage> {
     if (mounted) {
       await load();
     }
-  }
-
-  Future<void> _openContent(
-    Map<String, dynamic> item,
-  ) async {
-    await openContent(
-      context,
-      item,
-      widget.subjectId,
-      null,
-    );
-
-    if (mounted) {
-      await load();
-    }
-  }
-
-  PopupMenuButton<String> _menu({
-    required bool isFolder,
-    required Map<String, dynamic> item,
-  }) {
-    return PopupMenuButton<String>(
-      onSelected: (value) {
-        if (isFolder) {
-          if (value == 'rename') {
-            _folder(item);
-          } else {
-            _deleteFolder(item);
-          }
-        } else {
-          if (value == 'rename') {
-            _renameContent(item);
-          } else {
-            _deleteContent(item);
-          }
-        }
-      },
-      itemBuilder: (_) => [
-        PopupMenuItem(
-          value: 'rename',
-          child: Text(
-            isFolder ? 'Rename folder' : 'Rename',
-          ),
-        ),
-        PopupMenuItem(
-          value: 'delete',
-          child: Text(
-            isFolder ? 'Delete folder' : 'Delete',
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _folderTile(
-    Map<String, dynamic> item,
-  ) {
-    return ListTile(
-      leading: const Icon(
-        Icons.folder_outlined,
-      ),
-      title: Text(
-        item['name']?.toString() ?? 'Folder',
-      ),
-      trailing: _menu(
-        isFolder: true,
-        item: item,
-      ),
-      onTap: () => _openFolder(item),
-    );
-  }
-
-  Widget _contentTile(
-    Map<String, dynamic> item,
-  ) {
-    return ListTile(
-      leading: Icon(
-        contentIcon(
-          item['type']?.toString(),
-        ),
-      ),
-      title: Text(
-        item['title']?.toString() ??
-            item['name']?.toString() ??
-            'Material',
-      ),
-      trailing: _menu(
-        isFolder: false,
-        item: item,
-      ),
-      onTap: () => _openContent(item),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.subjectName),
-        actions: [
-          IconButton(
-            tooltip: 'New folder',
-            onPressed: _folder,
-            icon: const Icon(
-              Icons.create_new_folder_outlined,
-            ),
-          ),
-          IconButton(
-            tooltip: 'Add material',
-            onPressed: _addContent,
-            icon: const Icon(
-              Icons.add,
-            ),
-          ),
-        ],
+        title: const Text('Study'),
       ),
       body: loading
           ? const Center(
@@ -367,63 +68,56 @@ class _SubjectPageState extends State<SubjectPage> {
             )
           : RefreshIndicator(
               onRefresh: load,
-              child: folders.isEmpty &&
-                      content.isEmpty
+              child: subjects.isEmpty
                   ? ListView(
                       children: const [
                         SizedBox(height: 180),
                         Center(
                           child: Text(
-                            'No folders or materials yet.',
+                            'No subjects yet.',
                           ),
                         ),
                       ],
                     )
-                  : ListView(
-                      padding: const EdgeInsets.only(
-                        top: 8,
-                        bottom: 24,
-                      ),
-                      children: [
-                        if (folders.isNotEmpty) ...[
-                          const Padding(
-                            padding: EdgeInsets.fromLTRB(
-                              16,
-                              16,
-                              16,
-                              8,
+                  : ListView.separated(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: subjects.length,
+                      separatorBuilder: (_, __) =>
+                          const SizedBox(height: 10),
+                      itemBuilder: (_, index) {
+                        final subject = subjects[index];
+
+                        return Card(
+                          child: ListTile(
+                            contentPadding:
+                                const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
                             ),
-                            child: Text(
-                              'Folders',
-                              style: TextStyle(
-                                fontSize: 18,
+                            leading: const CircleAvatar(
+                              child: Icon(
+                                Icons.menu_book_outlined,
+                              ),
+                            ),
+                            title: Text(
+                              subject['name']?.toString() ??
+                                  'Subject',
+                              style: const TextStyle(
                                 fontWeight:
                                     FontWeight.w600,
                               ),
                             ),
-                          ),
-                          ...folders.map(_folderTile),
-                        ],
-                        if (content.isNotEmpty) ...[
-                          const Padding(
-                            padding: EdgeInsets.fromLTRB(
-                              16,
-                              20,
-                              16,
-                              8,
+                            subtitle: const Text(
+                              'Open topics and study materials',
                             ),
-                            child: Text(
-                              'Materials',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight:
-                                    FontWeight.w600,
-                              ),
+                            trailing: const Icon(
+                              Icons.chevron_right,
                             ),
+                            onTap: () =>
+                                openSubject(subject),
                           ),
-                          ...content.map(_contentTile),
-                        ],
-                      ],
+                        );
+                      },
                     ),
             ),
     );
