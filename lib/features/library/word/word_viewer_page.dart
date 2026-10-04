@@ -37,7 +37,7 @@ class _WordViewerPageState extends State<WordViewerPage> {
       setState(() {
         _viewer = MicrosoftViewer(
           bytes,
-          false,
+          true,
           key: ValueKey(widget.path),
         );
         _loading = false;
@@ -81,6 +81,8 @@ class _WordViewerPageState extends State<WordViewerPage> {
       );
     }
 
-    return _viewer ?? const SizedBox.shrink();
+    return SizedBox.expand(
+      child: _viewer ?? const SizedBox.shrink(),
+    );
   }
 }
