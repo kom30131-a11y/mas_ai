@@ -6,11 +6,15 @@ class LibrarySearchResult {
   final Map<String, dynamic> item;
   final String? folderName;
   final String snippet;
+  final bool isFolder;
+  final int? folderId;
 
   const LibrarySearchResult({
     required this.item,
     required this.folderName,
     required this.snippet,
+    this.isFolder = false,
+    this.folderId,
   });
 }
 
@@ -52,6 +56,7 @@ class LibrarySearch {
 
     final folders = await _allFolders();
     final content = await _repo.getContent();
+    final files = await _repo.getFiles();
 
     final folderNames = <int, String>{};
     final folderParents = <int, int?>{};
@@ -63,8 +68,11 @@ class LibrarySearch {
 
       folderNames[id] =
           folder['name']?.toString() ?? '';
+
+      final parent = folder['parent_id'];
+
       folderParents[id] =
-          folder['parent_id'] as int?;
+          parent is int ? parent : null;
     }
 
     String folderPath(int folderId) {
@@ -84,44 +92,139 @@ class LibrarySearch {
       return names.join(' / ');
     }
 
-    final results = <LibrarySearchResult>[];
+    final folderResults =
+        <LibrarySearchResult>[];
+
+    for (final folder in folders) {
+      final id = folder['id'];
+
+      if (id is! int) continue;
+
+      final name =
+          folder['name']?.toString() ?? '';
+
+      final path = folderPath(id);
+
+      if (name.toLowerCase().contains(value) ||
+          path.toLowerCase().contains(value)) {
+        folderResults.add(
+          LibrarySearchResult(
+            item: folder,
+            folderName: path,
+            snippet: _snippet(
+              path,
+              value,
+            ),
+            isFolder: true,
+            folderId: id,
+          ),
+        );
+      }
+    }
+
+    final filesByContent =
+        <int, List<Map<String, dynamic>>>{};
+
+    for (final file in files) {
+      final contentId = file['content_id'];
+
+      if (contentId is int) {
+        filesByContent
+            .putIfAbsent(
+              contentId,
+              () => <Map<String, dynamic>>[],
+            )
+            .add(file);
+      }
+    }
+
+    final results = <LibrarySearchResult>[
+      ...folderResults,
+    ];
 
     for (final item in content) {
       final title =
           item['title']?.toString() ?? '';
 
+      final originalFileName =
+          item['original_file_name']?.toString() ?? '';
+
       final folderId =
-          item['folder_id'] as int?;
+          item['folder_id'] is int
+              ? item['folder_id'] as int
+              : null;
 
       final folderName = folderId == null
           ? null
           : folderPath(folderId);
 
-      final text = _plainText(
+      final contentText = _plainText(
         item['content']?.toString(),
       );
+
+      final extractedTexts = <String>[];
+
+      final linkedFiles =
+          filesByContent[item['id']];
+
+      if (linkedFiles != null) {
+        for (final file in linkedFiles) {
+          final extracted =
+              file['extracted_text']?.toString();
+
+          if (extracted != null &&
+              extracted.trim().isNotEmpty) {
+            extractedTexts.add(extracted);
+          }
+        }
+      }
+
+      final extractedText =
+          extractedTexts.join('\n');
 
       final titleMatch =
           title.toLowerCase().contains(value);
 
+      final fileNameMatch =
+          originalFileName
+              .toLowerCase()
+              .contains(value);
+
       final folderMatch =
-          folderName?.toLowerCase().contains(value) ??
+          folderName
+                  ?.toLowerCase()
+                  .contains(value) ??
               false;
 
-      final textMatch =
-          text.toLowerCase().contains(value);
+      final contentMatch =
+          contentText.toLowerCase().contains(value);
+
+      final extractedTextMatch =
+          extractedText
+              .toLowerCase()
+              .contains(value);
 
       if (!titleMatch &&
+          !fileNameMatch &&
           !folderMatch &&
-          !textMatch) {
+          !contentMatch &&
+          !extractedTextMatch) {
         continue;
       }
 
-      final sourceText = textMatch
-          ? text
-          : titleMatch
-              ? title
-              : folderName ?? '';
+      String sourceText;
+
+      if (contentMatch) {
+        sourceText = contentText;
+      } else if (extractedTextMatch) {
+        sourceText = extractedText;
+      } else if (fileNameMatch) {
+        sourceText = originalFileName;
+      } else if (titleMatch) {
+        sourceText = title;
+      } else {
+        sourceText = folderName ?? '';
+      }
 
       results.add(
         LibrarySearchResult(
@@ -148,23 +251,41 @@ class LibrarySearch {
       final decoded = jsonDecode(content);
 
       if (decoded is List) {
-        final buffer = StringBuffer();
+        return _deltaText(decoded);
+      }
 
-        for (final operation in decoded) {
-          if (operation is! Map) continue;
+      if (decoded is Map) {
+        final ops = decoded['ops'];
 
-          final insert = operation['insert'];
-
-          if (insert is String) {
-            buffer.write(insert);
-          }
+        if (ops is List) {
+          return _deltaText(ops);
         }
-
-        return buffer.toString();
       }
     } catch (_) {}
 
     return content;
+  }
+
+  static String _deltaText(List<dynamic> operations) {
+    final buffer = StringBuffer();
+
+    for (final operation in operations) {
+      if (operation is! Map) continue;
+
+      final insert = operation['insert'];
+
+      if (insert is String) {
+        buffer.write(insert);
+      } else if (insert is Map) {
+        final text = insert['text'];
+
+        if (text is String) {
+          buffer.write(text);
+        }
+      }
+    }
+
+    return buffer.toString();
   }
 
   static String _snippet(
