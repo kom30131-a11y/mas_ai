@@ -9,12 +9,10 @@ class ExplainStage extends StatefulWidget {
   });
 
   @override
-  State<ExplainStage> createState() =>
-      _ExplainStageState();
+  State<ExplainStage> createState() => _ExplainStageState();
 }
 
-class _ExplainStageState
-    extends State<ExplainStage> {
+class _ExplainStageState extends State<ExplainStage> {
   final controller = TextEditingController();
 
   bool submitted = false;
@@ -25,13 +23,11 @@ class _ExplainStageState
     super.dispose();
   }
 
-  void submit() {
+  void _submit() {
     if (controller.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Write your explanation first.',
-          ),
+          content: Text('Write your explanation first.'),
         ),
       );
       return;
@@ -42,105 +38,72 @@ class _ExplainStageState
     });
   }
 
+  void _finish() {
+    Navigator.pop(context, true);
+  }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Card(
             child: Padding(
               padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Explain',
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineSmall,
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'Teach the concept in your own words '
-                    'as if you were explaining it to another student.',
-                    style: TextStyle(
-                      fontSize: 16,
-                      height: 1.5,
-                    ),
-                  ),
-                ],
+              child: Text(
+                'Explain the concept in your own words.',
+                style: Theme.of(context).textTheme.titleLarge,
               ),
             ),
           ),
           const SizedBox(height: 16),
           TextField(
             controller: controller,
+            enabled: !submitted,
             minLines: 9,
             maxLines: 16,
-            textInputAction:
-                TextInputAction.newline,
+            textInputAction: TextInputAction.newline,
             decoration: const InputDecoration(
-              hintText:
-                  'Explain the concept in your own words...',
+              hintText: 'Write your explanation...',
               border: OutlineInputBorder(),
-              alignLabelWithHint: true,
             ),
           ),
           const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: submit,
-            icon: const Icon(
-              Icons.school_outlined,
+          if (!submitted)
+            FilledButton.icon(
+              onPressed: _submit,
+              icon: const Icon(Icons.school_outlined),
+              label: const Text('Submit Explanation'),
             ),
-            label: const Text(
-              'Submit Explanation',
-            ),
-          ),
           if (submitted) ...[
-            const SizedBox(height: 16),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Your Explanation',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge,
-                    ),
-                    const SizedBox(height: 12),
-                    SelectableText(
-                      controller.text,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        height: 1.6,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Self-check',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight:
-                            FontWeight.w600,
-                      ),
+                      'Feedback',
+                      style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _rating('Needs Work'),
-                        _rating('Good'),
-                        _rating('Strong'),
-                      ],
+                    const Text(
+                      'Your explanation has been recorded for evaluation.',
+                      style: TextStyle(
+                        fontSize: 16,
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: FilledButton(
+                        onPressed: _finish,
+                        child: const Text('Finish Explain'),
+                      ),
                     ),
                   ],
                 ),
@@ -149,22 +112,6 @@ class _ExplainStageState
           ],
         ],
       ),
-    );
-  }
-
-  Widget _rating(String label) {
-    return OutlinedButton(
-      onPressed: () {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(
-          SnackBar(
-            content: Text(
-              'Explanation rating: $label',
-            ),
-          ),
-        );
-      },
-      child: Text(label),
     );
   }
 }
