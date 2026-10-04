@@ -19,6 +19,30 @@ class LibrarySearch {
 
   static final _repo = DatabaseRepository.instance;
 
+  static Future<List<Map<String, dynamic>>> _allFolders() async {
+    final result = <Map<String, dynamic>>[];
+
+    Future<void> load(int? parentId) async {
+      final folders = await _repo.getFolders(
+        parentId: parentId,
+      );
+
+      result.addAll(folders);
+
+      for (final folder in folders) {
+        final id = folder['id'];
+
+        if (id is int) {
+          await load(id);
+        }
+      }
+    }
+
+    await load(null);
+
+    return result;
+  }
+
   static Future<List<LibrarySearchResult>> search(
     String query,
   ) async {
@@ -26,24 +50,52 @@ class LibrarySearch {
 
     if (value.isEmpty) return [];
 
-    final folders = await _repo.getFolders();
+    final folders = await _allFolders();
     final content = await _repo.getContent();
 
-    final folderNames = <int, String>{
-      for (final folder in folders)
-        if (folder['id'] is int)
-          folder['id'] as int:
-              folder['name']?.toString() ?? '',
-    };
+    final folderNames = <int, String>{};
+    final folderParents = <int, int?>{};
+
+    for (final folder in folders) {
+      final id = folder['id'];
+
+      if (id is! int) continue;
+
+      folderNames[id] =
+          folder['name']?.toString() ?? '';
+      folderParents[id] =
+          folder['parent_id'] as int?;
+    }
+
+    String folderPath(int folderId) {
+      final names = <String>[];
+      int? current = folderId;
+
+      while (current != null) {
+        final name = folderNames[current];
+
+        if (name != null && name.isNotEmpty) {
+          names.insert(0, name);
+        }
+
+        current = folderParents[current];
+      }
+
+      return names.join(' / ');
+    }
 
     final results = <LibrarySearchResult>[];
 
     for (final item in content) {
-      final title = item['title']?.toString() ?? '';
-      final folderId = item['folder_id'] as int?;
+      final title =
+          item['title']?.toString() ?? '';
+
+      final folderId =
+          item['folder_id'] as int?;
+
       final folderName = folderId == null
           ? null
-          : folderNames[folderId];
+          : folderPath(folderId);
 
       final text = _plainText(
         item['content']?.toString(),
@@ -59,7 +111,9 @@ class LibrarySearch {
       final textMatch =
           text.toLowerCase().contains(value);
 
-      if (!titleMatch && !folderMatch && !textMatch) {
+      if (!titleMatch &&
+          !folderMatch &&
+          !textMatch) {
         continue;
       }
 
@@ -85,7 +139,8 @@ class LibrarySearch {
   }
 
   static String _plainText(String? content) {
-    if (content == null || content.trim().isEmpty) {
+    if (content == null ||
+        content.trim().isEmpty) {
       return '';
     }
 
@@ -120,12 +175,12 @@ class LibrarySearch {
     final index = lower.indexOf(query);
 
     if (index < 0) {
-      return text.length > 120
-          ? '${text.substring(0, 120)}…'
+      return text.length > 140
+          ? '${text.substring(0, 140)}…'
           : text;
     }
 
-    const radius = 60;
+    const radius = 70;
 
     final start =
         (index - radius).clamp(0, text.length);
