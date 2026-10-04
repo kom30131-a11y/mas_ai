@@ -7,6 +7,7 @@ import '../content/library_content_helper.dart';
 import '../subject_page.dart';
 import '../widgets/library_helpers.dart';
 import 'library_search.dart';
+import '../folder_page.dart';
 
 enum SearchFilter {
   all,
