@@ -1,259 +1,657 @@
-import '../../../core/database/database_repository.dart';
+import 'dart:async';
 
-class LibrarySearchResult {
-final Map<String, dynamic> item;
-final String path;
-final String matchedName;
-final bool isFolder;
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-const LibrarySearchResult({
-required this.item,
-required this.path,
-required this.matchedName,
-required this.isFolder,
-});
+import '../content/library_content_helper.dart';
+import '../subject_page.dart';
+import '../widgets/library_helpers.dart';
+import 'library_search.dart';
 
-String get type {
-if (isFolder) return 'Folder';
-return item['type']?.toString() ?? 'File';
-}
+enum SearchFilter {
+  all,
+  folders,
+  files,
 }
 
-class LibrarySearch {
-LibrarySearch._();
+class LibrarySearchPage extends StatefulWidget {
+  const LibrarySearchPage({
+    super.key,
+  });
 
-static final DatabaseRepository _repo =
-DatabaseRepository.instance;
+  @override
+  State<LibrarySearchPage> createState() =>
+      _LibrarySearchPageState();
+}
 
-static Future<List<Map<String, dynamic>>> _getAllFolders() async {
-final result = <Map<String, dynamic>>[];
-final visited = <int>{};
+class _LibrarySearchPageState
+    extends State<LibrarySearchPage> {
+  final controller = TextEditingController();
 
-Future<void> load(int? parentId) async {
-  final folders = await _repo.getFolders(
-    parentId: parentId,
-  );
+  List<LibrarySearchResult> results = [];
+  List<String> recentSearches = [];
 
-  for (final folder in folders) {
-    final id = folder['id'];
+  SearchFilter filter = SearchFilter.all;
 
-    if (id is! int || !visited.add(id)) {
-      continue;
+  Timer? _debounce;
+  int _searchRequest = 0;
+
+  bool loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecentSearches();
+  }
+
+  Future<void> _loadRecentSearches() async {
+    final prefs =
+        await SharedPreferences.getInstance();
+
+    final saved =
+        prefs.getStringList(
+              'library_recent_searches',
+            ) ??
+            [];
+
+    if (!mounted) return;
+
+    setState(() {
+      recentSearches = saved;
+    });
+  }
+
+  Future<void> _saveRecentSearch(
+    String query,
+  ) async {
+    final value = query.trim();
+
+    if (value.isEmpty) return;
+
+    recentSearches.removeWhere(
+      (item) =>
+          item.toLowerCase() ==
+          value.toLowerCase(),
+    );
+
+    recentSearches.insert(0, value);
+
+    if (recentSearches.length > 8) {
+      recentSearches =
+          recentSearches.take(8).toList();
     }
 
-    result.add(folder);
-    await load(id);
-  }
-}
+    final prefs =
+        await SharedPreferences.getInstance();
 
-await load(null);
+    await prefs.setStringList(
+      'library_recent_searches',
+      recentSearches,
+    );
 
-return result;
+    if (!mounted) return;
 
-}
-
-static Future<List<LibrarySearchResult>> search(
-String query,
-) async {
-final value = query.trim().toLowerCase();
-
-if (value.isEmpty) {
-  return [];
-}
-
-final subjects = await _repo.getSubjects();
-final folders = await _getAllFolders();
-final materials = await _repo.getContent();
-
-final subjectNames = <int, String>{};
-
-for (final subject in subjects) {
-  final id = subject['id'];
-
-  if (id is int) {
-    subjectNames[id] =
-        subject['name']?.toString().trim() ?? 'Subject';
-  }
-}
-
-final foldersById = <int, Map<String, dynamic>>{};
-final parentById = <int, int?>{};
-
-for (final folder in folders) {
-  final id = folder['id'];
-
-  if (id is! int) {
-    continue;
+    setState(() {});
   }
 
-  foldersById[id] = folder;
+  Future<void> _clearRecentSearches() async {
+    recentSearches.clear();
 
-  final parentId = folder['parent_id'];
+    final prefs =
+        await SharedPreferences.getInstance();
 
-  parentById[id] =
-      parentId is int ? parentId : null;
-}
+    await prefs.remove(
+      'library_recent_searches',
+    );
 
-String subjectName(int subjectId) {
-  return subjectNames[subjectId] ?? 'Subject';
-}
+    if (!mounted) return;
 
-String folderPath(int folderId) {
-  final names = <String>[];
-  final visited = <int>{};
+    setState(() {});
+  }
 
-  int? current = folderId;
+  void _onQueryChanged(String value) {
+    _debounce?.cancel();
 
-  while (current != null &&
-      visited.add(current)) {
-    final folder = foldersById[current];
+    final query = value.trim();
 
-    if (folder == null) {
-      break;
+    if (query.isEmpty) {
+      setState(() {
+        results = [];
+        loading = false;
+      });
+      return;
     }
 
-    final name =
-        folder['name']?.toString().trim() ?? '';
+    setState(() {
+      loading = true;
+    });
 
-    if (name.isNotEmpty) {
-      names.insert(0, name);
-    }
-
-    current = parentById[current];
-  }
-
-  final folder = foldersById[folderId];
-  final subjectId = folder?['subject_id'];
-
-  if (subjectId is int) {
-    names.insert(
-      0,
-      subjectName(subjectId),
+    _debounce = Timer(
+      const Duration(milliseconds: 350),
+      search,
     );
   }
 
-  return names.join(' > ');
-}
+  Future<void> search() async {
+    final query = controller.text.trim();
 
-final results = <LibrarySearchResult>[];
-
-// ------------------------------------------------------------
-// FOLDERS
-// ------------------------------------------------------------
-
-for (final folder in folders) {
-  final id = folder['id'];
-
-  if (id is! int) {
-    continue;
-  }
-
-  final name =
-      folder['name']?.toString().trim() ?? '';
-
-  if (name.isEmpty ||
-      !name.toLowerCase().contains(value)) {
-    continue;
-  }
-
-  results.add(
-    LibrarySearchResult(
-      item: folder,
-      path: folderPath(id),
-      matchedName: name,
-      isFolder: true,
-    ),
-  );
-}
-
-// ------------------------------------------------------------
-// MATERIALS
-// ------------------------------------------------------------
-
-for (final material in materials) {
-  final title =
-      material['title']?.toString().trim() ?? '';
-
-  final originalFileName =
-      material['original_file_name']
-              ?.toString()
-              .trim() ??
-          '';
-
-  final titleMatch =
-      title.toLowerCase().contains(value);
-
-  final fileNameMatch =
-      originalFileName.toLowerCase().contains(value);
-
-  if (!titleMatch && !fileNameMatch) {
-    continue;
-  }
-
-  final folderId = material['folder_id'];
-
-  final String path;
-
-  if (folderId is int) {
-    final parentPath = folderPath(folderId);
-
-    path = parentPath.isEmpty
-        ? title
-        : '$parentPath > $title';
-  } else {
-    final subjectId = material['subject_id'];
-
-    final subject = subjectId is int
-        ? subjectName(subjectId)
-        : 'Subject';
-
-    path = '$subject > $title';
-  }
-
-  results.add(
-    LibrarySearchResult(
-      item: material,
-      path: path,
-      matchedName: title.isNotEmpty
-          ? title
-          : originalFileName,
-      isFolder: false,
-    ),
-  );
-}
-
-results.sort(
-  (a, b) {
-    final aName = a.matchedName.toLowerCase();
-    final bName = b.matchedName.toLowerCase();
-
-    int rank(String name) {
-      if (name == value) return 0;
-      if (name.startsWith(value)) return 1;
-      if (name.contains(value)) return 2;
-      return 3;
+    if (query.isEmpty) {
+      setState(() {
+        results = [];
+        loading = false;
+      });
+      return;
     }
 
-    final rankCompare =
-        rank(aName).compareTo(rank(bName));
+    final request = ++_searchRequest;
 
-    if (rankCompare != 0) {
-      return rankCompare;
+    setState(() {
+      loading = true;
+    });
+
+    final found =
+        await LibrarySearch.search(query);
+
+    if (!mounted ||
+        request != _searchRequest) {
+      return;
     }
 
-    if (a.isFolder != b.isFolder) {
-      return a.isFolder ? -1 : 1;
+    setState(() {
+      results = found;
+      loading = false;
+    });
+
+    await _saveRecentSearch(query);
+  }
+
+  List<LibrarySearchResult> get filteredResults {
+    switch (filter) {
+      case SearchFilter.folders:
+        return results
+            .where((item) => item.isFolder)
+            .toList();
+
+      case SearchFilter.files:
+        return results
+            .where((item) => !item.isFolder)
+            .toList();
+
+      case SearchFilter.all:
+        return results;
+    }
+  }
+
+  List<TextSpan> _highlight(
+    BuildContext context,
+    String text,
+    String query,
+  ) {
+    if (query.isEmpty) {
+      return [
+        TextSpan(text: text),
+      ];
     }
 
-    return a.path
-        .toLowerCase()
-        .compareTo(
-          b.path.toLowerCase(),
+    final spans = <TextSpan>[];
+
+    final lowerText =
+        text.toLowerCase();
+
+    final lowerQuery =
+        query.toLowerCase();
+
+    var start = 0;
+
+    while (start < text.length) {
+      final index = lowerText.indexOf(
+        lowerQuery,
+        start,
+      );
+
+      if (index < 0) {
+        spans.add(
+          TextSpan(
+            text: text.substring(start),
+          ),
         );
-  },
-);
+        break;
+      }
 
-return results;
+      if (index > start) {
+        spans.add(
+          TextSpan(
+            text: text.substring(
+              start,
+              index,
+            ),
+          ),
+        );
+      }
 
-}
+      spans.add(
+        TextSpan(
+          text: text.substring(
+            index,
+            index + query.length,
+          ),
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            color: Theme.of(context)
+                .colorScheme
+                .primary,
+          ),
+        ),
+      );
+
+      start = index + query.length;
+    }
+
+    return spans;
+  }
+
+  IconData _typeIcon(
+    LibrarySearchResult result,
+  ) {
+    if (result.isFolder) {
+      return Icons.folder_outlined;
+    }
+
+    return contentIcon(
+      result.item['type']?.toString(),
+    );
+  }
+
+  String _typeLabel(
+    LibrarySearchResult result,
+  ) {
+    if (result.isFolder) {
+      return 'Folder';
+    }
+
+    final type =
+        result.item['type']
+                ?.toString()
+                .trim() ??
+            '';
+
+    switch (type.toLowerCase()) {
+      case 'pdf':
+        return 'PDF';
+
+      case 'word':
+        return 'Word';
+
+      case 'ppt':
+      case 'powerpoint':
+        return 'PowerPoint';
+
+      case 'text':
+        return 'Text';
+
+      case 'image':
+        return 'Image';
+
+      default:
+        return type.isEmpty
+            ? 'File'
+            : type;
+    }
+  }
+
+  Future<void> _openResult(
+    LibrarySearchResult result,
+  ) async {
+    final item = result.item;
+
+    final subjectId =
+        item['subject_id'];
+
+    if (subjectId is! int) {
+      return;
+    }
+
+    if (result.isFolder) {
+      final folderId = item['id'];
+
+      if (folderId is! int) {
+        return;
+      }
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => FolderPage(
+            subjectId: subjectId,
+            folderId: folderId,
+            folderName:
+                item['name']
+                        ?.toString() ??
+                    'Folder',
+          ),
+        ),
+      );
+
+      return;
+    }
+
+    await openContent(
+      context,
+      item,
+      subjectId,
+      item['folder_id'] is int
+          ? item['folder_id'] as int
+          : null,
+    );
+  }
+
+  void _useRecentSearch(
+    String value,
+  ) {
+    controller.text = value;
+
+    controller.selection =
+        TextSelection.collapsed(
+      offset: controller.text.length,
+    );
+
+    search();
+  }
+
+  Widget _buildFilterBar() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.fromLTRB(
+        12,
+        8,
+        12,
+        8,
+      ),
+      child: Row(
+        children: [
+          _filterChip(
+            label: 'All',
+            filter: SearchFilter.all,
+          ),
+          const SizedBox(width: 8),
+          _filterChip(
+            label: 'Folders',
+            filter: SearchFilter.folders,
+          ),
+          const SizedBox(width: 8),
+          _filterChip(
+            label: 'Files',
+            filter: SearchFilter.files,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _filterChip({
+    required String label,
+    required SearchFilter filter,
+  }) {
+    return FilterChip(
+      label: Text(label),
+      selected: this.filter == filter,
+      onSelected: (selected) {
+        if (!selected) return;
+
+        setState(() {
+          this.filter = filter;
+        });
+      },
+    );
+  }
+
+  Widget _buildRecentSearches() {
+    if (recentSearches.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Recent searches',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: _clearRecentSearches,
+              child: const Text('Clear'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ...recentSearches.map(
+          (value) => ListTile(
+            contentPadding:
+                EdgeInsets.zero,
+            leading: const Icon(
+              Icons.history,
+            ),
+            title: Text(value),
+            trailing: const Icon(
+              Icons.north_west,
+              size: 18,
+            ),
+            onTap: () =>
+                _useRecentSearch(value),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyState() {
+    final query =
+        controller.text.trim();
+
+    if (query.isEmpty) {
+      return _buildRecentSearches();
+    }
+
+    final visible =
+        filteredResults;
+
+    if (visible.isNotEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize:
+              MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.search_off,
+              size: 52,
+              color: Theme.of(context)
+                  .colorScheme
+                  .outline,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No results found',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Try another file or folder name.',
+              textAlign:
+                  TextAlign.center,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResult(
+    LibrarySearchResult result,
+  ) {
+    final titleStyle =
+        Theme.of(context)
+            .textTheme
+            .titleMedium;
+
+    return ListTile(
+      contentPadding:
+          const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 8,
+      ),
+      leading: CircleAvatar(
+        child: Icon(
+          _typeIcon(result),
+        ),
+      ),
+      title: RichText(
+        maxLines: 2,
+        overflow:
+            TextOverflow.ellipsis,
+        text: TextSpan(
+          style: titleStyle,
+          children: _highlight(
+            context,
+            result.matchedName,
+            controller.text.trim(),
+          ),
+        ),
+      ),
+      subtitle: Padding(
+        padding:
+            const EdgeInsets.only(top: 6),
+        child: Column(
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+          children: [
+            Text(
+              result.path,
+              maxLines: 3,
+              overflow:
+                  TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _typeLabel(result),
+              style: Theme.of(context)
+                  .textTheme
+                  .labelMedium,
+            ),
+          ],
+        ),
+      ),
+      trailing: const Icon(
+        Icons.chevron_right,
+      ),
+      onTap: () => _openResult(result),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final visible =
+        filteredResults;
+
+    return Scaffold(
+      appBar: AppBar(
+        titleSpacing: 0,
+        title: TextField(
+          controller: controller,
+          autofocus: true,
+          textInputAction:
+              TextInputAction.search,
+          onChanged: _onQueryChanged,
+          onSubmitted: (_) => search(),
+          decoration:
+              const InputDecoration(
+            hintText:
+                'Search files and folders',
+            border: InputBorder.none,
+          ),
+        ),
+        actions: [
+          if (controller.text.isNotEmpty)
+            IconButton(
+              tooltip: 'Clear',
+              onPressed: () {
+                _debounce?.cancel();
+                controller.clear();
+
+                setState(() {
+                  results = [];
+                  loading = false;
+                });
+              },
+              icon: const Icon(
+                Icons.clear,
+              ),
+            ),
+          IconButton(
+            tooltip: 'Search',
+            onPressed: search,
+            icon: const Icon(
+              Icons.search,
+            ),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          _buildFilterBar(),
+          const Divider(height: 1),
+          Expanded(
+            child: loading
+                ? const Center(
+                    child:
+                        CircularProgressIndicator(),
+                  )
+                : visible.isEmpty
+                    ? _buildEmptyState()
+                    : ListView.separated(
+                        padding:
+                            const EdgeInsets.only(
+                          top: 8,
+                          bottom: 24,
+                        ),
+                        itemCount:
+                            visible.length,
+                        separatorBuilder:
+                            (_, __) =>
+                                const Divider(
+                          height: 1,
+                        ),
+                        itemBuilder:
+                            (_, index) =>
+                                _buildResult(
+                          visible[index],
+                        ),
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    controller.dispose();
+    super.dispose();
+  }
 }
