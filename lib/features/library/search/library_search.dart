@@ -1,4 +1,4 @@
-حقimport '../../../core/database/database_repository.dart';
+import '../../../core/database/database_repository.dart';
 
 class LibrarySearchResult {
 final Map<String, dynamic> item;
@@ -12,12 +12,18 @@ required this.path,
 required this.matchedName,
 required this.isFolder,
 });
+
+String get type {
+if (isFolder) return 'Folder';
+return item['type']?.toString() ?? 'File';
+}
 }
 
 class LibrarySearch {
 LibrarySearch._();
 
-static final _repo = DatabaseRepository.instance;
+static final DatabaseRepository _repo =
+DatabaseRepository.instance;
 
 static Future<List<Map<String, dynamic>>> _getAllFolders() async {
 final result = <Map<String, dynamic>>[];
@@ -66,12 +72,12 @@ for (final subject in subjects) {
 
   if (id is int) {
     subjectNames[id] =
-        subject['name']?.toString() ?? 'Subject';
+        subject['name']?.toString().trim() ?? 'Subject';
   }
 }
 
-final folderById = <int, Map<String, dynamic>>{};
-final folderParent = <int, int?>{};
+final foldersById = <int, Map<String, dynamic>>{};
+final parentById = <int, int?>{};
 
 for (final folder in folders) {
   final id = folder['id'];
@@ -80,15 +86,15 @@ for (final folder in folders) {
     continue;
   }
 
-  folderById[id] = folder;
+  foldersById[id] = folder;
 
   final parentId = folder['parent_id'];
 
-  folderParent[id] =
+  parentById[id] =
       parentId is int ? parentId : null;
 }
 
-String subjectPath(int subjectId) {
+String subjectName(int subjectId) {
   return subjectNames[subjectId] ?? 'Subject';
 }
 
@@ -100,7 +106,7 @@ String folderPath(int folderId) {
 
   while (current != null &&
       visited.add(current)) {
-    final folder = folderById[current];
+    final folder = foldersById[current];
 
     if (folder == null) {
       break;
@@ -113,17 +119,16 @@ String folderPath(int folderId) {
       names.insert(0, name);
     }
 
-    current = folderParent[current];
+    current = parentById[current];
   }
 
-  final folder = folderById[folderId];
-
+  final folder = foldersById[folderId];
   final subjectId = folder?['subject_id'];
 
   if (subjectId is int) {
     names.insert(
       0,
-      subjectPath(subjectId),
+      subjectName(subjectId),
     );
   }
 
@@ -146,11 +151,8 @@ for (final folder in folders) {
   final name =
       folder['name']?.toString().trim() ?? '';
 
-  if (name.isEmpty) {
-    continue;
-  }
-
-  if (!name.toLowerCase().contains(value)) {
+  if (name.isEmpty ||
+      !name.toLowerCase().contains(value)) {
     continue;
   }
 
@@ -178,9 +180,19 @@ for (final material in materials) {
               .trim() ??
           '';
 
+  final titleMatch =
+      title.toLowerCase().contains(value);
+
+  final fileNameMatch =
+      originalFileName.toLowerCase().contains(value);
+
+  if (!titleMatch && !fileNameMatch) {
+    continue;
+  }
+
   final folderId = material['folder_id'];
 
-  String path;
+  final String path;
 
   if (folderId is int) {
     final parentPath = folderPath(folderId);
@@ -191,23 +203,11 @@ for (final material in materials) {
   } else {
     final subjectId = material['subject_id'];
 
-    final subjectName = subjectId is int
-        ? subjectPath(subjectId)
+    final subject = subjectId is int
+        ? subjectName(subjectId)
         : 'Subject';
 
-    path = '$subjectName > $title';
-  }
-
-  final titleMatch =
-      title.toLowerCase().contains(value);
-
-  final fileNameMatch =
-      originalFileName
-          .toLowerCase()
-          .contains(value);
-
-  if (!titleMatch && !fileNameMatch) {
-    continue;
+    path = '$subject > $title';
   }
 
   results.add(
@@ -224,16 +224,32 @@ for (final material in materials) {
 
 results.sort(
   (a, b) {
-    final folderCompare =
-        a.isFolder == b.isFolder ? 0 : a.isFolder ? -1 : 1;
+    final aName = a.matchedName.toLowerCase();
+    final bName = b.matchedName.toLowerCase();
 
-    if (folderCompare != 0) {
-      return folderCompare;
+    int rank(String name) {
+      if (name == value) return 0;
+      if (name.startsWith(value)) return 1;
+      if (name.contains(value)) return 2;
+      return 3;
+    }
+
+    final rankCompare =
+        rank(aName).compareTo(rank(bName));
+
+    if (rankCompare != 0) {
+      return rankCompare;
+    }
+
+    if (a.isFolder != b.isFolder) {
+      return a.isFolder ? -1 : 1;
     }
 
     return a.path
         .toLowerCase()
-        .compareTo(b.path.toLowerCase());
+        .compareTo(
+          b.path.toLowerCase(),
+        );
   },
 );
 
