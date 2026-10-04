@@ -29,14 +29,19 @@ class QuestionGenerationService {
     final topics = <Map<String, dynamic>>[];
     final content = <Map<String, dynamic>>[];
 
-    for (final topicId in topicIds) {
-      final topicRows = await _repo.getTopics();
+    final allTopics = await _repo.getTopics();
 
+    for (final topicId in topicIds) {
       topics.addAll(
-        topicRows.where((topic) => topic['id'] == topicId),
+        allTopics.where(
+          (topic) => topic['id'] == topicId,
+        ),
       );
 
-      final items = await _content.getTopicContent(topicId);
+      final items = await _content.getTopicContent(
+        topicId,
+      );
+
       content.addAll(items);
     }
 
@@ -55,8 +60,68 @@ class QuestionGenerationService {
       },
     );
 
-    final response = await _ai.send(request: request);
+    final response = await _ai.send(
+      request: request,
+    );
 
-    return AiResponseParser.questions(response);
+    return AiResponseParser.questions(
+      response,
+    );
+  }
+
+  Future<List<GeneratedQuestion>> generateFromContent({
+    required String sourceContent,
+    required int contentId,
+    required List<int> topicIds,
+    required int count,
+    required String language,
+    String difficulty = 'mixed',
+    List<String> types = const [
+      'free_recall',
+      'fill_blank',
+      'short_answer',
+    ],
+  }) async {
+    if (sourceContent.trim().isEmpty) {
+      return [];
+    }
+
+    final allTopics = await _repo.getTopics();
+
+    final topics = allTopics.where((topic) {
+      final id = topic['id'];
+
+      return id is int && topicIds.contains(id);
+    }).toList();
+
+    final request = AiPromptBuilder.build(
+      task: AiTask.generateQuestions,
+      language: language,
+      topics: topics,
+      content: [
+        {
+          'id': contentId,
+          'content': sourceContent,
+        },
+      ],
+      settings: {
+        'count': count,
+        'difficulty': difficulty,
+        'types': types,
+        'interleaved': false,
+        'mode': 'active_recall',
+        'source_scope': topicIds.isEmpty
+            ? 'complete_material'
+            : 'selected_topics',
+      },
+    );
+
+    final response = await _ai.send(
+      request: request,
+    );
+
+    return AiResponseParser.questions(
+      response,
+    );
   }
 }
