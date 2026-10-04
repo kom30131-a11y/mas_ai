@@ -104,11 +104,14 @@ jobs:
                   ).setMethodCallHandler { call, result ->
                       when (call.method) {
                           "isStorageConfigured" -> result.success(getSavedUri() != null)
+
                           "getStorageUri" -> result.success(getSavedUri())
+
                           "chooseStorageFolder" -> {
                               pendingResult = result
                               chooseStorageFolder()
                           }
+
                           else -> result.notImplemented()
                       }
                   }
@@ -122,6 +125,7 @@ jobs:
                           Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
                       )
                   }
+
                   startActivityForResult(intent, requestCode)
               }
 
@@ -224,13 +228,16 @@ jobs:
               block = "\n\ndependencies {\n" + "\n".join(
                   f"    {dep}" for dep in missing
               ) + "\n}\n"
+
               path.write_text(text.rstrip() + block)
 
           final_text = path.read_text()
 
           for dep in dependencies:
               if dep not in final_text:
-                  raise SystemExit(f"ERROR: Missing dependency: {dep}")
+                  raise SystemExit(
+                      f"ERROR: Missing dependency: {dep}"
+                  )
 
           print("Android dependencies verified.")
           PY
@@ -246,11 +253,21 @@ jobs:
           grep -q 'android.builtInKotlin=false' android/gradle.properties
           grep -q 'android.newDsl=false' android/gradle.properties
           grep -q 'file_picker 11.x compatibility' android/build.gradle.kts
-          grep -q 'androidx.documentfile:documentfile:1.1.0' android/app/build.gradle.kts
-          grep -q 'text-recognition-chinese:16.0.1' android/app/build.gradle.kts
-          grep -q 'text-recognition-devanagari:16.0.1' android/app/build.gradle.kts
-          grep -q 'text-recognition-japanese:16.0.1' android/app/build.gradle.kts
-          grep -q 'text-recognition-korean:16.0.1' android/app/build.gradle.kts
+
+          grep -q 'androidx.documentfile:documentfile:1.1.0' \
+            android/app/build.gradle.kts
+
+          grep -q 'text-recognition-chinese:16.0.1' \
+            android/app/build.gradle.kts
+
+          grep -q 'text-recognition-devanagari:16.0.1' \
+            android/app/build.gradle.kts
+
+          grep -q 'text-recognition-japanese:16.0.1' \
+            android/app/build.gradle.kts
+
+          grep -q 'text-recognition-korean:16.0.1' \
+            android/app/build.gradle.kts
 
           echo "Android configuration verified successfully."
 
@@ -258,21 +275,23 @@ jobs:
         run: |
           flutter pub get
 
-      - name: 9.1 Find flutter_isolate
+      - name: 9.1 Patch flutter_isolate Android compatibility
+        shell: bash
         run: |
-          echo "=== Searching dependency tree for flutter_isolate ==="
-          flutter pub deps | grep -B 5 -A 5 "flutter_isolate" || true
-          
-      - name: 9.2 Inspect flutter_isolate source
-        run: |
-          ISOLATE_DIR="$HOME/.pub-cache/hosted/pub.dev/flutter_isolate-2.1.0"
+          FILE="$HOME/.pub-cache/hosted/pub.dev/flutter_isolate-2.1.0/android/src/main/java/com/rmawatson/flutterisolate/FlutterIsolatePlugin.java"
 
-          echo "=== flutter_isolate directory ==="
-          ls -la "$ISOLATE_DIR"
+          test -f "$FILE"
 
-          echo "=== FlutterIsolatePlugin.java ==="
-          sed -n '1,260p' \
-            "$ISOLATE_DIR/android/src/main/java/com/rmawatson/flutterisolate/FlutterIsolatePlugin.java"
+          sed -i \
+            '/import io\.flutter\.view\.FlutterRunArguments;/d' \
+            "$FILE"
+
+          if grep -q 'FlutterRunArguments' "$FILE"; then
+            echo "ERROR: FlutterRunArguments is still referenced."
+            exit 1
+          fi
+
+          echo "flutter_isolate Android compatibility patched successfully."
 
       - name: 10. Analyze Flutter project
         run: |
