@@ -42,20 +42,13 @@ class _SubjectPageState extends State<SubjectPage> {
     });
   }
 
-  Future<void> openTopic(
-    Map<String, dynamic> topic,
-  ) async {
-    final id = topic['id'];
-
-    if (id is! int) return;
-
+  Future<void> openTopic() async {
     await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => TopicPage(
           subjectId: widget.subjectId,
-          subjectName:
-              topic['name']?.toString() ?? 'Topic',
+          subjectName: widget.subjectName,
         ),
       ),
     );
@@ -133,8 +126,7 @@ class _SubjectPageState extends State<SubjectPage> {
                             trailing: const Icon(
                               Icons.chevron_right,
                             ),
-                            onTap: () =>
-                                openTopic(topic),
+                            onTap: openTopic,
                           ),
                         );
                       },
