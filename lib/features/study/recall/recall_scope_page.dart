@@ -159,41 +159,39 @@ class _RecallScopePageState
         ),
         const SizedBox(height: 16),
         Card(
-          child: Column(
-            children: [
-              RadioListTile<bool>(
-                value: true,
-                groupValue: wholeSource,
-                title: const Text(
-                  'Entire source',
+          child: RadioGroup<bool>(
+            groupValue: wholeSource,
+            onChanged: (value) {
+              if (value == null) return;
+
+              setState(() {
+                wholeSource = value;
+              });
+            },
+            child: Column(
+              children: const [
+                RadioListTile<bool>(
+                  value: true,
+                  title: Text(
+                    'Entire source',
+                  ),
+                  subtitle: Text(
+                    'Use the complete book, lecture, '
+                    'folder, or material.',
+                  ),
                 ),
-                subtitle: const Text(
-                  'Use the complete book, lecture, '
-                  'folder, or material.',
+                RadioListTile<bool>(
+                  value: false,
+                  title: Text(
+                    'Specific topics',
+                  ),
+                  subtitle: Text(
+                    'Choose only the topics you want '
+                    'to practice.',
+                  ),
                 ),
-                onChanged: (value) {
-                  setState(() {
-                    wholeSource = true;
-                  });
-                },
-              ),
-              RadioListTile<bool>(
-                value: false,
-                groupValue: wholeSource,
-                title: const Text(
-                  'Specific topics',
-                ),
-                subtitle: const Text(
-                  'Choose only the topics you want '
-                  'to practice.',
-                ),
-                onChanged: (value) {
-                  setState(() {
-                    wholeSource = false;
-                  });
-                },
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         if (!wholeSource) ...[
