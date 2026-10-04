@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../core/database/database_repository.dart';
+import 'widgets/explain_stage.dart';
+import 'widgets/learn_stage.dart';
+import 'widgets/recall_stage.dart';
+import 'widgets/study_progress.dart';
 
 class StudySessionPage extends StatefulWidget {
   final int subjectId;
@@ -64,15 +68,20 @@ class _StudySessionPageState
 
   void _next() {
     if (stage < stages.length - 1) {
-      setState(() => stage++);
-    } else {
-      Navigator.pop(context);
+      setState(() {
+        stage++;
+      });
+      return;
     }
+
+    Navigator.pop(context);
   }
 
   void _back() {
     if (stage > 0) {
-      setState(() => stage--);
+      setState(() {
+        stage--;
+      });
     }
   }
 
@@ -88,7 +97,9 @@ class _StudySessionPageState
             )
           : material == null
               ? const Center(
-                  child: Text('Material not found.'),
+                  child: Text(
+                    'Material not found.',
+                  ),
                 )
               : Column(
                   children: [
@@ -103,91 +114,56 @@ class _StudySessionPageState
   }
 
   Widget _header() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        16,
-        12,
-        16,
-        8,
-      ),
-      child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-        children: [
-          Text(
+    return Column(
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            16,
+            12,
+            16,
+            0,
+          ),
+          child: Text(
             stages[stage],
             style: Theme.of(context)
                 .textTheme
                 .titleLarge,
           ),
-          const SizedBox(height: 8),
-          LinearProgressIndicator(
-            value: (stage + 1) / stages.length,
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '${stage + 1} / ${stages.length}',
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall,
-          ),
-        ],
-      ),
+        ),
+        StudyProgress(
+          current: stage + 1,
+          total: stages.length,
+        ),
+      ],
     );
   }
 
   Widget _stageContent() {
     switch (stage) {
       case 0:
-        return _learn();
+        return LearnStage(
+          title: widget.title,
+          content:
+              material!['content']?.toString() ?? '',
+        );
+
       case 1:
-        return _recall();
+        return const RecallStage();
+
       case 2:
-        return _explain();
+        return const ExplainStage();
+
       case 3:
         return _quickTest();
+
       default:
         return const SizedBox.shrink();
     }
   }
 
-  Widget _learn() {
-    final content =
-        material!['content']?.toString() ?? '';
-
-    return _card(
-      'Study',
-      content.isEmpty
-          ? 'No readable text is available for this material.'
-          : content,
-    );
-  }
-
-  Widget _recall() {
-    return _card(
-      'Recall',
-      'Close the material and recall the key information from memory.',
-    );
-  }
-
-  Widget _explain() {
-    return _card(
-      'Explain',
-      'Explain the important points in your own words.',
-    );
-  }
-
   Widget _quickTest() {
-    return _card(
-      'Quick Test',
-      'The question engine will use this material as its source.',
-    );
-  }
-
-  Widget _card(
-    String title,
-    String text,
-  ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Card(
@@ -198,17 +174,28 @@ class _StudySessionPageState
                 CrossAxisAlignment.start,
             children: [
               Text(
-                title,
+                'Quick Test',
                 style: Theme.of(context)
                     .textTheme
                     .headlineSmall,
               ),
-              const SizedBox(height: 20),
-              SelectableText(
-                text,
-                style: const TextStyle(
+              const SizedBox(height: 16),
+              const Text(
+                'Questions will be generated from '
+                'this material in the Test system.',
+                style: TextStyle(
                   fontSize: 16,
-                  height: 1.6,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: null,
+                icon: const Icon(
+                  Icons.quiz_outlined,
+                ),
+                label: const Text(
+                  'Test engine coming next',
                 ),
               ),
             ],
