@@ -258,6 +258,11 @@ jobs:
         run: |
           flutter pub get
 
+      - name: 9.1 Find flutter_isolate
+        run: |
+          echo "=== Searching dependency tree for flutter_isolate ==="
+          flutter pub deps | grep -B 5 -A 5 "flutter_isolate" || true
+
       - name: 10. Analyze Flutter project
         run: |
           flutter analyze
