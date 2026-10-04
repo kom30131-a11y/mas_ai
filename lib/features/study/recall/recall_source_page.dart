@@ -6,11 +6,15 @@ import 'recall_scope_page.dart';
 class RecallSourcePage extends StatefulWidget {
   final int subjectId;
   final String mode;
+  final int? folderId;
+  final String? folderName;
 
   const RecallSourcePage({
     super.key,
     required this.subjectId,
     this.mode = 'recall',
+    this.folderId,
+    this.folderName,
   });
 
   @override
@@ -21,10 +25,10 @@ class _RecallSourcePageState extends State<RecallSourcePage> {
   final repo = DatabaseRepository.instance;
 
   List<Map<String, dynamic>> folders = [];
-  List<Map<String, dynamic>> content = [];
+  List<Map<String, dynamic>> materials = [];
   bool loading = true;
 
-  bool get isExplain => widget.mode == 'explain';
+  bool get isInsideFolder => widget.folderId != null;
 
   @override
   void initState() {
@@ -33,43 +37,49 @@ class _RecallSourcePageState extends State<RecallSourcePage> {
   }
 
   Future<void> _load() async {
-    final allFolders = await repo.getFolders();
-    final allContent = await repo.getContent();
+    if (isInsideFolder) {
+      materials = await repo.getContent(
+        folderId: widget.folderId,
+      );
+    } else {
+      final allFolders = await repo.getFolders();
+
+      folders = allFolders.where((folder) {
+        return folder['subject_id'] == widget.subjectId;
+      }).toList();
+    }
 
     if (!mounted) return;
 
     setState(() {
-      folders = allFolders
-          .where(
-            (item) => item['subject_id'] == widget.subjectId,
-          )
-          .toList();
-
-      content = allContent
-          .where(
-            (item) => item['subject_id'] == widget.subjectId,
-          )
-          .toList();
-
       loading = false;
     });
   }
 
-  Future<void> _openScope({
-    required String sourceType,
-    required int sourceId,
-    required String title,
-    required String sourceContent,
-  }) async {
-    await Navigator.push(
+  void _openFolder(Map<String, dynamic> folder) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => RecallSourcePage(
+          subjectId: widget.subjectId,
+          mode: widget.mode,
+          folderId: folder['id'] as int,
+          folderName: folder['name']?.toString(),
+        ),
+      ),
+    );
+  }
+
+  void _openMaterial(Map<String, dynamic> material) {
+    Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => RecallScopePage(
           subjectId: widget.subjectId,
-          sourceType: sourceType,
-          sourceId: sourceId,
-          title: title,
-          sourceContent: sourceContent,
+          sourceType: 'material',
+          sourceId: material['id'] as int,
+          title: material['title']?.toString() ?? 'Material',
+          sourceContent: material['content']?.toString() ?? '',
           mode: widget.mode,
         ),
       ),
@@ -78,123 +88,83 @@ class _RecallSourcePageState extends State<RecallSourcePage> {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isExplain
-                      ? 'Choose study source'
-                      : 'Choose study source',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  isExplain
-                      ? 'Choose the lecture, book, folder, or material '
-                          'you want to explain.'
-                      : 'Choose the lecture, book, folder, or material '
-                          'you want to use for Active Recall.',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    height: 1.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          isInsideFolder
+              ? widget.folderName ?? 'Folder'
+              : widget.mode == 'explain'
+                  ? 'Explain'
+                  : 'Active Recall',
         ),
-        const SizedBox(height: 16),
-        if (loading)
-          const Center(
-            child: CircularProgressIndicator(),
-          )
-        else if (folders.isEmpty && content.isEmpty)
-          const Card(
-            child: Padding(
-              padding: EdgeInsets.all(20),
-              child: Text(
-                'No study materials are available.',
-              ),
+      ),
+      body: loading
+          ? const Center(
+              child: CircularProgressIndicator(),
+            )
+          : isInsideFolder
+              ? _buildMaterials()
+              : _buildFolders(),
+    );
+  }
+
+  Widget _buildFolders() {
+    if (folders.isEmpty) {
+      return const Center(
+        child: Text('No folders'),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: folders.length,
+      itemBuilder: (_, index) {
+        final folder = folders[index];
+
+        return Card(
+          child: ListTile(
+            leading: const Icon(Icons.folder_outlined),
+            title: Text(
+              folder['name']?.toString() ?? 'Folder',
             ),
-          )
-        else ...[
-          if (folders.isNotEmpty) ...[
-            const Text(
-              'Folders / Lectures',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
+            trailing: const Icon(
+              Icons.chevron_right,
             ),
-            const SizedBox(height: 8),
-            ...folders.map(
-              (folder) => Card(
-                child: ListTile(
-                  leading: const Icon(
-                    Icons.folder_outlined,
-                  ),
-                  title: Text(
-                    folder['name']?.toString() ?? 'Folder',
-                  ),
-                  subtitle: const Text(
-                    'Choose this source',
-                  ),
-                  trailing: const Icon(
-                    Icons.chevron_right,
-                  ),
-                  onTap: () => _openScope(
-                    sourceType: 'folder',
-                    sourceId: folder['id'] as int,
-                    title: folder['name']?.toString() ?? 'Folder',
-                    sourceContent: '',
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-          ],
-          const Text(
-            'Materials',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
+            onTap: () => _openFolder(folder),
           ),
-          const SizedBox(height: 8),
-          ...content.map(
-            (item) => Card(
-              child: ListTile(
-                leading: const Icon(
-                  Icons.description_outlined,
-                ),
-                title: Text(
-                  item['title']?.toString() ??
-                      item['name']?.toString() ??
-                      'Material',
-                ),
-                subtitle: Text(
-                  item['type']?.toString() ?? 'Material',
-                ),
-                trailing: const Icon(
-                  Icons.chevron_right,
-                ),
-                onTap: () => _openScope(
-                  sourceType: 'material',
-                  sourceId: item['id'] as int,
-                  title: item['title']?.toString() ?? 'Material',
-                  sourceContent: item['content']?.toString() ?? '',
-                ),
-              ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMaterials() {
+    if (materials.isEmpty) {
+      return const Center(
+        child: Text('No materials'),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: materials.length,
+      itemBuilder: (_, index) {
+        final material = materials[index];
+
+        return Card(
+          child: ListTile(
+            leading: const Icon(
+              Icons.description_outlined,
             ),
+            title: Text(
+              material['title']?.toString() ?? 'Material',
+            ),
+            trailing: const Icon(
+              Icons.chevron_right,
+            ),
+            onTap: () => _openMaterial(material),
           ),
-        ],
-      ],
+        );
+      },
     );
   }
 }
