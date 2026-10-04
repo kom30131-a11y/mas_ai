@@ -2,6 +2,7 @@ import '../../../ai/ai_client.dart';
 import '../../../ai/ai_models.dart';
 import '../../../ai/ai_prompt_builder.dart';
 import '../../../ai/ai_response_parser.dart';
+import '../../../core/database/database_repository.dart';
 import 'study_content_service.dart';
 
 class QuestionGenerationService {
@@ -9,6 +10,7 @@ class QuestionGenerationService {
 
   static final instance = QuestionGenerationService._();
 
+  final _repo = DatabaseRepository.instance;
   final _content = StudyContentService.instance;
   final _ai = AiClient.instance;
 
@@ -28,7 +30,8 @@ class QuestionGenerationService {
     final content = <Map<String, dynamic>>[];
 
     for (final topicId in topicIds) {
-      final topicRows = await _content.getTopics(topicId);
+      final topicRows = await _repo.getTopics();
+
       topics.addAll(
         topicRows.where((topic) => topic['id'] == topicId),
       );
@@ -37,9 +40,7 @@ class QuestionGenerationService {
       content.addAll(items);
     }
 
-    if (content.isEmpty) {
-      return [];
-    }
+    if (content.isEmpty) return [];
 
     final request = AiPromptBuilder.build(
       task: AiTask.generateQuestions,
