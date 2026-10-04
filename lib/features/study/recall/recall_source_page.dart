@@ -76,10 +76,10 @@ class _RecallSourcePageState extends State<RecallSourcePage> {
       MaterialPageRoute(
         builder: (_) => RecallScopePage(
           subjectId: widget.subjectId,
-          sourceType: 'material',
-          sourceId: material['id'] as int,
-          title: material['title']?.toString() ?? 'Material',
-          sourceContent: material['content']?.toString() ?? '',
+          folderId: widget.folderId ?? 0,
+          materialId: material['id'] as int,
+          materialTitle:
+              material['title']?.toString() ?? 'Material',
           mode: widget.mode,
         ),
       ),
