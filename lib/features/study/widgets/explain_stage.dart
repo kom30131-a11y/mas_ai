@@ -1,37 +1,50 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 
-import '../../../ai/ai_client.dart';
+import '../../../ai/ai_models.dart';
+import '../../../core/database/database_repository.dart';
+import '../services/answer_evaluation_service.dart';
+import '../services/performance_analysis_service.dart';
+import '../services/review_planning_service.dart';
 
 class ExplainStage extends StatefulWidget {
   final String title;
+  final int? materialId;
   final String content;
   final List<int> selectedTopicIds;
 
   const ExplainStage({
     super.key,
-    required this.title,
-    required this.content,
-    required this.selectedTopicIds,
+    this.title = 'Explain',
+    this.materialId,
+    this.content = '',
+    this.selectedTopicIds = const [],
   });
 
   @override
-  State<ExplainStage> createState() => _ExplainStageState();
+  State<ExplainStage> createState() =>
+      _ExplainStageState();
 }
 
-class _ExplainStageState extends State<ExplainStage> {
+class _ExplainStageState
+    extends State<ExplainStage> {
+  final repo = DatabaseRepository.instance;
+  final evaluator = AnswerEvaluationService.instance;
+  final performance =
+      PerformanceAnalysisService.instance;
+  final reviewPlanner =
+      ReviewPlanningService.instance;
+
   final controller = TextEditingController();
-  final ai = AiClient.instance;
+
+  AnswerEvaluation? evaluation;
+  PerformanceAnalysis? analysis;
+  PerformanceAnalysis? reviewAnalysis;
 
   bool loading = false;
   bool submitted = false;
   bool finished = false;
 
-  String feedback = '';
-  String strengths = '';
-  String weaknesses = '';
-  String recommendation = '';
+  String error = '';
 
   @override
   void dispose() {
@@ -45,41 +58,86 @@ class _ExplainStageState extends State<ExplainStage> {
     if (answer.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Write your explanation first.'),
+          content: Text(
+            'Write your explanation first.',
+          ),
         ),
       );
       return;
     }
 
+    if (widget.content.trim().isEmpty) {
+      setState(() {
+        error = 'No study content is available.';
+      });
+      return;
+    }
+
     setState(() {
       loading = true;
+      error = '';
     });
 
     try {
-      final result = await ai.send(
-        request: {
-          'task': 'evaluate_explanation',
-          'content': widget.content,
-          'selected_topic_ids': widget.selectedTopicIds,
-          'student_explanation': answer,
-          'language': 'same_as_content',
-          'instructions': {
-            'check_accuracy': true,
-            'check_completeness': true,
-            'identify_missing_concepts': true,
-            'identify_misconceptions': true,
-            'give_corrective_feedback': true,
-            'return_json': true,
-          },
-        },
+      final questionData =
+          <String, dynamic>{
+        'type': 'explain',
+        'question':
+            'Explain the selected study material '
+            'in your own words.',
+        'answer': widget.content,
+        'options': '',
+        'explanation': '',
+        'content_id': widget.materialId,
+        'topic_id':
+            widget.selectedTopicIds.length == 1
+                ? widget.selectedTopicIds.first
+                : null,
+      };
+
+      final questionId =
+          widget.materialId == null
+              ? null
+              : await repo.insertQuestion({
+                  ...questionData,
+                  'created_at':
+                      DateTime.now()
+                          .toIso8601String(),
+                });
+
+      final result =
+          await evaluator.evaluate(
+        question: questionData,
+        studentAnswer: answer,
+        language: 'same_as_content',
+        studyContent: widget.content,
       );
 
-      final parsed = _parse(result);
+      if (questionId != null) {
+        await repo.insertAttempt({
+          'question_id': questionId,
+          'answer': answer,
+          'is_correct':
+              result.isCorrect ? 1 : 0,
+          'error_reason': [
+            result.errorReason,
+            result.knowledgeGap,
+          ]
+              .where(
+                (text) =>
+                    text.trim().isNotEmpty,
+              )
+              .join('\n'),
+          'answered_at':
+              DateTime.now()
+                  .toIso8601String(),
+        });
+      }
 
       if (!mounted) return;
 
       setState(() {
-        feedback = parsed['feedback']?.toString() ?? result;
+        evaluation = result;
         submitted = true;
         loading = false;
       });
@@ -87,8 +145,7 @@ class _ExplainStageState extends State<ExplainStage> {
       if (!mounted) return;
 
       setState(() {
-        feedback = e.toString();
-        submitted = true;
+        error = e.toString();
         loading = false;
       });
     }
@@ -97,35 +154,34 @@ class _ExplainStageState extends State<ExplainStage> {
   Future<void> _finish() async {
     setState(() {
       loading = true;
+      error = '';
     });
 
     try {
-      final result = await ai.send(
-        request: {
-          'task': 'analyze_explanation_session',
-          'content': widget.content,
-          'selected_topic_ids': widget.selectedTopicIds,
-          'student_explanation': controller.text.trim(),
-          'language': 'same_as_content',
-          'instructions': {
-            'identify_strengths': true,
-            'identify_weaknesses': true,
-            'recommend_next_review': true,
-            'recommend_study_action': true,
-            'return_json': true,
-          },
-        },
+      final perf =
+          await performance.analyze(
+        language: 'same_as_content',
       );
 
-      final parsed = _parse(result);
+      PerformanceAnalysis? review;
+
+      try {
+        review =
+            await reviewPlanner.plan(
+          language: 'same_as_content',
+        );
+      } catch (_) {}
+
+      await _applyResults(
+        perf,
+        review,
+      );
 
       if (!mounted) return;
 
       setState(() {
-        strengths = parsed['strengths']?.toString() ?? '';
-        weaknesses = parsed['weaknesses']?.toString() ?? '';
-        recommendation =
-            parsed['recommendation']?.toString() ?? result;
+        analysis = perf;
+        reviewAnalysis = review;
         finished = true;
         loading = false;
       });
@@ -133,25 +189,59 @@ class _ExplainStageState extends State<ExplainStage> {
       if (!mounted) return;
 
       setState(() {
-        recommendation = e.toString();
         finished = true;
         loading = false;
+        error = e.toString();
       });
     }
   }
 
-  Map<String, dynamic> _parse(String value) {
-    try {
-      final decoded = jsonDecode(value);
+  Future<void> _applyResults(
+    PerformanceAnalysis perf,
+    PerformanceAnalysis? review,
+  ) async {
+    final topicIds =
+        widget.selectedTopicIds.toSet();
 
-      if (decoded is Map<String, dynamic>) {
-        return decoded;
+    if (topicIds.isEmpty) return;
+
+    for (final topic in perf.topics) {
+      if (!topicIds.contains(topic.topicId)) {
+        continue;
       }
-    } catch (_) {}
 
-    return {
-      'feedback': value,
-    };
+      await repo.updateTopicMastery(
+        topicId: topic.topicId,
+        mastery: topic.mastery,
+      );
+    }
+
+    final plans =
+        review?.reviewPlans ??
+            perf.reviewPlans;
+
+    for (final plan in plans) {
+      if (!topicIds.contains(plan.topicId)) {
+        continue;
+      }
+
+      final dueAt =
+          DateTime.now().add(
+        Duration(
+          days: plan.intervalDays,
+        ),
+      );
+
+      await repo.insertReview({
+        'topic_id': plan.topicId,
+        'due_at':
+            dueAt.toIso8601String(),
+        'interval_days':
+            plan.intervalDays,
+        'ease': 2.5,
+        'repetitions': 1,
+      });
+    }
   }
 
   void _returnToStudy() {
@@ -174,61 +264,128 @@ class _ExplainStageState extends State<ExplainStage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          if (error.isNotEmpty)
+            Card(
+              child: Padding(
+                padding:
+                    const EdgeInsets.all(16),
+                child: Text(error),
+              ),
+            ),
           Text(
             'Explain in your own words',
-            style: Theme.of(context).textTheme.headlineSmall,
+            style: Theme.of(context)
+                .textTheme
+                .headlineSmall,
           ),
           const SizedBox(height: 16),
           TextField(
             controller: controller,
-            enabled: !submitted && !loading,
+            enabled:
+                !submitted && !loading,
             minLines: 10,
             maxLines: 18,
-            decoration: const InputDecoration(
-              border: OutlineInputBorder(),
-              hintText: 'Explain what you learned...',
+            decoration:
+                const InputDecoration(
+              border:
+                  OutlineInputBorder(),
+              hintText:
+                  'Explain what you learned...',
             ),
           ),
           const SizedBox(height: 16),
           if (!submitted)
             SizedBox(
-              height: 50,
+              height: 52,
               child: FilledButton(
-                onPressed: loading ? null : _submit,
+                onPressed:
+                    loading ? null : _submit,
                 child: loading
-                    ? const CircularProgressIndicator()
-                    : const Text('Submit Explanation'),
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child:
+                            CircularProgressIndicator(
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Text(
+                        'Submit Explanation',
+                      ),
               ),
             ),
-          if (submitted)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(18),
-                child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'AI Feedback',
-                      style:
-                          Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(feedback),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: FilledButton(
-                        onPressed: loading ? null : _finish,
-                        child: const Text('View Results'),
-                      ),
-                    ),
-                  ],
+          if (submitted &&
+              evaluation != null)
+            _feedbackCard(
+              evaluation!,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _feedbackCard(
+    AnswerEvaluation result,
+  ) {
+    return Card(
+      child: Padding(
+        padding:
+            const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+          children: [
+            Text(
+              result.isCorrect
+                  ? 'Strong explanation'
+                  : 'Needs Review',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge,
+            ),
+            if (result.explanation
+                .isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(result.explanation),
+            ],
+            if (result.errorReason
+                .isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Error: '
+                '${result.errorReason}',
+              ),
+            ],
+            if (result.knowledgeGap
+                .isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Knowledge gap: '
+                '${result.knowledgeGap}',
+              ),
+            ],
+            if (result.recommendedAction
+                .isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Next: '
+                '${result.recommendedAction}',
+              ),
+            ],
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: FilledButton(
+                onPressed:
+                    loading ? null : _finish,
+                child: const Text(
+                  'View Results',
                 ),
               ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -236,36 +393,59 @@ class _ExplainStageState extends State<ExplainStage> {
   Widget _results() {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Explain Results'),
+        title:
+            const Text('Explain Results'),
         automaticallyImplyLeading: false,
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding:
+            const EdgeInsets.all(16),
         children: [
           _resultCard(
             'Strengths',
-            strengths.isEmpty
-                ? 'No strength data returned.'
-                : strengths,
+            analysis?.strengths
+                    .join('\n') ??
+                'No data available.',
           ),
           _resultCard(
             'Weaknesses',
-            weaknesses.isEmpty
-                ? 'No weakness data returned.'
-                : weaknesses,
+            analysis?.weaknesses
+                    .join('\n') ??
+                'No data available.',
           ),
           _resultCard(
-            'Recommended next step',
-            recommendation.isEmpty
-                ? 'Continue reviewing this material.'
-                : recommendation,
+            'Summary',
+            analysis?.summary
+                    .isNotEmpty ==
+                true
+                ? analysis!.summary
+                : 'No summary available.',
           ),
+          if (reviewAnalysis
+                  ?.reviewPlans
+                  .isNotEmpty ==
+              true)
+            _resultCard(
+              'Next reviews',
+              reviewAnalysis!
+                  .reviewPlans
+                  .map(
+                    (plan) =>
+                        '${plan.topicName}: '
+                        '${plan.intervalDays} day(s) '
+                        '— ${plan.reason}',
+                  )
+                  .join('\n'),
+            ),
           const SizedBox(height: 20),
           SizedBox(
             height: 52,
             child: FilledButton(
-              onPressed: _returnToStudy,
-              child: const Text('Return to Study'),
+              onPressed:
+                  _returnToStudy,
+              child: const Text(
+                'Return to Study',
+              ),
             ),
           ),
         ],
@@ -273,19 +453,27 @@ class _ExplainStageState extends State<ExplainStage> {
     );
   }
 
-  Widget _resultCard(String title, String text) {
+  Widget _resultCard(
+    String title,
+    String text,
+  ) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin:
+          const EdgeInsets.only(
+        bottom: 12,
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding:
+            const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment:
               CrossAxisAlignment.start,
           children: [
             Text(
               title,
-              style:
-                  Theme.of(context).textTheme.titleMedium,
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium,
             ),
             const SizedBox(height: 8),
             Text(text),
