@@ -30,8 +30,10 @@ class _StudySessionPageState
   final repo = DatabaseRepository.instance;
 
   Map<String, dynamic>? material;
+
   bool loading = true;
   bool saving = false;
+
   int stage = 0;
 
   static const stages = [
@@ -198,19 +200,25 @@ class _StudySessionPageState
   }
 
   Widget _stageContent() {
+    final source =
+        material!['content']?.toString() ?? '';
+
     switch (stage) {
       case 0:
         return LearnStage(
           title: widget.title,
-          content:
-              material!['content']?.toString() ?? '',
+          content: source,
         );
 
       case 1:
-        return const RecallStage();
+        return RecallStage(
+          content: source,
+        );
 
       case 2:
-        return const ExplainStage();
+        return ExplainStage(
+          content: source,
+        );
 
       case 3:
         return _quickTest();
