@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/database/database_repository.dart';
 import 'actions/library_actions.dart' as actions;
+import 'search/library_search_page.dart';
 import 'subject_page.dart';
 
 final _repo = DatabaseRepository.instance;
@@ -34,6 +35,15 @@ class _LibraryState extends State<LibraryPage> {
     });
   }
 
+  Future<void> openSearch() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const LibrarySearchPage(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -41,7 +51,13 @@ class _LibraryState extends State<LibraryPage> {
         title: const Text('Library'),
         actions: [
           IconButton(
-            onPressed: () => actions.addSubject(context, load),
+            tooltip: 'Search',
+            onPressed: openSearch,
+            icon: const Icon(Icons.search),
+          ),
+          IconButton(
+            onPressed: () =>
+                actions.addSubject(context, load),
             icon: const Icon(Icons.add),
           ),
         ],
@@ -57,7 +73,9 @@ class _LibraryState extends State<LibraryPage> {
                       children: const [
                         SizedBox(height: 180),
                         Center(
-                          child: Text('No subjects yet'),
+                          child: Text(
+                            'No subjects yet',
+                          ),
                         ),
                       ],
                     )
@@ -71,24 +89,31 @@ class _LibraryState extends State<LibraryPage> {
                             Icons.menu_book_outlined,
                           ),
                           title: Text(
-                            item['name']?.toString() ?? 'Untitled',
+                            item['name']?.toString() ??
+                                'Untitled',
                           ),
                           onTap: () async {
                             await Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => SubjectPage(
-                                  subjectId: item['id'],
+                                builder: (_) =>
+                                    SubjectPage(
+                                  subjectId:
+                                      item['id'],
                                   subjectName:
-                                      item['name']?.toString() ??
+                                      item['name']
+                                              ?.toString() ??
                                           'Subject',
                                 ),
                               ),
                             );
 
-                            if (mounted) await load();
+                            if (mounted) {
+                              await load();
+                            }
                           },
-                          trailing: PopupMenuButton<String>(
+                          trailing:
+                              PopupMenuButton<String>(
                             onSelected: (value) {
                               if (value == 'r') {
                                 actions.renameSubject(
@@ -104,7 +129,8 @@ class _LibraryState extends State<LibraryPage> {
                                 );
                               }
                             },
-                            itemBuilder: (_) => const [
+                            itemBuilder: (_) =>
+                                const [
                               PopupMenuItem(
                                 value: 'r',
                                 child: Text('Rename'),
