@@ -55,6 +55,11 @@ class _RecallScopePageState extends State<RecallScopePage> {
 
   void _start() {
     if (!wholeMaterial && selectedTopicIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Select at least one topic.'),
+        ),
+      );
       return;
     }
 
@@ -62,13 +67,10 @@ class _RecallScopePageState extends State<RecallScopePage> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => Scaffold(
-            appBar: AppBar(
-              title: Text(widget.title),
-            ),
-            body: ExplainStage(
-              content: widget.sourceContent,
-            ),
+          builder: (_) => ExplainStage(
+            title: widget.title,
+            content: widget.sourceContent,
+            selectedTopicIds: selectedTopicIds.toList(),
           ),
         ),
       );
@@ -91,9 +93,7 @@ class _RecallScopePageState extends State<RecallScopePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          widget.title,
-        ),
+        title: Text(widget.title),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -106,21 +106,21 @@ class _RecallScopePageState extends State<RecallScopePage> {
 
                 setState(() {
                   wholeMaterial = value;
+
+                  if (value) {
+                    selectedTopicIds.clear();
+                  }
                 });
               },
               child: Column(
                 children: [
                   RadioListTile<bool>(
                     value: true,
-                    title: const Text(
-                      'Complete material',
-                    ),
+                    title: const Text('Complete material'),
                   ),
                   RadioListTile<bool>(
                     value: false,
-                    title: const Text(
-                      'Specific topics',
-                    ),
+                    title: const Text('Specific topics'),
                   ),
                 ],
               ),
