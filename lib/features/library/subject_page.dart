@@ -3,17 +3,24 @@ import 'package:flutter/material.dart';
 import '../../core/database/database_repository.dart';
 import 'topic_page.dart';
 
-class StudyPage extends StatefulWidget {
-  const StudyPage({super.key});
+class SubjectPage extends StatefulWidget {
+  final int subjectId;
+  final String subjectName;
+
+  const SubjectPage({
+    super.key,
+    required this.subjectId,
+    required this.subjectName,
+  });
 
   @override
-  State<StudyPage> createState() => _StudyPageState();
+  State<SubjectPage> createState() => _SubjectPageState();
 }
 
-class _StudyPageState extends State<StudyPage> {
+class _SubjectPageState extends State<SubjectPage> {
   final repo = DatabaseRepository.instance;
 
-  List<Map<String, dynamic>> subjects = [];
+  List<Map<String, dynamic>> topics = [];
   bool loading = true;
 
   @override
@@ -23,20 +30,22 @@ class _StudyPageState extends State<StudyPage> {
   }
 
   Future<void> load() async {
-    final data = await repo.getSubjects();
+    final data = await repo.getTopics(
+      subjectId: widget.subjectId,
+    );
 
     if (!mounted) return;
 
     setState(() {
-      subjects = data;
+      topics = data;
       loading = false;
     });
   }
 
-  Future<void> openSubject(
-    Map<String, dynamic> subject,
+  Future<void> openTopic(
+    Map<String, dynamic> topic,
   ) async {
-    final id = subject['id'];
+    final id = topic['id'];
 
     if (id is! int) return;
 
@@ -44,9 +53,9 @@ class _StudyPageState extends State<StudyPage> {
       context,
       MaterialPageRoute(
         builder: (_) => TopicPage(
-          subjectId: id,
+          subjectId: widget.subjectId,
           subjectName:
-              subject['name']?.toString() ?? 'Subject',
+              topic['name']?.toString() ?? 'Topic',
         ),
       ),
     );
@@ -60,7 +69,7 @@ class _StudyPageState extends State<StudyPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Study'),
+        title: Text(widget.subjectName),
       ),
       body: loading
           ? const Center(
@@ -68,24 +77,29 @@ class _StudyPageState extends State<StudyPage> {
             )
           : RefreshIndicator(
               onRefresh: load,
-              child: subjects.isEmpty
+              child: topics.isEmpty
                   ? ListView(
                       children: const [
                         SizedBox(height: 180),
                         Center(
                           child: Text(
-                            'No subjects yet.',
+                            'No topics yet.',
                           ),
                         ),
                       ],
                     )
                   : ListView.separated(
                       padding: const EdgeInsets.all(16),
-                      itemCount: subjects.length,
+                      itemCount: topics.length,
                       separatorBuilder: (_, __) =>
                           const SizedBox(height: 10),
                       itemBuilder: (_, index) {
-                        final subject = subjects[index];
+                        final topic = topics[index];
+
+                        final mastery =
+                            (topic['mastery'] as num?)
+                                    ?.toDouble() ??
+                                0.0;
 
                         return Card(
                           child: ListTile(
@@ -96,25 +110,31 @@ class _StudyPageState extends State<StudyPage> {
                             ),
                             leading: const CircleAvatar(
                               child: Icon(
-                                Icons.menu_book_outlined,
+                                Icons.topic_outlined,
                               ),
                             ),
                             title: Text(
-                              subject['name']?.toString() ??
-                                  'Subject',
+                              topic['name']?.toString() ??
+                                  'Topic',
                               style: const TextStyle(
                                 fontWeight:
                                     FontWeight.w600,
                               ),
                             ),
-                            subtitle: const Text(
-                              'Open topics and study materials',
+                            subtitle: Padding(
+                              padding:
+                                  const EdgeInsets.only(
+                                top: 6,
+                              ),
+                              child: Text(
+                                'Mastery ${mastery.toStringAsFixed(0)}%',
+                              ),
                             ),
                             trailing: const Icon(
                               Icons.chevron_right,
                             ),
                             onTap: () =>
-                                openSubject(subject),
+                                openTopic(topic),
                           ),
                         );
                       },
