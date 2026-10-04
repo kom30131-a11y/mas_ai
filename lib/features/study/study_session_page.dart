@@ -249,5 +249,3 @@ class _StudySessionPageState
     );
   }
 }
-
-الخطوة التالية: ربط "TopicDetailPage" بهذا الملف عند فتح الـMaterial، ثم نبني "Recall" و"Explain" فعليًا بدل النصوص المؤقتة.
