@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/database/database_repository.dart';
+import 'study_session_page.dart';
 
 final _repo = DatabaseRepository.instance;
 
@@ -320,6 +321,31 @@ class _TopicDetailPageState
     }
   }
 
+  Future<void> openMaterial(
+    Map<String, dynamic> material,
+  ) async {
+    final id = material['id'];
+
+    if (id is! int) return;
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StudySessionPage(
+          subjectId: widget.subjectId,
+          topicId: widget.topicId,
+          contentId: id,
+          title: material['title']?.toString() ??
+              'Material',
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+
+    await load();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -370,6 +396,11 @@ class _TopicDetailPageState
                                       ?.toString() ??
                                   'Material',
                             ),
+                            trailing: const Icon(
+                              Icons.chevron_right,
+                            ),
+                            onTap: () =>
+                                openMaterial(material),
                           ),
                         );
                       },
