@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/database/database_repository.dart';
-import 'topic_page.dart';
+import '../study/topic_page.dart';
 
 final _repo = DatabaseRepository.instance;
 
