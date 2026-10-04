@@ -43,17 +43,83 @@ class _RecallScopePageState
 
   Future<void> _load() async {
     if (widget.sourceType == 'material') {
+      final files = await repo.getFiles(
+        contentId: widget.sourceId,
+      );
+
+      final parts = <String>[];
+
+      final directText =
+          widget.sourceContent.trim();
+
+      if (directText.isNotEmpty) {
+        parts.add(directText);
+      }
+
+      for (final file in files) {
+        final text =
+            file['extracted_text']?.toString().trim() ?? '';
+
+        if (text.isNotEmpty) {
+          parts.add(text);
+        }
+      }
+
       materials = [
         {
           'id': widget.sourceId,
           'title': widget.title,
-          'content': widget.sourceContent,
+          'content': parts.join('\n\n'),
         },
       ];
     } else {
-      materials = await repo.getContent(
+      final rows = await repo.getContent(
         folderId: widget.sourceId,
       );
+
+      materials = [];
+
+      for (final item in rows) {
+        final material =
+            Map<String, dynamic>.from(item);
+
+        final directText =
+            material['content']
+                    ?.toString()
+                    .trim() ??
+                '';
+
+        final parts = <String>[];
+
+        if (directText.isNotEmpty) {
+          parts.add(directText);
+        }
+
+        final contentId = material['id'];
+
+        if (contentId is int) {
+          final files = await repo.getFiles(
+            contentId: contentId,
+          );
+
+          for (final file in files) {
+            final text =
+                file['extracted_text']
+                        ?.toString()
+                        .trim() ??
+                    '';
+
+            if (text.isNotEmpty) {
+              parts.add(text);
+            }
+          }
+        }
+
+        material['content'] =
+            parts.join('\n\n');
+
+        materials.add(material);
+      }
     }
 
     topics = await repo.getTopics(
@@ -89,24 +155,26 @@ class _RecallScopePageState
                 selectedTopicIds.contains(topicId);
           }).toList();
 
-    if (selectedMaterials.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'No material was found for the selected topics.',
-          ),
-        ),
-      );
-      return;
-    }
-
     final combined = selectedMaterials
         .map(
           (item) =>
               item['content']?.toString() ?? '',
         )
-        .where((text) => text.trim().isNotEmpty)
+        .where(
+          (text) => text.trim().isNotEmpty,
+        )
         .join('\n\n');
+
+    if (combined.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No readable study text was found.',
+          ),
+        ),
+      );
+      return;
+    }
 
     Navigator.push(
       context,
