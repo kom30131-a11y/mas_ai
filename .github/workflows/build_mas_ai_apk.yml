@@ -262,6 +262,17 @@ jobs:
         run: |
           echo "=== Searching dependency tree for flutter_isolate ==="
           flutter pub deps | grep -B 5 -A 5 "flutter_isolate" || true
+          
+      - name: 9.2 Inspect flutter_isolate source
+        run: |
+          ISOLATE_DIR="$HOME/.pub-cache/hosted/pub.dev/flutter_isolate-2.1.0"
+
+          echo "=== flutter_isolate directory ==="
+          ls -la "$ISOLATE_DIR"
+
+          echo "=== FlutterIsolatePlugin.java ==="
+          sed -n '1,260p' \
+            "$ISOLATE_DIR/android/src/main/java/com/rmawatson/flutterisolate/FlutterIsolatePlugin.java"
 
       - name: 10. Analyze Flutter project
         run: |
