@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/database/database_repository.dart';
+import '../widgets/explain_stage.dart';
 import 'active_recall_page.dart';
 
 class RecallScopePage extends StatefulWidget {
@@ -9,6 +10,7 @@ class RecallScopePage extends StatefulWidget {
   final int sourceId;
   final String title;
   final String sourceContent;
+  final String mode;
 
   const RecallScopePage({
     super.key,
@@ -17,15 +19,14 @@ class RecallScopePage extends StatefulWidget {
     required this.sourceId,
     required this.title,
     required this.sourceContent,
+    this.mode = 'recall',
   });
 
   @override
-  State<RecallScopePage> createState() =>
-      _RecallScopePageState();
+  State<RecallScopePage> createState() => _RecallScopePageState();
 }
 
-class _RecallScopePageState
-    extends State<RecallScopePage> {
+class _RecallScopePageState extends State<RecallScopePage> {
   final repo = DatabaseRepository.instance;
 
   bool loading = true;
@@ -34,6 +35,8 @@ class _RecallScopePageState
   List<Map<String, dynamic>> materials = [];
   List<Map<String, dynamic>> topics = [];
   final selectedTopicIds = <int>{};
+
+  bool get isExplain => widget.mode == 'explain';
 
   @override
   void initState() {
@@ -49,8 +52,7 @@ class _RecallScopePageState
 
       final parts = <String>[];
 
-      final directText =
-          widget.sourceContent.trim();
+      final directText = widget.sourceContent.trim();
 
       if (directText.isNotEmpty) {
         parts.add(directText);
@@ -80,14 +82,10 @@ class _RecallScopePageState
       materials = [];
 
       for (final item in rows) {
-        final material =
-            Map<String, dynamic>.from(item);
+        final material = Map<String, dynamic>.from(item);
 
         final directText =
-            material['content']
-                    ?.toString()
-                    .trim() ??
-                '';
+            material['content']?.toString().trim() ?? '';
 
         final parts = <String>[];
 
@@ -104,10 +102,7 @@ class _RecallScopePageState
 
           for (final file in files) {
             final text =
-                file['extracted_text']
-                        ?.toString()
-                        .trim() ??
-                    '';
+                file['extracted_text']?.toString().trim() ?? '';
 
             if (text.isNotEmpty) {
               parts.add(text);
@@ -115,9 +110,7 @@ class _RecallScopePageState
           }
         }
 
-        material['content'] =
-            parts.join('\n\n');
-
+        material['content'] = parts.join('\n\n');
         materials.add(material);
       }
     }
@@ -134,8 +127,7 @@ class _RecallScopePageState
   }
 
   void _start() {
-    if (!wholeSource &&
-        selectedTopicIds.isEmpty) {
+    if (!wholeSource && selectedTopicIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -157,8 +149,7 @@ class _RecallScopePageState
 
     final combined = selectedMaterials
         .map(
-          (item) =>
-              item['content']?.toString() ?? '',
+          (item) => item['content']?.toString() ?? '',
         )
         .where(
           (text) => text.trim().isNotEmpty,
@@ -176,14 +167,30 @@ class _RecallScopePageState
       return;
     }
 
+    if (isExplain) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => Scaffold(
+            appBar: AppBar(
+              title: Text(widget.title),
+            ),
+            body: ExplainStage(
+              content: combined,
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ActiveRecallPage(
           title: widget.title,
           sourceContent: combined,
-          selectedTopicIds:
-              selectedTopicIds.toList(),
+          selectedTopicIds: selectedTopicIds.toList(),
         ),
       ),
     );
@@ -192,134 +199,140 @@ class _RecallScopePageState
   @override
   Widget build(BuildContext context) {
     if (loading) {
-      return const Center(
-        child: CircularProgressIndicator(),
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
       );
     }
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.title,
-                  style: Theme.of(context)
-                      .textTheme
-                      .headlineSmall,
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'What should Active Recall use?',
-                  style: TextStyle(
-                    fontSize: 16,
-                    height: 1.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          isExplain ? 'Explain' : 'Active Recall',
         ),
-        const SizedBox(height: 16),
-        Card(
-          child: RadioGroup<bool>(
-            groupValue: wholeSource,
-            onChanged: (value) {
-              if (value == null) return;
-
-              setState(() {
-                wholeSource = value;
-              });
-            },
-            child: Column(
-              children: const [
-                RadioListTile<bool>(
-                  value: true,
-                  title: Text(
-                    'Entire source',
-                  ),
-                  subtitle: Text(
-                    'Use the complete book, lecture, '
-                    'folder, or material.',
-                  ),
-                ),
-                RadioListTile<bool>(
-                  value: false,
-                  title: Text(
-                    'Specific topics',
-                  ),
-                  subtitle: Text(
-                    'Choose only the topics you want '
-                    'to practice.',
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        if (!wholeSource) ...[
-          const SizedBox(height: 16),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: topics.isEmpty
-                  ? const Text(
-                      'No topics are available yet.',
-                    )
-                  : Column(
-                      children: topics.map(
-                        (topic) {
-                          final id = topic['id'];
-
-                          if (id is! int) {
-                            return const SizedBox.shrink();
-                          }
-
-                          return CheckboxListTile(
-                            value: selectedTopicIds
-                                .contains(id),
-                            title: Text(
-                              topic['name']
-                                      ?.toString() ??
-                                  'Topic',
-                            ),
-                            onChanged: (value) {
-                              setState(() {
-                                if (value == true) {
-                                  selectedTopicIds
-                                      .add(id);
-                                } else {
-                                  selectedTopicIds
-                                      .remove(id);
-                                }
-                              });
-                            },
-                          );
-                        },
-                      ).toList(),
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.title,
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    isExplain
+                        ? 'What should Explain use?'
+                        : 'What should Active Recall use?',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      height: 1.5,
                     ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            child: RadioGroup<bool>(
+              groupValue: wholeSource,
+              onChanged: (value) {
+                if (value == null) return;
+
+                setState(() {
+                  wholeSource = value;
+                });
+              },
+              child: Column(
+                children: [
+                  RadioListTile<bool>(
+                    value: true,
+                    title: const Text(
+                      'Entire source',
+                    ),
+                    subtitle: Text(
+                      isExplain
+                          ? 'Use the complete source.'
+                          : 'Use the complete book, lecture, folder, '
+                              'or material.',
+                    ),
+                  ),
+                  const RadioListTile<bool>(
+                    value: false,
+                    title: Text(
+                      'Specific topics',
+                    ),
+                    subtitle: Text(
+                      'Choose only the topics you want to practice.',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (!wholeSource) ...[
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: topics.isEmpty
+                    ? const Text(
+                        'No topics are available yet.',
+                      )
+                    : Column(
+                        children: topics.map(
+                          (topic) {
+                            final id = topic['id'];
+
+                            if (id is! int) {
+                              return const SizedBox.shrink();
+                            }
+
+                            return CheckboxListTile(
+                              value: selectedTopicIds.contains(id),
+                              title: Text(
+                                topic['name']?.toString() ?? 'Topic',
+                              ),
+                              onChanged: (value) {
+                                setState(() {
+                                  if (value == true) {
+                                    selectedTopicIds.add(id);
+                                  } else {
+                                    selectedTopicIds.remove(id);
+                                  }
+                                });
+                              },
+                            );
+                          },
+                        ).toList(),
+                      ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 24),
+          SizedBox(
+            height: 52,
+            child: FilledButton.icon(
+              onPressed: _start,
+              icon: Icon(
+                isExplain
+                    ? Icons.record_voice_over_outlined
+                    : Icons.psychology_outlined,
+              ),
+              label: Text(
+                isExplain ? 'Start Explain' : 'Start Active Recall',
+              ),
             ),
           ),
         ],
-        const SizedBox(height: 24),
-        SizedBox(
-          height: 52,
-          child: FilledButton.icon(
-            onPressed: _start,
-            icon: const Icon(
-              Icons.psychology_outlined,
-            ),
-            label: const Text(
-              'Start Active Recall',
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
