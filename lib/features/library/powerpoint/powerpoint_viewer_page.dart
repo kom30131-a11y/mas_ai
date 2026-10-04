@@ -39,7 +39,7 @@ class _PowerPointViewerPageState
       setState(() {
         _viewer = MicrosoftViewer(
           bytes,
-          false,
+          true,
           key: ValueKey(widget.path),
         );
         _loading = false;
@@ -83,6 +83,8 @@ class _PowerPointViewerPageState
       );
     }
 
-    return _viewer ?? const SizedBox.shrink();
+    return SizedBox.expand(
+      child: _viewer ?? const SizedBox.shrink(),
+    );
   }
 }
