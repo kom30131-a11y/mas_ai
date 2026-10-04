@@ -7,9 +7,7 @@ import 'features/study/recall/recall_source_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   await DatabaseService.instance.initialize();
-
   runApp(const MasAiApp());
 }
 
@@ -181,8 +179,7 @@ class StudyPage extends StatelessWidget {
     BuildContext context,
     String mode,
   ) async {
-    final subjects =
-        await DatabaseRepository.instance.getSubjects();
+    final subjects = await DatabaseRepository.instance.getSubjects();
 
     if (!context.mounted) return;
 
@@ -232,16 +229,9 @@ class StudyPage extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => Scaffold(
-          appBar: AppBar(
-            title: Text(
-              mode == 'explain' ? 'Explain' : 'Active Recall',
-            ),
-          ),
-          body: RecallSourcePage(
-            subjectId: subjectId,
-            mode: mode,
-          ),
+        builder: (_) => RecallSourcePage(
+          subjectId: subjectId,
+          mode: mode,
         ),
       ),
     );
@@ -257,25 +247,19 @@ class StudyPage extends StatelessWidget {
           icon: Icons.library_books_outlined,
           title: 'Library',
           subtitle: 'Subjects, folders and learning content',
-          onTap: () {
-            _openLibrary(context);
-          },
+          onTap: () => _openLibrary(context),
         ),
         _ActionCard(
           icon: Icons.psychology_outlined,
           title: 'Active Recall',
           subtitle: 'Retrieve information instead of rereading',
-          onTap: () {
-            _openAction(context, 'recall');
-          },
+          onTap: () => _openAction(context, 'recall'),
         ),
         _ActionCard(
           icon: Icons.record_voice_over_outlined,
           title: 'Explain',
           subtitle: 'Teach back what you learned',
-          onTap: () {
-            _openAction(context, 'explain');
-          },
+          onTap: () => _openAction(context, 'explain'),
         ),
       ],
     );
@@ -412,10 +396,7 @@ class _Page extends StatelessWidget {
               ),
         ),
         const SizedBox(height: 4),
-        Text(
-          subtitle,
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
+        Text(subtitle),
         const SizedBox(height: 24),
         ...children,
       ],
@@ -467,9 +448,7 @@ class _Card extends StatelessWidget {
         ),
         title: Text(
           title,
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-          ),
+          style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 5),
@@ -504,9 +483,7 @@ class _ActionCard extends StatelessWidget {
           padding: const EdgeInsets.all(18),
           child: Row(
             children: [
-              CircleAvatar(
-                child: Icon(icon),
-              ),
+              CircleAvatar(child: Icon(icon)),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
