@@ -1,17 +1,22 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 
-import '../../../ai/ai_client.dart';
+import '../../../ai/ai_models.dart';
+import '../../../core/database/database_repository.dart';
+import '../services/answer_evaluation_service.dart';
+import '../services/performance_analysis_service.dart';
+import '../services/question_generation_service.dart';
+import '../services/review_planning_service.dart';
 
 class ActiveRecallPage extends StatefulWidget {
   final String title;
+  final int? materialId;
   final String sourceContent;
   final List<int> selectedTopicIds;
 
   const ActiveRecallPage({
     super.key,
     required this.title,
+    this.materialId,
     required this.sourceContent,
     required this.selectedTopicIds,
   });
@@ -20,27 +25,42 @@ class ActiveRecallPage extends StatefulWidget {
   State<ActiveRecallPage> createState() => _ActiveRecallPageState();
 }
 
-class _ActiveRecallPageState extends State<ActiveRecallPage> {
+class _ActiveRecallPageState
+    extends State<ActiveRecallPage> {
+  final repo = DatabaseRepository.instance;
+  final generator = QuestionGenerationService.instance;
+  final evaluator = AnswerEvaluationService.instance;
+  final performance = PerformanceAnalysisService.instance;
+  final reviewPlanner = ReviewPlanningService.instance;
+
   final answerController = TextEditingController();
-  final ai = AiClient.instance;
 
-  String question = '';
-  String feedback = '';
-  String strengths = '';
-  String weaknesses = '';
-  String recommendation = '';
+  List<GeneratedQuestion> questions = [];
+  AnswerEvaluation? currentEvaluation;
 
-  int questionIndex = 0;
-  int score = 0;
+  PerformanceAnalysis? analysis;
+  PerformanceAnalysis? reviewAnalysis;
+
+  int currentIndex = 0;
+  int correctAnswers = 0;
 
   bool loading = true;
   bool submitted = false;
   bool finished = false;
 
+  String error = '';
+
+  GeneratedQuestion? get currentQuestion {
+    if (questions.isEmpty) return null;
+    if (currentIndex >= questions.length) return null;
+
+    return questions[currentIndex];
+  }
+
   @override
   void initState() {
     super.initState();
-    _generateQuestion();
+    _loadQuestions();
   }
 
   @override
@@ -49,107 +69,128 @@ class _ActiveRecallPageState extends State<ActiveRecallPage> {
     super.dispose();
   }
 
-  Future<void> _generateQuestion() async {
+  Future<void> _loadQuestions() async {
     setState(() {
       loading = true;
-      submitted = false;
-      feedback = '';
+      error = '';
     });
 
     try {
-      final result = await ai.send(
-        request: {
-          'task': 'generate_active_recall_question',
-          'content': widget.sourceContent,
-          'question_number': questionIndex + 1,
-          'selected_topic_ids': widget.selectedTopicIds,
-          'language': 'same_as_content',
-          'instructions': {
-            'use_only_source_content': true,
-            'avoid_repetition': true,
-            'vary_question_style': true,
-            'test_retrieval_not_recognition': true,
-          },
-        },
+      final generated =
+          await generator.generateFromContent(
+        sourceContent: widget.sourceContent,
+        contentId: widget.materialId ?? 0,
+        topicIds: widget.selectedTopicIds,
+        count: 5,
+        language: 'same_as_content',
       );
-
-      final parsed = _parse(result);
 
       if (!mounted) return;
 
+      if (generated.isEmpty) {
+        setState(() {
+          loading = false;
+          error = 'AI did not return any questions.';
+        });
+        return;
+      }
+
       setState(() {
-        question = parsed['question']?.toString() ?? result;
+        questions = generated;
+        currentIndex = 0;
         loading = false;
       });
     } catch (e) {
       if (!mounted) return;
 
       setState(() {
-        question = 'AI could not generate the question.';
-        feedback = e.toString();
         loading = false;
+        error = e.toString();
       });
     }
   }
 
   Future<void> _submit() async {
+    final question = currentQuestion;
     final answer = answerController.text.trim();
 
-    if (answer.isEmpty || loading) return;
+    if (question == null ||
+        answer.isEmpty ||
+        loading ||
+        submitted) {
+      return;
+    }
 
     setState(() {
       loading = true;
     });
 
     try {
-      final result = await ai.send(
-        request: {
-          'task': 'evaluate_active_recall_answer',
-          'content': widget.sourceContent,
-          'selected_topic_ids': widget.selectedTopicIds,
-          'question': question,
-          'student_answer': answer,
-          'language': 'same_as_content',
-          'instructions': {
-            'evaluate_against_source': true,
-            'identify_correct_points': true,
-            'identify_missing_points': true,
-            'explain_errors': true,
-            'give_actionable_feedback': true,
-            'return_json': true,
-          },
-        },
+      final questionData =
+          Map<String, dynamic>.from(
+        question.toMap(),
       );
 
-      final parsed = _parse(result);
-      final value = parsed['score'];
+      questionData['content_id'] =
+          widget.materialId;
 
-      if (value is num && value >= 70) {
-        score++;
-      } else if (parsed['correct'] == true) {
-        score++;
-      }
+      questionData['topic_id'] =
+          question.topicId ??
+              (widget.selectedTopicIds.length == 1
+                  ? widget.selectedTopicIds.first
+                  : null);
+
+      questionData['created_at'] =
+          DateTime.now().toIso8601String();
+
+      final questionId =
+          await repo.insertQuestion(
+        questionData,
+      );
+
+      final evaluation =
+          await evaluator.evaluate(
+        question: questionData,
+        studentAnswer: answer,
+        language: 'same_as_content',
+        studyContent: widget.sourceContent,
+      );
+
+      await repo.insertAttempt({
+        'question_id': questionId,
+        'answer': answer,
+        'is_correct': evaluation.isCorrect ? 1 : 0,
+        'error_reason': [
+          evaluation.errorReason,
+          evaluation.knowledgeGap,
+        ].where((text) => text.trim().isNotEmpty).join('\n'),
+        'answered_at':
+            DateTime.now().toIso8601String(),
+      });
 
       if (!mounted) return;
 
       setState(() {
-        feedback = parsed['feedback']?.toString() ?? result;
+        currentEvaluation = evaluation;
         submitted = true;
         loading = false;
+
+        if (evaluation.isCorrect) {
+          correctAnswers++;
+        }
       });
     } catch (e) {
       if (!mounted) return;
 
       setState(() {
-        feedback = e.toString();
-        submitted = true;
         loading = false;
+        error = e.toString();
       });
     }
   }
 
   Future<void> _next() async {
-    if (questionIndex >= 4) {
+    if (currentIndex >= questions.length - 1) {
       await _finish();
       return;
     }
@@ -157,45 +198,43 @@ class _ActiveRecallPageState extends State<ActiveRecallPage> {
     answerController.clear();
 
     setState(() {
-      questionIndex++;
+      currentIndex++;
+      currentEvaluation = null;
+      submitted = false;
+      error = '';
     });
-
-    await _generateQuestion();
   }
 
   Future<void> _finish() async {
     setState(() {
       loading = true;
+      error = '';
     });
 
     try {
-      final result = await ai.send(
-        request: {
-          'task': 'analyze_active_recall_session',
-          'content': widget.sourceContent,
-          'selected_topic_ids': widget.selectedTopicIds,
-          'questions_answered': questionIndex + 1,
-          'score': score,
-          'language': 'same_as_content',
-          'instructions': {
-            'identify_strengths': true,
-            'identify_weaknesses': true,
-            'recommend_next_review': true,
-            'recommend_study_action': true,
-            'return_json': true,
-          },
-        },
+      final perf =
+          await performance.analyze(
+        language: 'same_as_content',
       );
 
-      final parsed = _parse(result);
+      PerformanceAnalysis? review;
+
+      try {
+        review = await reviewPlanner.plan(
+          language: 'same_as_content',
+        );
+      } catch (_) {}
+
+      await _applyAdaptiveResults(
+        perf,
+        review,
+      );
 
       if (!mounted) return;
 
       setState(() {
-        strengths = parsed['strengths']?.toString() ?? '';
-        weaknesses = parsed['weaknesses']?.toString() ?? '';
-        recommendation =
-            parsed['recommendation']?.toString() ?? result;
+        analysis = perf;
+        reviewAnalysis = review;
         finished = true;
         loading = false;
       });
@@ -203,25 +242,53 @@ class _ActiveRecallPageState extends State<ActiveRecallPage> {
       if (!mounted) return;
 
       setState(() {
-        recommendation = e.toString();
         finished = true;
         loading = false;
+        error = e.toString();
       });
     }
   }
 
-  Map<String, dynamic> _parse(String value) {
-    try {
-      final decoded = jsonDecode(value);
+  Future<void> _applyAdaptiveResults(
+    PerformanceAnalysis perf,
+    PerformanceAnalysis? review,
+  ) async {
+    final topicIds = widget.selectedTopicIds.toSet();
 
-      if (decoded is Map<String, dynamic>) {
-        return decoded;
+    if (topicIds.isNotEmpty) {
+      for (final topic in perf.topics) {
+        if (!topicIds.contains(topic.topicId)) {
+          continue;
+        }
+
+        await repo.updateTopicMastery(
+          topicId: topic.topicId,
+          mastery: topic.mastery,
+        );
       }
-    } catch (_) {}
+    }
 
-    return {
-      'feedback': value,
-    };
+    final plans =
+        review?.reviewPlans ?? perf.reviewPlans;
+
+    for (final plan in plans) {
+      if (topicIds.isNotEmpty &&
+          !topicIds.contains(plan.topicId)) {
+        continue;
+      }
+
+      final dueAt = DateTime.now().add(
+        Duration(days: plan.intervalDays),
+      );
+
+      await repo.insertReview({
+        'topic_id': plan.topicId,
+        'due_at': dueAt.toIso8601String(),
+        'interval_days': plan.intervalDays,
+        'ease': 2.5,
+        'repetitions': 1,
+      });
+    }
   }
 
   void _returnToStudy() {
@@ -234,103 +301,150 @@ class _ActiveRecallPageState extends State<ActiveRecallPage> {
   @override
   Widget build(BuildContext context) {
     if (finished) {
-      return _buildResults();
+      return _results();
     }
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Active Recall'),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Text(
-            widget.title,
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Question ${questionIndex + 1} of 5',
-          ),
-          const SizedBox(height: 20),
-          if (loading && question.isEmpty)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.all(32),
-                child: CircularProgressIndicator(),
-              ),
+      body: loading && questions.isEmpty
+          ? const Center(
+              child: CircularProgressIndicator(),
             )
-          else ...[
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Text(
-                  question,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: answerController,
-              enabled: !submitted && !loading,
-              minLines: 8,
-              maxLines: 16,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                hintText: 'Answer from memory...',
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (!submitted)
-              SizedBox(
-                height: 50,
-                child: FilledButton(
-                  onPressed: loading ? null : _submit,
-                  child: loading
-                      ? const CircularProgressIndicator()
-                      : const Text('Submit'),
-                ),
-              ),
-            if (submitted)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'AI Feedback',
-                        style:
-                            Theme.of(context).textTheme.titleLarge,
+          : ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                if (error.isNotEmpty)
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(error),
+                    ),
+                  ),
+                if (questions.isNotEmpty) ...[
+                  Text(
+                    '${currentIndex + 1} / ${questions.length}',
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodyMedium,
+                  ),
+                  const SizedBox(height: 12),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Text(
+                        currentQuestion?.question ?? '',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleLarge,
                       ),
-                      const SizedBox(height: 12),
-                      Text(feedback),
-                      const SizedBox(height: 20),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: FilledButton(
-                          onPressed: _next,
-                          child: Text(
-                            questionIndex >= 4
-                                ? 'View Results'
-                                : 'Next',
-                          ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: answerController,
+                    enabled:
+                        !submitted && !loading,
+                    minLines: 8,
+                    maxLines: 16,
+                    decoration:
+                        const InputDecoration(
+                      border: OutlineInputBorder(),
+                      hintText:
+                          'Answer from memory...',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  if (!submitted)
+                    SizedBox(
+                      height: 52,
+                      child: FilledButton(
+                        onPressed:
+                            loading ? null : _submit,
+                        child: const Text(
+                          'Submit',
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  if (submitted &&
+                      currentEvaluation != null)
+                    _feedbackCard(
+                      currentEvaluation!,
+                    ),
+                ],
+              ],
+            ),
+    );
+  }
+
+  Widget _feedbackCard(
+    AnswerEvaluation evaluation,
+  ) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+          children: [
+            Text(
+              evaluation.isCorrect
+                  ? 'Correct'
+                  : 'Needs Review',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge,
+            ),
+            if (evaluation.explanation.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(evaluation.explanation),
+            ],
+            if (evaluation.errorReason.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Error: ${evaluation.errorReason}',
+              ),
+            ],
+            if (evaluation.knowledgeGap.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Knowledge gap: '
+                '${evaluation.knowledgeGap}',
+              ),
+            ],
+            if (evaluation
+                .recommendedAction
+                .isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Next: '
+                '${evaluation.recommendedAction}',
+              ),
+            ],
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: FilledButton(
+                onPressed: _next,
+                child: Text(
+                  currentIndex ==
+                          questions.length - 1
+                      ? 'View Results'
+                      : 'Next',
                 ),
               ),
+            ),
           ],
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildResults() {
+  Widget _results() {
+    final perf = analysis;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Recall Results'),
@@ -340,34 +454,50 @@ class _ActiveRecallPageState extends State<ActiveRecallPage> {
         padding: const EdgeInsets.all(16),
         children: [
           Text(
-            'Session Results',
-            style: Theme.of(context).textTheme.headlineSmall,
+            '$correctAnswers / ${questions.length}',
+            style: Theme.of(context)
+                .textTheme
+                .headlineMedium,
           ),
           const SizedBox(height: 20),
           _resultCard(
             'Strengths',
-            strengths.isEmpty
-                ? 'No strength data returned.'
-                : strengths,
+            perf?.strengths.join('\n') ??
+                'No data available.',
           ),
           _resultCard(
             'Weaknesses',
-            weaknesses.isEmpty
-                ? 'No weakness data returned.'
-                : weaknesses,
+            perf?.weaknesses.join('\n') ??
+                'No data available.',
           ),
           _resultCard(
-            'Recommended next step',
-            recommendation.isEmpty
-                ? 'Continue reviewing this material.'
-                : recommendation,
+            'Summary',
+            perf?.summary.isNotEmpty == true
+                ? perf!.summary
+                : 'No summary available.',
           ),
+          if (reviewAnalysis?.reviewPlans
+                  .isNotEmpty ==
+              true)
+            _resultCard(
+              'Next reviews',
+              reviewAnalysis!.reviewPlans
+                  .map(
+                    (plan) =>
+                        '${plan.topicName}: '
+                        '${plan.intervalDays} day(s) '
+                        '— ${plan.reason}',
+                  )
+                  .join('\n'),
+            ),
           const SizedBox(height: 20),
           SizedBox(
             height: 52,
             child: FilledButton(
               onPressed: _returnToStudy,
-              child: const Text('Return to Study'),
+              child: const Text(
+                'Return to Study',
+              ),
             ),
           ),
         ],
@@ -375,17 +505,24 @@ class _ActiveRecallPageState extends State<ActiveRecallPage> {
     );
   }
 
-  Widget _resultCard(String title, String text) {
+  Widget _resultCard(
+    String title,
+    String text,
+  ) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin:
+          const EdgeInsets.only(bottom: 12),
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
           children: [
             Text(
               title,
-              style: Theme.of(context).textTheme.titleMedium,
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium,
             ),
             const SizedBox(height: 8),
             Text(text),
