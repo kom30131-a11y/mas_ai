@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../content_viewer_page.dart';
-import '../text/text_editor_page.dart';
-import '../actions/content_actions.dart' as actions;
+import '../content/library_content_helper.dart';
 import '../widgets/library_helpers.dart';
 import 'library_search.dart';
 
@@ -43,58 +41,94 @@ class _LibrarySearchPageState
     });
   }
 
-  Future<void> openResult(
-    LibrarySearchResult result,
-  ) async {
-    final item = result.item;
-    final type = item['type']?.toString() ?? '';
-    final subjectId = item['subject_id'] as int;
-    final folderId = item['folder_id'] as int?;
+  List<TextSpan> _highlight(
+    String text,
+    String query,
+  ) {
+    if (query.isEmpty) {
+      return [TextSpan(text: text)];
+    }
 
-    if (type == 'Text') {
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => TextEditorPage(
-            subjectId: subjectId,
-            folderId: folderId,
-            item: item,
+    final spans = <TextSpan>[];
+    final lowerText = text.toLowerCase();
+    final lowerQuery = query.toLowerCase();
+
+    var start = 0;
+
+    while (true) {
+      final index =
+          lowerText.indexOf(lowerQuery, start);
+
+      if (index < 0) {
+        if (start < text.length) {
+          spans.add(
+            TextSpan(
+              text: text.substring(start),
+            ),
+          );
+        }
+
+        break;
+      }
+
+      if (index > start) {
+        spans.add(
+          TextSpan(
+            text: text.substring(start, index),
+          ),
+        );
+      }
+
+      spans.add(
+        TextSpan(
+          text: text.substring(
+            index,
+            index + query.length,
+          ),
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            backgroundColor: Theme.of(context)
+                .colorScheme
+                .primaryContainer,
           ),
         ),
       );
 
-      return;
+      start = index + query.length;
     }
 
-    final path = item['file_path']?.toString();
+    return spans;
+  }
 
-    if (path == null || path.isEmpty) {
-      return;
-    }
+  Future<void> openResult(
+    LibrarySearchResult result,
+  ) async {
+    final item = result.item;
+    final subjectId = item['subject_id'];
 
-    await Navigator.push(
+    if (subjectId is! int) return;
+
+    await openContent(
       context,
-      MaterialPageRoute(
-        builder: (_) => ContentViewerPage(
-          title:
-              item['title']?.toString() ?? 'Content',
-          path: path,
-          type: type,
-          extractedText:
-              item['content']?.toString(),
-        ),
-      );
-    }
+      item,
+      subjectId,
+      item['folder_id'] as int?,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final query = controller.text.trim();
+
     return Scaffold(
       appBar: AppBar(
         title: TextField(
           controller: controller,
           autofocus: true,
           textInputAction: TextInputAction.search,
+          onChanged: (_) {
+            setState(() {});
+          },
           onSubmitted: (_) => search(),
           decoration: const InputDecoration(
             hintText: 'Search library',
@@ -103,6 +137,7 @@ class _LibrarySearchPageState
         ),
         actions: [
           IconButton(
+            tooltip: 'Search',
             onPressed: search,
             icon: const Icon(Icons.search),
           ),
@@ -115,7 +150,7 @@ class _LibrarySearchPageState
           : results.isEmpty
               ? Center(
                   child: Text(
-                    controller.text.trim().isEmpty
+                    query.isEmpty
                         ? 'Search your library'
                         : 'No results found',
                   ),
@@ -128,6 +163,8 @@ class _LibrarySearchPageState
                   itemBuilder: (_, index) {
                     final result = results[index];
                     final item = result.item;
+                    final type =
+                        item['type']?.toString();
 
                     return ListTile(
                       contentPadding:
@@ -136,9 +173,7 @@ class _LibrarySearchPageState
                         vertical: 8,
                       ),
                       leading: Icon(
-                        contentIcon(
-                          item['type']?.toString(),
-                        ),
+                        contentIcon(type),
                       ),
                       title: Text(
                         item['title']?.toString() ??
@@ -151,23 +186,42 @@ class _LibrarySearchPageState
                         crossAxisAlignment:
                             CrossAxisAlignment.start,
                         children: [
-                          if (result.folderName != null)
-                            Text(
-                              result.folderName!,
-                              maxLines: 1,
-                              overflow:
-                                  TextOverflow.ellipsis,
+                          if (result.folderName !=
+                                  null &&
+                              result
+                                  .folderName!
+                                  .isNotEmpty)
+                            Padding(
+                              padding:
+                                  const EdgeInsets.only(
+                                top: 2,
+                              ),
+                              child: Text(
+                                result.folderName!,
+                                maxLines: 2,
+                                overflow:
+                                    TextOverflow.ellipsis,
+                              ),
                             ),
-                          const SizedBox(height: 4),
-                          Text(
-                            result.snippet,
+                          const SizedBox(height: 5),
+                          RichText(
                             maxLines: 3,
                             overflow:
                                 TextOverflow.ellipsis,
+                            text: TextSpan(
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium,
+                              children: _highlight(
+                                result.snippet,
+                                query,
+                              ),
+                            ),
                           ),
                         ],
                       ),
-                      onTap: () => openResult(result),
+                      onTap: () =>
+                          openResult(result),
                     );
                   },
                 ),
@@ -179,4 +233,4 @@ class _LibrarySearchPageState
     controller.dispose();
     super.dispose();
   }
-      }
+}
