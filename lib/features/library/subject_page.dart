@@ -1,727 +1,431 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import '../content/library_content_helper.dart';
-import '../folder_page.dart';
-import '../widgets/library_helpers.dart';
-import 'library_search.dart';
+import '../../core/database/database_repository.dart';
+import 'actions/content_actions.dart' as content_actions;
+import 'content/library_content_helper.dart';
+import 'folder_page.dart';
+import 'text/text_editor_page.dart';
+import 'widgets/library_helpers.dart';
 
-enum SearchFilter {
-  all,
-  folders,
-  files,
-}
+final _repo = DatabaseRepository.instance;
 
-class LibrarySearchPage extends StatefulWidget {
-  const LibrarySearchPage({
+class SubjectPage extends StatefulWidget {
+  final int subjectId;
+  final String subjectName;
+
+  const SubjectPage({
     super.key,
+    required this.subjectId,
+    required this.subjectName,
   });
 
   @override
-  State<LibrarySearchPage> createState() =>
-      _LibrarySearchPageState();
+  State<SubjectPage> createState() => _SubjectPageState();
 }
 
-class _LibrarySearchPageState
-    extends State<LibrarySearchPage> {
-  final controller = TextEditingController();
-
-  List<LibrarySearchResult> results = [];
-  List<String> recentSearches = [];
-
-  SearchFilter filter = SearchFilter.all;
-
-  Timer? _debounce;
-
-  int _searchRequest = 0;
-
-  bool loading = false;
+class _SubjectPageState extends State<SubjectPage> {
+  List<Map<String, dynamic>> folders = [];
+  List<Map<String, dynamic>> content = [];
+  bool loading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadRecentSearches();
+    load();
   }
 
-  Future<void> _loadRecentSearches() async {
-    final prefs =
-        await SharedPreferences.getInstance();
+  Future<void> load() async {
+    final allFolders = await _repo.getFolders();
+    final allContent = await _repo.getContent();
 
-    final saved =
-        prefs.getStringList(
-              'library_recent_searches',
-            ) ??
-            [];
-
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
     setState(() {
-      recentSearches = saved;
-    });
-  }
+      folders = allFolders
+          .where(
+            (item) =>
+                item['subject_id'] == widget.subjectId &&
+                item['parent_id'] == null,
+          )
+          .toList();
 
-  Future<void> _saveRecentSearch(
-    String query,
-  ) async {
-    final value = query.trim();
+      content = allContent
+          .where(
+            (item) =>
+                item['subject_id'] == widget.subjectId &&
+                item['folder_id'] == null,
+          )
+          .toList();
 
-    if (value.isEmpty) {
-      return;
-    }
-
-    recentSearches.removeWhere(
-      (item) =>
-          item.toLowerCase() ==
-          value.toLowerCase(),
-    );
-
-    recentSearches.insert(
-      0,
-      value,
-    );
-
-    if (recentSearches.length > 8) {
-      recentSearches =
-          recentSearches.take(8).toList();
-    }
-
-    final prefs =
-        await SharedPreferences.getInstance();
-
-    await prefs.setStringList(
-      'library_recent_searches',
-      recentSearches,
-    );
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {});
-  }
-
-  Future<void> _clearRecentSearches() async {
-    recentSearches.clear();
-
-    final prefs =
-        await SharedPreferences.getInstance();
-
-    await prefs.remove(
-      'library_recent_searches',
-    );
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {});
-  }
-
-  void _onQueryChanged(
-    String value,
-  ) {
-    _debounce?.cancel();
-
-    final query = value.trim();
-
-    if (query.isEmpty) {
-      setState(() {
-        results = [];
-        loading = false;
-      });
-
-      return;
-    }
-
-    setState(() {
-      loading = true;
-    });
-
-    _debounce = Timer(
-      const Duration(
-        milliseconds: 350,
-      ),
-      search,
-    );
-  }
-
-  Future<void> search() async {
-    final query = controller.text.trim();
-
-    if (query.isEmpty) {
-      setState(() {
-        results = [];
-        loading = false;
-      });
-
-      return;
-    }
-
-    final request = ++_searchRequest;
-
-    setState(() {
-      loading = true;
-    });
-
-    final found =
-        await LibrarySearch.search(
-      query,
-    );
-
-    if (!mounted ||
-        request != _searchRequest) {
-      return;
-    }
-
-    setState(() {
-      results = found;
       loading = false;
     });
+  }
 
-    await _saveRecentSearch(
-      query,
+  Future<String?> _ask(
+    String title, [
+    String? old,
+  ]) async {
+    final controller = TextEditingController(
+      text: old ?? '',
     );
-  }
 
-  List<LibrarySearchResult>
-      get filteredResults {
-    switch (filter) {
-      case SearchFilter.all:
-        return results;
-
-      case SearchFilter.folders:
-        return results
-            .where(
-              (item) => item.isFolder,
-            )
-            .toList();
-
-      case SearchFilter.files:
-        return results
-            .where(
-              (item) => !item.isFolder,
-            )
-            .toList();
-    }
-  }
-
-  List<TextSpan> _highlight(
-    BuildContext context,
-    String text,
-    String query,
-  ) {
-    if (query.isEmpty) {
-      return [
-        TextSpan(
-          text: text,
+    final result = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
         ),
-      ];
-    }
-
-    final spans = <TextSpan>[];
-
-    final lowerText =
-        text.toLowerCase();
-
-    final lowerQuery =
-        query.toLowerCase();
-
-    var start = 0;
-
-    while (start < text.length) {
-      final index =
-          lowerText.indexOf(
-        lowerQuery,
-        start,
-      );
-
-      if (index < 0) {
-        spans.add(
-          TextSpan(
-            text: text.substring(start),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
           ),
-        );
+          FilledButton(
+            onPressed: () {
+              final value = controller.text.trim();
 
-        break;
-      }
-
-      if (index > start) {
-        spans.add(
-          TextSpan(
-            text: text.substring(
-              start,
-              index,
-            ),
-          ),
-        );
-      }
-
-      spans.add(
-        TextSpan(
-          text: text.substring(
-            index,
-            index + query.length,
-          ),
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-            color:
-                Theme.of(context)
-                    .colorScheme
-                    .primary,
-          ),
-        ),
-      );
-
-      start =
-          index + query.length;
-    }
-
-    return spans;
-  }
-
-  IconData _resultIcon(
-    LibrarySearchResult result,
-  ) {
-    if (result.isFolder) {
-      return Icons.folder_outlined;
-    }
-
-    return contentIcon(
-      result.item['type']?.toString(),
-    );
-  }
-
-  String _resultType(
-    LibrarySearchResult result,
-  ) {
-    if (result.isFolder) {
-      return 'Folder';
-    }
-
-    switch (
-        result.item['type']
-            ?.toString()
-            .toLowerCase()) {
-      case 'pdf':
-        return 'PDF';
-
-      case 'word':
-        return 'Word';
-
-      case 'powerpoint':
-      case 'ppt':
-        return 'PowerPoint';
-
-      case 'image':
-        return 'Image';
-
-      case 'text':
-        return 'Text';
-
-      default:
-        return 'File';
-    }
-  }
-
-  Future<void> _openResult(
-    LibrarySearchResult result,
-  ) async {
-    final item = result.item;
-
-    final subjectId =
-        item['subject_id'];
-
-    if (subjectId is! int) {
-      return;
-    }
-
-    if (result.isFolder) {
-      final folderId =
-          item['id'];
-
-      if (folderId is! int) {
-        return;
-      }
-
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => FolderPage(
-            subjectId: subjectId,
-            folderId: folderId,
-            folderName:
-                item['name']?.toString() ??
-                    'Folder',
-          ),
-        ),
-      );
-
-      return;
-    }
-
-    await openContent(
-      context,
-      item,
-      subjectId,
-      item['folder_id'] is int
-          ? item['folder_id'] as int
-          : null,
-    );
-  }
-
-  void _useRecentSearch(
-    String value,
-  ) {
-    controller.text = value;
-
-    controller.selection =
-        TextSelection.collapsed(
-      offset: controller.text.length,
-    );
-
-    search();
-  }
-
-  Widget _buildFilterChip({
-    required String label,
-    required SearchFilter value,
-  }) {
-    return FilterChip(
-      label: Text(label),
-      selected: filter == value,
-      onSelected: (selected) {
-        if (!selected) {
-          return;
-        }
-
-        setState(() {
-          filter = value;
-        });
-      },
-    );
-  }
-
-  Widget _buildFilterBar() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.fromLTRB(
-        12,
-        8,
-        12,
-        8,
-      ),
-      child: Row(
-        children: [
-          _buildFilterChip(
-            label: 'All',
-            value: SearchFilter.all,
-          ),
-          const SizedBox(
-            width: 8,
-          ),
-          _buildFilterChip(
-            label: 'Folders',
-            value: SearchFilter.folders,
-          ),
-          const SizedBox(
-            width: 8,
-          ),
-          _buildFilterChip(
-            label: 'Files',
-            value: SearchFilter.files,
+              if (value.isNotEmpty) {
+                Navigator.pop(context, value);
+              }
+            },
+            child: const Text('Save'),
           ),
         ],
       ),
     );
+
+    controller.dispose();
+    return result;
   }
 
-  Widget _buildRecentSearches() {
-    if (recentSearches.isEmpty) {
-      return const SizedBox.shrink();
+  Future<bool> _confirm(String title) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: Text(title),
+            content: const Text(
+              'This item will be deleted.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(
+                  context,
+                  false,
+                ),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(
+                  context,
+                  true,
+                ),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  Future<void> _folder([
+    Map<String, dynamic>? item,
+  ]) async {
+    final name = await _ask(
+      item == null ? 'New folder' : 'Rename folder',
+      item?['name']?.toString(),
+    );
+
+    if (!mounted || name == null) return;
+
+    if (item == null) {
+      await _repo.insertFolder(
+        name: name,
+        subjectId: widget.subjectId,
+      );
+    } else {
+      await _repo.renameFolder(
+        folderId: item['id'],
+        name: name,
+      );
     }
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'Recent searches',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed:
-                  _clearRecentSearches,
-              child: const Text('Clear'),
-            ),
-          ],
+    await load();
+  }
+
+  Future<void> _deleteFolder(
+    Map<String, dynamic> item,
+  ) async {
+    if (!await _confirm('Delete folder?')) {
+      return;
+    }
+
+    await _repo.deleteFolder(item['id']);
+    await load();
+  }
+
+  Future<void> _deleteContent(
+    Map<String, dynamic> item,
+  ) async {
+    if (!await _confirm('Delete content?')) {
+      return;
+    }
+
+    await _repo.deleteContent(item['id']);
+    await load();
+  }
+
+  Future<void> _renameContent(
+    Map<String, dynamic> item,
+  ) async {
+    await content_actions.editContent(
+      context,
+      item,
+      load,
+    );
+  }
+
+  Future<void> _addContent() async {
+    final type = await choose(context);
+
+    if (!mounted || type == null) {
+      return;
+    }
+
+    if (type == 'text') {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TextEditorPage(
+            subjectId: widget.subjectId,
+          ),
         ),
-        const SizedBox(
-          height: 8,
+      );
+
+      if (mounted) {
+        await load();
+      }
+
+      return;
+    }
+
+    await content_actions.pickFile(
+      type,
+      widget.subjectId,
+      null,
+    );
+
+    if (mounted) {
+      await load();
+    }
+  }
+
+  Future<void> _openFolder(
+    Map<String, dynamic> item,
+  ) async {
+    final folderId = item['id'];
+
+    if (folderId is! int) {
+      return;
+    }
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FolderPage(
+          subjectId: widget.subjectId,
+          folderId: folderId,
+          folderName:
+              item['name']?.toString() ?? 'Folder',
         ),
-        ...recentSearches.map(
-          (
-            value,
-          ) =>
-              ListTile(
-            contentPadding:
-                EdgeInsets.zero,
-            leading:
-                const Icon(
-              Icons.history,
-            ),
-            title: Text(value),
-            trailing:
-                const Icon(
-              Icons.north_west,
-              size: 18,
-            ),
-            onTap: () =>
-                _useRecentSearch(value),
+      ),
+    );
+
+    if (mounted) {
+      await load();
+    }
+  }
+
+  Future<void> _openContent(
+    Map<String, dynamic> item,
+  ) async {
+    await openContent(
+      context,
+      item,
+      widget.subjectId,
+      null,
+    );
+
+    if (mounted) {
+      await load();
+    }
+  }
+
+  PopupMenuButton<String> _menu({
+    required bool isFolder,
+    required Map<String, dynamic> item,
+  }) {
+    return PopupMenuButton<String>(
+      onSelected: (value) {
+        if (isFolder) {
+          if (value == 'rename') {
+            _folder(item);
+          } else {
+            _deleteFolder(item);
+          }
+        } else {
+          if (value == 'rename') {
+            _renameContent(item);
+          } else {
+            _deleteContent(item);
+          }
+        }
+      },
+      itemBuilder: (_) => [
+        PopupMenuItem(
+          value: 'rename',
+          child: Text(
+            isFolder ? 'Rename folder' : 'Rename',
+          ),
+        ),
+        PopupMenuItem(
+          value: 'delete',
+          child: Text(
+            isFolder ? 'Delete folder' : 'Delete',
           ),
         ),
       ],
     );
   }
 
-  Widget _buildEmptyState() {
-    final query =
-        controller.text.trim();
-
-    if (query.isEmpty) {
-      return _buildRecentSearches();
-    }
-
-    return Center(
-      child: Padding(
-        padding:
-            const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize:
-              MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.search_off,
-              size: 52,
-              color:
-                  Theme.of(context)
-                      .colorScheme
-                      .outline,
-            ),
-            const SizedBox(
-              height: 16,
-            ),
-            Text(
-              'No results found',
-              style:
-                  Theme.of(context)
-                      .textTheme
-                      .titleMedium,
-            ),
-            const SizedBox(
-              height: 8,
-            ),
-            Text(
-              'Try another file or folder name.',
-              textAlign:
-                  TextAlign.center,
-              style:
-                  Theme.of(context)
-                      .textTheme
-                      .bodyMedium,
-            ),
-          ],
-        ),
+  Widget _folderTile(
+    Map<String, dynamic> item,
+  ) {
+    return ListTile(
+      leading: const Icon(
+        Icons.folder_outlined,
       ),
+      title: Text(
+        item['name']?.toString() ?? 'Folder',
+      ),
+      trailing: _menu(
+        isFolder: true,
+        item: item,
+      ),
+      onTap: () => _openFolder(item),
     );
   }
 
-  Widget _buildResult(
-    LibrarySearchResult result,
+  Widget _contentTile(
+    Map<String, dynamic> item,
   ) {
-    final query =
-        controller.text.trim();
-
     return ListTile(
-      contentPadding:
-          const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 8,
-      ),
-      leading: CircleAvatar(
-        child: Icon(
-          _resultIcon(result),
+      leading: Icon(
+        contentIcon(
+          item['type']?.toString(),
         ),
       ),
-      title: RichText(
-        maxLines: 2,
-        overflow:
-            TextOverflow.ellipsis,
-        text: TextSpan(
-          style:
-              Theme.of(context)
-                  .textTheme
-                  .titleMedium,
-          children:
-              _highlight(
-            context,
-            result.matchedName,
-            query,
-          ),
-        ),
+      title: Text(
+        item['title']?.toString() ??
+            item['name']?.toString() ??
+            'Material',
       ),
-      subtitle: Padding(
-        padding:
-            const EdgeInsets.only(
-          top: 6,
-        ),
-        child: Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
-          children: [
-            Text(
-              result.path,
-              maxLines: 3,
-              overflow:
-                  TextOverflow.ellipsis,
-            ),
-            const SizedBox(
-              height: 4,
-            ),
-            Text(
-              _resultType(result),
-              style:
-                  Theme.of(context)
-                      .textTheme
-                      .labelMedium,
-            ),
-          ],
-        ),
+      trailing: _menu(
+        isFolder: false,
+        item: item,
       ),
-      trailing:
-          const Icon(
-        Icons.chevron_right,
-      ),
-      onTap: () =>
-          _openResult(result),
+      onTap: () => _openContent(item),
     );
   }
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
-    final visible =
-        filteredResults;
-
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        titleSpacing: 0,
-        title: TextField(
-          controller: controller,
-          autofocus: true,
-          textInputAction:
-              TextInputAction.search,
-          onChanged:
-              _onQueryChanged,
-          onSubmitted: (_) =>
-              search(),
-          decoration:
-              const InputDecoration(
-            hintText:
-                'Search files and folders',
-            border:
-                InputBorder.none,
-          ),
-        ),
+        title: Text(widget.subjectName),
         actions: [
-          if (controller.text.isNotEmpty)
-            IconButton(
-              tooltip: 'Clear',
-              onPressed: () {
-                _debounce?.cancel();
-
-                ++_searchRequest;
-
-                controller.clear();
-
-                setState(() {
-                  results = [];
-                  loading = false;
-                });
-              },
-              icon:
-                  const Icon(
-                Icons.clear,
-              ),
-            ),
           IconButton(
-            tooltip: 'Search',
-            onPressed: search,
-            icon:
-                const Icon(
-              Icons.search,
+            tooltip: 'New folder',
+            onPressed: _folder,
+            icon: const Icon(
+              Icons.create_new_folder_outlined,
+            ),
+          ),
+          IconButton(
+            tooltip: 'Add material',
+            onPressed: _addContent,
+            icon: const Icon(
+              Icons.add,
             ),
           ),
         ],
       ),
-      body: Column(
-        children: [
-          _buildFilterBar(),
-          const Divider(
-            height: 1,
-          ),
-          Expanded(
-            child: loading
-                ? const Center(
-                    child:
-                        CircularProgressIndicator(),
-                  )
-                : visible.isEmpty
-                    ? _buildEmptyState()
-                    : ListView.separated(
-                        padding:
-                            const EdgeInsets.only(
-                          top: 8,
-                          bottom: 24,
+      body: loading
+          ? const Center(
+              child: CircularProgressIndicator(),
+            )
+          : RefreshIndicator(
+              onRefresh: load,
+              child: folders.isEmpty &&
+                      content.isEmpty
+                  ? ListView(
+                      children: const [
+                        SizedBox(height: 180),
+                        Center(
+                          child: Text(
+                            'No folders or materials yet.',
+                          ),
                         ),
-                        itemCount:
-                            visible.length,
-                        separatorBuilder:
-                            (
-                          _,
-                          __,
-                        ) =>
-                                const Divider(
-                          height: 1,
-                        ),
-                        itemBuilder:
-                            (
-                          _,
-                          index,
-                        ) =>
-                                _buildResult(
-                          visible[index],
-                        ),
+                      ],
+                    )
+                  : ListView(
+                      padding: const EdgeInsets.only(
+                        top: 8,
+                        bottom: 24,
                       ),
-          ),
-        ],
-      ),
+                      children: [
+                        if (folders.isNotEmpty) ...[
+                          const Padding(
+                            padding: EdgeInsets.fromLTRB(
+                              16,
+                              16,
+                              16,
+                              8,
+                            ),
+                            child: Text(
+                              'Folders',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight:
+                                    FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          ...folders.map(_folderTile),
+                        ],
+                        if (content.isNotEmpty) ...[
+                          const Padding(
+                            padding: EdgeInsets.fromLTRB(
+                              16,
+                              20,
+                              16,
+                              8,
+                            ),
+                            child: Text(
+                              'Materials',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight:
+                                    FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          ...content.map(_contentTile),
+                        ],
+                      ],
+                    ),
+            ),
     );
-  }
-
-  @override
-  void dispose() {
-    _debounce?.cancel();
-    controller.dispose();
-    super.dispose();
   }
 }
