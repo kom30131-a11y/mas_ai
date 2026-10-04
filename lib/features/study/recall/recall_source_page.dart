@@ -5,10 +5,12 @@ import 'recall_scope_page.dart';
 
 class RecallSourcePage extends StatefulWidget {
   final int subjectId;
+  final String mode;
 
   const RecallSourcePage({
     super.key,
     required this.subjectId,
+    this.mode = 'recall',
   });
 
   @override
@@ -21,6 +23,8 @@ class _RecallSourcePageState extends State<RecallSourcePage> {
   List<Map<String, dynamic>> folders = [];
   List<Map<String, dynamic>> content = [];
   bool loading = true;
+
+  bool get isExplain => widget.mode == 'explain';
 
   @override
   void initState() {
@@ -66,6 +70,7 @@ class _RecallSourcePageState extends State<RecallSourcePage> {
           sourceId: sourceId,
           title: title,
           sourceContent: sourceContent,
+          mode: widget.mode,
         ),
       ),
     );
@@ -80,20 +85,22 @@ class _RecallSourcePageState extends State<RecallSourcePage> {
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Choose study source',
-                  style: Theme.of(context)
-                      .textTheme
-                      .headlineSmall,
+                  isExplain
+                      ? 'Choose study source'
+                      : 'Choose study source',
+                  style: Theme.of(context).textTheme.headlineSmall,
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Choose the lecture, book, folder, or material '
-                  'you want to use for Active Recall.',
-                  style: TextStyle(
+                Text(
+                  isExplain
+                      ? 'Choose the lecture, book, folder, or material '
+                          'you want to explain.'
+                      : 'Choose the lecture, book, folder, or material '
+                          'you want to use for Active Recall.',
+                  style: const TextStyle(
                     fontSize: 16,
                     height: 1.5,
                   ),
@@ -133,8 +140,7 @@ class _RecallSourcePageState extends State<RecallSourcePage> {
                     Icons.folder_outlined,
                   ),
                   title: Text(
-                    folder['name']?.toString() ??
-                        'Folder',
+                    folder['name']?.toString() ?? 'Folder',
                   ),
                   subtitle: const Text(
                     'Choose this source',
@@ -145,8 +151,7 @@ class _RecallSourcePageState extends State<RecallSourcePage> {
                   onTap: () => _openScope(
                     sourceType: 'folder',
                     sourceId: folder['id'] as int,
-                    title: folder['name']?.toString() ??
-                        'Folder',
+                    title: folder['name']?.toString() ?? 'Folder',
                     sourceContent: '',
                   ),
                 ),
@@ -174,8 +179,7 @@ class _RecallSourcePageState extends State<RecallSourcePage> {
                       'Material',
                 ),
                 subtitle: Text(
-                  item['type']?.toString() ??
-                      'Material',
+                  item['type']?.toString() ?? 'Material',
                 ),
                 trailing: const Icon(
                   Icons.chevron_right,
@@ -183,10 +187,8 @@ class _RecallSourcePageState extends State<RecallSourcePage> {
                 onTap: () => _openScope(
                   sourceType: 'material',
                   sourceId: item['id'] as int,
-                  title: item['title']?.toString() ??
-                      'Material',
-                  sourceContent:
-                      item['content']?.toString() ?? '',
+                  title: item['title']?.toString() ?? 'Material',
+                  sourceContent: item['content']?.toString() ?? '',
                 ),
               ),
             ),
