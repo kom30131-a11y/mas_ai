@@ -1,24 +1,24 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/database/database_repository.dart';
+import '../services/study_content_service.dart';
+import '../widgets/explain_stage.dart';
 import 'active_recall_page.dart';
 
 class RecallScopePage extends StatefulWidget {
   final int subjectId;
-  final String subjectName;
   final int folderId;
-  final String folderName;
   final int materialId;
   final String materialTitle;
+  final String mode;
 
   const RecallScopePage({
     super.key,
     required this.subjectId,
-    required this.subjectName,
     required this.folderId,
-    required this.folderName,
     required this.materialId,
     required this.materialTitle,
+    this.mode = 'recall',
   });
 
   @override
@@ -27,12 +27,15 @@ class RecallScopePage extends StatefulWidget {
 
 class _RecallScopePageState extends State<RecallScopePage> {
   final repo = DatabaseRepository.instance;
+  final contentService = StudyContentService.instance;
 
   bool loading = true;
-  bool allContent = true;
+  bool wholeMaterial = true;
 
   List<Map<String, dynamic>> topics = [];
-  final Set<int> selectedTopicIds = {};
+  final selectedTopicIds = <int>{};
+
+  bool get isExplain => widget.mode == 'explain';
 
   @override
   void initState() {
@@ -41,36 +44,47 @@ class _RecallScopePageState extends State<RecallScopePage> {
   }
 
   Future<void> _loadTopics() async {
-    try {
-      final result = await repo.getTopics(
-        subjectId: widget.subjectId,
-      );
+    final folderContent = await repo.getContent(
+      folderId: widget.folderId,
+    );
 
-      if (!mounted) return;
+    final topicIds = folderContent
+        .map((item) => item['topic_id'])
+        .whereType<int>()
+        .toSet();
 
-      setState(() {
-        topics = result;
-        loading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
+    final allTopics = await repo.getTopics(
+      subjectId: widget.subjectId,
+    );
 
-      setState(() {
-        loading = false;
-      });
-    }
+    final filtered = topicIds.isEmpty
+        ? allTopics
+        : allTopics.where((topic) {
+            final id = topic['id'];
+            return id is int && topicIds.contains(id);
+          }).toList();
+
+    if (!mounted) return;
+
+    setState(() {
+      topics = filtered;
+      loading = false;
+    });
   }
 
-  void _setAllContent(bool value) {
+  void _setWholeMaterial(bool value) {
     setState(() {
-      allContent = value;
-      selectedTopicIds.clear();
+      wholeMaterial = value;
+
+      if (value) {
+        selectedTopicIds.clear();
+      }
     });
   }
 
   void _toggleTopic(int topicId) {
     setState(() {
-      allContent = false;
+      wholeMaterial = false;
 
       if (selectedTopicIds.contains(topicId)) {
         selectedTopicIds.remove(topicId);
@@ -80,81 +94,93 @@ class _RecallScopePageState extends State<RecallScopePage> {
     });
   }
 
-  Future<void> _startSession() async {
-    if (!allContent && selectedTopicIds.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('اختر المحتوى أو Topic واحدًا على الأقل'),
-        ),
+  Future<String> _buildSourceContent() async {
+    if (wholeMaterial) {
+      return contentService.getStudyText(
+        widget.materialId,
       );
-      return;
     }
 
-    final materialContent = await repo.getContent(
-      folderId: widget.folderId,
+    final rows = await repo.getContentForTopics(
+      selectedTopicIds.toList(),
     );
 
-    List<Map<String, dynamic>> selectedContent;
+    final parts = <String>[];
 
-    if (allContent) {
-      selectedContent = materialContent
-          .where(
-            (item) => item['id'] == widget.materialId,
-          )
-          .toList();
-
-      if (selectedContent.isEmpty) {
-        selectedContent = materialContent;
+    for (final row in rows) {
+      if (row['folder_id'] != widget.folderId) {
+        continue;
       }
-    } else {
-      selectedContent = await repo.getContentForTopics(
-        selectedTopicIds.toList(),
+
+      final id = row['id'];
+
+      if (id is! int) continue;
+
+      final text = await contentService.getStudyText(id);
+
+      if (text.trim().isEmpty) continue;
+
+      final title =
+          row['title']?.toString().trim() ?? '';
+
+      parts.add(
+        title.isEmpty ? text : '$title\n$text',
       );
     }
 
-    if (!mounted) return;
+    return parts.join('\n\n');
+  }
 
-    if (selectedContent.isEmpty) {
+  Future<void> _start() async {
+    if (!wholeMaterial && selectedTopicIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('لا يوجد محتوى متاح للاختيار الحالي'),
+          content: Text(
+            'Select at least one topic.',
+          ),
         ),
       );
       return;
     }
 
-    final sourceContent = selectedContent
-        .map((item) {
-          final title = item['title']?.toString().trim() ?? '';
-          final content = item['content']?.toString().trim() ?? '';
+    final sourceContent = await _buildSourceContent();
 
-          if (title.isEmpty) return content;
-
-          return '$title\n$content';
-        })
-        .where((text) => text.trim().isNotEmpty)
-        .join('\n\n');
+    if (!mounted) return;
 
     if (sourceContent.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('المحتوى المحدد فارغ'),
+          content: Text(
+            'No readable study content was found.',
+          ),
         ),
       );
       return;
     }
 
-    Navigator.of(context).push(
+    if (isExplain) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ExplainStage(
+            title: widget.materialTitle,
+            materialId: widget.materialId,
+            content: sourceContent,
+            selectedTopicIds: selectedTopicIds.toList(),
+          ),
+        ),
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
       MaterialPageRoute(
         builder: (_) => ActiveRecallPage(
-          subjectId: widget.subjectId,
-          subjectName: widget.subjectName,
+          title: widget.materialTitle,
           materialId: widget.materialId,
-          materialTitle: widget.materialTitle,
           sourceContent: sourceContent,
-          selectedTopicIds: allContent
-              ? const []
-              : selectedTopicIds.toList(),
+          selectedTopicIds: selectedTopicIds.toList(),
         ),
       ),
     );
@@ -164,7 +190,7 @@ class _RecallScopePageState extends State<RecallScopePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Recall Scope'),
+        title: Text(widget.materialTitle),
       ),
       body: loading
           ? const Center(
@@ -173,96 +199,75 @@ class _RecallScopePageState extends State<RecallScopePage> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                Text(
-                  widget.materialTitle,
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '${widget.subjectName} • ${widget.folderName}',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 24),
-
-                Card(
-                  child: RadioListTile<bool>(
-                    value: true,
-                    groupValue: allContent,
-                    title: const Text('كل المحتوى'),
-                    subtitle: const Text(
-                      'استخدم كامل محتوى المادة',
-                    ),
-                    onChanged: (value) {
-                      if (value == true) {
-                        _setAllContent(true);
-                      }
-                    },
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 8,
-                    ),
+                RadioGroup<bool>(
+                  groupValue: wholeMaterial,
+                  onChanged: (value) {
+                    if (value == null) return;
+                    _setWholeMaterial(value);
+                  },
+                  child: Card(
                     child: Column(
                       children: [
                         RadioListTile<bool>(
-                          value: false,
-                          groupValue: allContent,
-                          title: const Text('Topics محددة'),
-                          subtitle: const Text(
-                            'اختر Topics معينة للمراجعة',
+                          value: true,
+                          title: const Text(
+                            'Complete material',
                           ),
-                          onChanged: (value) {
-                            if (value == false) {
-                              setState(() {
-                                allContent = false;
-                              });
-                            }
-                          },
                         ),
-
-                        if (!allContent) ...[
-                          const Divider(),
-
-                          if (topics.isEmpty)
-                            const Padding(
-                              padding: EdgeInsets.all(16),
-                              child: Text(
-                                'لا توجد Topics مرتبطة بهذا Subject.',
-                              ),
-                            )
-                          else
-                            ...topics.map(
-                              (topic) {
-                                final id = topic['id'] as int;
-                                final name =
-                                    topic['name']?.toString() ?? '';
-
-                                return CheckboxListTile(
-                                  value: selectedTopicIds.contains(id),
-                                  title: Text(name),
-                                  onChanged: (_) {
-                                    _toggleTopic(id);
-                                  },
-                                );
-                              },
-                            ),
-                        ],
+                        RadioListTile<bool>(
+                          value: false,
+                          title: const Text(
+                            'Specific topics',
+                          ),
+                        ),
                       ],
                     ),
                   ),
                 ),
+                if (!wholeMaterial)
+                  Card(
+                    child: topics.isEmpty
+                        ? const Padding(
+                            padding: EdgeInsets.all(20),
+                            child: Text(
+                              'No topics are available for '
+                              'this material.',
+                            ),
+                          )
+                        : Column(
+                            children: topics.map((topic) {
+                              final id = topic['id'];
 
-                const SizedBox(height: 24),
+                              if (id is! int) {
+                                return const SizedBox.shrink();
+                              }
 
-                FilledButton.icon(
-                  onPressed: _startSession,
-                  icon: const Icon(Icons.play_arrow),
-                  label: const Text('Start Active Recall'),
+                              return CheckboxListTile(
+                                value:
+                                    selectedTopicIds.contains(id),
+                                title: Text(
+                                  topic['name']
+                                          ?.toString() ??
+                                      'Topic',
+                                ),
+                                onChanged: (_) {
+                                  _toggleTopic(id);
+                                },
+                              );
+                            }).toList(),
+                          ),
+                  ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  height: 52,
+                  child: FilledButton(
+                    onPressed: _start,
+                    child: Text(
+                      isExplain
+                          ? 'Start Explain'
+                          : 'Start Active Recall',
+                    ),
+                  ),
                 ),
               ],
             ),
