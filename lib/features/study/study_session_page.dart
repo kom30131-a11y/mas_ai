@@ -2,28 +2,31 @@ import 'package:flutter/material.dart';
 
 import '../../core/database/database_repository.dart';
 
-final _repo = DatabaseRepository.instance;
-
 class StudySessionPage extends StatefulWidget {
   final int subjectId;
   final int topicId;
   final int contentId;
+  final String title;
 
   const StudySessionPage({
     super.key,
     required this.subjectId,
     required this.topicId,
     required this.contentId,
+    required this.title,
   });
 
   @override
-  State<StudySessionPage> createState() => _StudySessionPageState();
+  State<StudySessionPage> createState() =>
+      _StudySessionPageState();
 }
 
-class _StudySessionPageState extends State<StudySessionPage> {
+class _StudySessionPageState
+    extends State<StudySessionPage> {
+  final repo = DatabaseRepository.instance;
+
   Map<String, dynamic>? material;
   bool loading = true;
-
   int stage = 0;
 
   static const stages = [
@@ -40,15 +43,13 @@ class _StudySessionPageState extends State<StudySessionPage> {
   }
 
   Future<void> _load() async {
-    final items = await _repo.getContent(
-      topicId: widget.topicId,
-    );
+    final content = await repo.getContent();
 
     if (!mounted) return;
 
     Map<String, dynamic>? found;
 
-    for (final item in items) {
+    for (final item in content) {
       if (item['id'] == widget.contentId) {
         found = item;
         break;
@@ -62,28 +63,24 @@ class _StudySessionPageState extends State<StudySessionPage> {
   }
 
   void _next() {
-    if (stage >= stages.length - 1) return;
-
-    setState(() {
-      stage++;
-    });
+    if (stage < stages.length - 1) {
+      setState(() => stage++);
+    } else {
+      Navigator.pop(context);
+    }
   }
 
-  void _previous() {
-    if (stage <= 0) return;
-
-    setState(() {
-      stage--;
-    });
+  void _back() {
+    if (stage > 0) {
+      setState(() => stage--);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          material?['title']?.toString() ?? 'Study',
-        ),
+        title: Text(widget.title),
       ),
       body: loading
           ? const Center(
@@ -95,17 +92,17 @@ class _StudySessionPageState extends State<StudySessionPage> {
                 )
               : Column(
                   children: [
-                    _progress(),
+                    _header(),
                     Expanded(
-                      child: _stage(),
+                      child: _stageContent(),
                     ),
-                    _navigation(),
+                    _buttons(),
                   ],
                 ),
     );
   }
 
-  Widget _progress() {
+  Widget _header() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         16,
@@ -114,41 +111,32 @@ class _StudySessionPageState extends State<StudySessionPage> {
         8,
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
         children: [
           Text(
             stages[stage],
             style: Theme.of(context)
                 .textTheme
-                .titleMedium,
+                .titleLarge,
           ),
           const SizedBox(height: 8),
           LinearProgressIndicator(
             value: (stage + 1) / stages.length,
           ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment:
-                MainAxisAlignment.spaceBetween,
-            children: [
-              for (var i = 0; i < stages.length; i++)
-                Text(
-                  stages[i],
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: i == stage
-                        ? FontWeight.bold
-                        : FontWeight.normal,
-                  ),
-                ),
-            ],
+          const SizedBox(height: 6),
+          Text(
+            '${stage + 1} / ${stages.length}',
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall,
           ),
         ],
       ),
     );
   }
 
-  Widget _stage() {
+  Widget _stageContent() {
     switch (stage) {
       case 0:
         return _learn();
@@ -164,47 +152,44 @@ class _StudySessionPageState extends State<StudySessionPage> {
   }
 
   Widget _learn() {
-    final title =
-        material!['title']?.toString() ?? 'Untitled';
-
     final content =
         material!['content']?.toString() ?? '';
 
-    return _page(
-      title,
+    return _card(
+      'Study',
       content.isEmpty
-          ? 'No study text is available for this material.'
+          ? 'No readable text is available for this material.'
           : content,
     );
   }
 
   Widget _recall() {
-    return _page(
+    return _card(
       'Recall',
-      'Close the material and recall the important information from memory.',
+      'Close the material and recall the key information from memory.',
     );
   }
 
   Widget _explain() {
-    return _page(
+    return _card(
       'Explain',
-      'Explain the material in your own words as if you were teaching another student.',
+      'Explain the important points in your own words.',
     );
   }
 
   Widget _quickTest() {
-    return _page(
+    return _card(
       'Quick Test',
-      'The AI-generated test will be connected here after the study-session foundation is complete.',
+      'The question engine will use this material as its source.',
     );
   }
 
-  Widget _page(
+  Widget _card(
     String title,
     String text,
   ) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: Card(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -233,21 +218,16 @@ class _StudySessionPageState extends State<StudySessionPage> {
     );
   }
 
-  Widget _navigation() {
+  Widget _buttons() {
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          16,
-          8,
-          16,
-          16,
-        ),
+        padding: const EdgeInsets.all(16),
         child: Row(
           children: [
             if (stage > 0)
               Expanded(
                 child: OutlinedButton(
-                  onPressed: _previous,
+                  onPressed: _back,
                   child: const Text('Back'),
                 ),
               ),
@@ -255,15 +235,11 @@ class _StudySessionPageState extends State<StudySessionPage> {
               const SizedBox(width: 12),
             Expanded(
               child: FilledButton(
-                onPressed:
-                    stage < stages.length - 1
-                        ? _next
-                        : () =>
-                            Navigator.pop(context),
+                onPressed: _next,
                 child: Text(
-                  stage < stages.length - 1
-                      ? 'Continue'
-                      : 'Finish',
+                  stage == stages.length - 1
+                      ? 'Finish'
+                      : 'Continue',
                 ),
               ),
             ),
@@ -273,3 +249,5 @@ class _StudySessionPageState extends State<StudySessionPage> {
     );
   }
 }
+
+الخطوة التالية: ربط "TopicDetailPage" بهذا الملف عند فتح الـMaterial، ثم نبني "Recall" و"Explain" فعليًا بدل النصوص المؤقتة.
