@@ -4,10 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../content/library_content_helper.dart';
-import '../subject_page.dart';
+import '../folder_page.dart';
 import '../widgets/library_helpers.dart';
 import 'library_search.dart';
-import '../folder_page.dart';
 
 enum SearchFilter {
   all,
@@ -32,8 +31,7 @@ class _LibrarySearchPageState
   List<LibrarySearchResult> results = [];
   List<String> recentSearches = [];
 
-  SearchFilter filter =
-      SearchFilter.all;
+  SearchFilter filter = SearchFilter.all;
 
   Timer? _debounce;
 
@@ -269,8 +267,7 @@ class _LibrarySearchPageState
             index + query.length,
           ),
           style: TextStyle(
-            fontWeight:
-                FontWeight.w800,
+            fontWeight: FontWeight.w800,
             color:
                 Theme.of(context)
                     .colorScheme
@@ -294,8 +291,7 @@ class _LibrarySearchPageState
     }
 
     return contentIcon(
-      result.item['type']
-          ?.toString(),
+      result.item['type']?.toString(),
     );
   }
 
@@ -355,13 +351,10 @@ class _LibrarySearchPageState
         context,
         MaterialPageRoute(
           builder: (_) => FolderPage(
-            subjectId:
-                subjectId,
-            folderId:
-                folderId,
+            subjectId: subjectId,
+            folderId: folderId,
             folderName:
-                item['name']
-                        ?.toString() ??
+                item['name']?.toString() ??
                     'Folder',
           ),
         ),
@@ -387,8 +380,7 @@ class _LibrarySearchPageState
 
     controller.selection =
         TextSelection.collapsed(
-      offset:
-          controller.text.length,
+      offset: controller.text.length,
     );
 
     search();
@@ -415,10 +407,8 @@ class _LibrarySearchPageState
 
   Widget _buildFilterBar() {
     return SingleChildScrollView(
-      scrollDirection:
-          Axis.horizontal,
-      padding:
-          const EdgeInsets.fromLTRB(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.fromLTRB(
         12,
         8,
         12,
@@ -435,16 +425,14 @@ class _LibrarySearchPageState
           ),
           _buildFilterChip(
             label: 'Folders',
-            value:
-                SearchFilter.folders,
+            value: SearchFilter.folders,
           ),
           const SizedBox(
             width: 8,
           ),
           _buildFilterChip(
             label: 'Files',
-            value:
-                SearchFilter.files,
+            value: SearchFilter.files,
           ),
         ],
       ),
@@ -457,26 +445,22 @@ class _LibrarySearchPageState
     }
 
     return ListView(
-      padding:
-          const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       children: [
         Row(
           children: [
             const Expanded(
               child: Text(
                 'Recent searches',
-                style:
-                    TextStyle(
-                  fontWeight:
-                      FontWeight.w700,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
             TextButton(
               onPressed:
                   _clearRecentSearches,
-              child:
-                  const Text('Clear'),
+              child: const Text('Clear'),
             ),
           ],
         ),
@@ -494,17 +478,14 @@ class _LibrarySearchPageState
                 const Icon(
               Icons.history,
             ),
-            title:
-                Text(value),
+            title: Text(value),
             trailing:
                 const Icon(
               Icons.north_west,
               size: 18,
             ),
             onTap: () =>
-                _useRecentSearch(
-              value,
-            ),
+                _useRecentSearch(value),
           ),
         ),
       ],
@@ -597,8 +578,7 @@ class _LibrarySearchPageState
           ),
         ),
       ),
-      subtitle:
-          Padding(
+      subtitle: Padding(
         padding:
             const EdgeInsets.only(
           top: 6,
@@ -646,8 +626,7 @@ class _LibrarySearchPageState
       appBar: AppBar(
         titleSpacing: 0,
         title: TextField(
-          controller:
-              controller,
+          controller: controller,
           autofocus: true,
           textInputAction:
               TextInputAction.search,
@@ -664,25 +643,19 @@ class _LibrarySearchPageState
           ),
         ),
         actions: [
-          if (controller
-              .text
-              .isNotEmpty)
+          if (controller.text.isNotEmpty)
             IconButton(
-              tooltip:
-                  'Clear',
+              tooltip: 'Clear',
               onPressed: () {
-                _debounce
-                    ?.cancel();
+                _debounce?.cancel();
 
                 ++_searchRequest;
 
                 controller.clear();
 
                 setState(() {
-                  results =
-                      [];
-                  loading =
-                      false;
+                  results = [];
+                  loading = false;
                 });
               },
               icon:
@@ -691,10 +664,8 @@ class _LibrarySearchPageState
               ),
             ),
           IconButton(
-            tooltip:
-                'Search',
-            onPressed:
-                search,
+            tooltip: 'Search',
+            onPressed: search,
             icon:
                 const Icon(
               Icons.search,
@@ -714,11 +685,9 @@ class _LibrarySearchPageState
                     child:
                         CircularProgressIndicator(),
                   )
-                : visible
-                        .isEmpty
+                : visible.isEmpty
                     ? _buildEmptyState()
-                    : ListView
-                        .separated(
+                    : ListView.separated(
                         padding:
                             const EdgeInsets.only(
                           top: 8,
@@ -731,7 +700,7 @@ class _LibrarySearchPageState
                           _,
                           __,
                         ) =>
-                            const Divider(
+                                const Divider(
                           height: 1,
                         ),
                         itemBuilder:
@@ -739,7 +708,7 @@ class _LibrarySearchPageState
                           _,
                           index,
                         ) =>
-                            _buildResult(
+                                _buildResult(
                           visible[index],
                         ),
                       ),
