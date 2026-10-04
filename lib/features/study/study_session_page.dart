@@ -31,6 +31,7 @@ class _StudySessionPageState
 
   Map<String, dynamic>? material;
   bool loading = true;
+  bool saving = false;
   int stage = 0;
 
   static const stages = [
@@ -47,7 +48,9 @@ class _StudySessionPageState
   }
 
   Future<void> _load() async {
-    final content = await repo.getContent();
+    final content = await repo.getContent(
+      topicId: widget.topicId,
+    );
 
     if (!mounted) return;
 
@@ -66,6 +69,58 @@ class _StudySessionPageState
     });
   }
 
+  Future<void> _finish() async {
+    if (saving) return;
+
+    setState(() {
+      saving = true;
+    });
+
+    try {
+      final topics = await repo.getTopics(
+        subjectId: widget.subjectId,
+      );
+
+      Map<String, dynamic>? topic;
+
+      for (final item in topics) {
+        if (item['id'] == widget.topicId) {
+          topic = item;
+          break;
+        }
+      }
+
+      final currentMastery =
+          (topic?['mastery'] as num?)?.toDouble() ?? 0.0;
+
+      final newMastery =
+          (currentMastery + 10.0).clamp(0.0, 100.0);
+
+      await repo.updateTopicMastery(
+        topicId: widget.topicId,
+        mastery: newMastery,
+      );
+
+      if (!mounted) return;
+
+      Navigator.pop(context, true);
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        saving = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not save study progress.',
+          ),
+        ),
+      );
+    }
+  }
+
   void _next() {
     if (stage < stages.length - 1) {
       setState(() {
@@ -74,10 +129,12 @@ class _StudySessionPageState
       return;
     }
 
-    Navigator.pop(context);
+    _finish();
   }
 
   void _back() {
+    if (saving) return;
+
     if (stage > 0) {
       setState(() {
         stage--;
@@ -189,14 +246,14 @@ class _StudySessionPageState
                 ),
               ),
               const SizedBox(height: 24),
-              FilledButton.icon(
-                onPressed: null,
-                icon: const Icon(
-                  Icons.quiz_outlined,
-                ),
-                label: const Text(
-                  'Test engine coming next',
-                ),
+              const Icon(
+                Icons.quiz_outlined,
+                size: 42,
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'The test engine will be connected '
+                'to this study session.',
               ),
             ],
           ),
@@ -214,7 +271,7 @@ class _StudySessionPageState
             if (stage > 0)
               Expanded(
                 child: OutlinedButton(
-                  onPressed: _back,
+                  onPressed: saving ? null : _back,
                   child: const Text('Back'),
                 ),
               ),
@@ -222,12 +279,22 @@ class _StudySessionPageState
               const SizedBox(width: 12),
             Expanded(
               child: FilledButton(
-                onPressed: _next,
-                child: Text(
-                  stage == stages.length - 1
-                      ? 'Finish'
-                      : 'Continue',
-                ),
+                onPressed: saving ? null : _next,
+                child: saving
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child:
+                            CircularProgressIndicator(
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : Text(
+                        stage ==
+                                stages.length - 1
+                            ? 'Finish'
+                            : 'Continue',
+                      ),
               ),
             ),
           ],
