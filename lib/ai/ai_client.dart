@@ -7,9 +7,16 @@ class AiClient {
 
   static final instance = AiClient._();
 
-  static const _timeout = Duration(seconds: 60);
+  static const _timeout =
+      Duration(seconds: 60);
 
-  String baseUrl = '';
+  static const gatewayUrl =
+      String.fromEnvironment(
+    'MAS_AI_AI_URL',
+    defaultValue: '',
+  );
+
+  String get baseUrl => gatewayUrl;
 
   Future<String> send({
     required Map<String, dynamic> request,
@@ -29,8 +36,10 @@ class AiClient {
           .post(
             uri,
             headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
+              'Content-Type':
+                  'application/json',
+              'Accept':
+                  'application/json',
             },
             body: jsonEncode(request),
           )
@@ -39,13 +48,16 @@ class AiClient {
       if (response.statusCode < 200 ||
           response.statusCode >= 300) {
         throw AiClientException(
-          'AI service returned ${response.statusCode}.',
+          'AI service returned '
+          '${response.statusCode}.',
         );
       }
 
-      final data = jsonDecode(response.body);
+      final data =
+          jsonDecode(response.body);
 
-      if (data is! Map || data['result'] == null) {
+      if (data is! Map ||
+          data['result'] == null) {
         throw const AiClientException(
           'Invalid AI service response.',
         );
@@ -66,10 +78,13 @@ class AiClient {
   }
 }
 
-class AiClientException implements Exception {
+class AiClientException
+    implements Exception {
   final String message;
 
-  const AiClientException(this.message);
+  const AiClientException(
+    this.message,
+  );
 
   @override
   String toString() => message;
