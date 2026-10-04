@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'core/database/database_repository.dart';
 import 'core/database/database_service.dart';
 import 'features/library/library_page.dart';
+import 'features/study/recall/recall_source_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -175,6 +177,76 @@ class StudyPage extends StatelessWidget {
     );
   }
 
+  Future<void> _openAction(
+    BuildContext context,
+    String mode,
+  ) async {
+    final subjects =
+        await DatabaseRepository.instance.getSubjects();
+
+    if (!context.mounted) return;
+
+    if (subjects.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Create a subject and add study material first.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final subjectId = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Choose subject'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: subjects.length,
+              itemBuilder: (_, index) {
+                final subject = subjects[index];
+                final id = subject['id'];
+
+                return ListTile(
+                  leading: const Icon(Icons.menu_book_outlined),
+                  title: Text(
+                    subject['name']?.toString() ?? 'Subject',
+                  ),
+                  onTap: id is int
+                      ? () => Navigator.pop(dialogContext, id)
+                      : null,
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+
+    if (subjectId == null || !context.mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: AppBar(
+            title: Text(
+              mode == 'explain' ? 'Explain' : 'Active Recall',
+            ),
+          ),
+          body: RecallSourcePage(
+            subjectId: subjectId,
+            mode: mode,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return _Page(
@@ -193,11 +265,17 @@ class StudyPage extends StatelessWidget {
           icon: Icons.psychology_outlined,
           title: 'Active Recall',
           subtitle: 'Retrieve information instead of rereading',
+          onTap: () {
+            _openAction(context, 'recall');
+          },
         ),
         _ActionCard(
           icon: Icons.record_voice_over_outlined,
           title: 'Explain',
           subtitle: 'Teach back what you learned',
+          onTap: () {
+            _openAction(context, 'explain');
+          },
         ),
       ],
     );
