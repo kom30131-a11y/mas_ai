@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../core/database/database_repository.dart';
+import 'recall/recall_source_page.dart';
 import 'widgets/explain_stage.dart';
 import 'widgets/learn_stage.dart';
-import 'widgets/recall_stage.dart';
 import 'widgets/study_progress.dart';
 
 class StudySessionPage extends StatefulWidget {
@@ -30,10 +30,8 @@ class _StudySessionPageState
   final repo = DatabaseRepository.instance;
 
   Map<String, dynamic>? material;
-
   bool loading = true;
   bool saving = false;
-
   int stage = 0;
 
   static const stages = [
@@ -200,25 +198,21 @@ class _StudySessionPageState
   }
 
   Widget _stageContent() {
-    final source =
-        material!['content']?.toString() ?? '';
-
     switch (stage) {
       case 0:
         return LearnStage(
           title: widget.title,
-          content: source,
+          content:
+              material!['content']?.toString() ?? '',
         );
 
       case 1:
-        return RecallStage(
-          content: source,
+        return RecallSourcePage(
+          subjectId: widget.subjectId,
         );
 
       case 2:
-        return ExplainStage(
-          content: source,
-        );
+        return const ExplainStage();
 
       case 3:
         return _quickTest();
@@ -311,3 +305,5 @@ class _StudySessionPageState
     );
   }
 }
+
+بعد رفعه، لا تعدّل أي ملف Library. شغّل الـBuild مباشرة؛ إذا ظهر خطأ، أرسل لي الـlog وسأصلح الملف المتسبب فقط.
