@@ -9,17 +9,12 @@ class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
 
   @override
-  State<SettingsPage> createState() =>
-      _SettingsPageState();
+  State<SettingsPage> createState() => _SettingsPageState();
 }
 
-class _SettingsPageState
-    extends State<SettingsPage> {
-  final settings =
-      AppSettingsController.instance;
-
-  final storage =
-      LibraryStorageService.instance;
+class _SettingsPageState extends State<SettingsPage> {
+  final settings = AppSettingsController.instance;
+  final storage = LibraryStorageService.instance;
 
   bool storageReady = false;
   bool busy = false;
@@ -31,21 +26,19 @@ class _SettingsPageState
   }
 
   Future<void> _checkStorage() async {
-    final ready =
-        await storage.ensureReady();
+    final ready = await storage.ensureReady();
 
-    if (mounted) {
-      setState(
-        () => storageReady = ready,
-      );
-    }
+    if (!mounted) return;
+
+    setState(() {
+      storageReady = ready;
+    });
   }
 
   Future<void> _enableStorage() async {
     setState(() => busy = true);
 
-    final ready =
-        await storage.ensureReady(
+    final ready = await storage.ensureReady(
       requestPermission: true,
     );
 
@@ -53,52 +46,50 @@ class _SettingsPageState
       await storage.syncFolders();
     }
 
-    if (mounted) {
-      setState(() {
-        storageReady = ready;
-        busy = false;
-      });
-    }
+    if (!mounted) return;
+
+    setState(() {
+      storageReady = ready;
+      busy = false;
+    });
 
     if (!ready && mounted) {
       await openAppSettings();
     }
   }
 
-  Future<void> _theme() async {
-    final selected =
-        await showModalBottomSheet<ThemeMode>(
+  Future<void> _selectTheme() async {
+    final selected = await showModalBottomSheet<ThemeMode>(
       context: context,
       showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize:
-              MainAxisSize.min,
-          children: [
-            _themeTile(
-              ThemeMode.system,
-              'System',
-              Icons.brightness_auto,
-            ),
-            _themeTile(
-              ThemeMode.light,
-              'Light',
-              Icons.light_mode_outlined,
-            ),
-            _themeTile(
-              ThemeMode.dark,
-              'Dark',
-              Icons.dark_mode_outlined,
-            ),
-          ],
-        ),
-      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _themeTile(
+                ThemeMode.system,
+                'System',
+                Icons.brightness_auto,
+              ),
+              _themeTile(
+                ThemeMode.light,
+                'Light',
+                Icons.light_mode_outlined,
+              ),
+              _themeTile(
+                ThemeMode.dark,
+                'Dark',
+                Icons.dark_mode_outlined,
+              ),
+            ],
+          ),
+        );
+      },
     );
 
     if (selected != null) {
-      await settings.setThemeMode(
-        selected,
-      );
+      await settings.setThemeMode(selected);
 
       if (mounted) {
         setState(() {});
@@ -114,29 +105,31 @@ class _SettingsPageState
     return ListTile(
       leading: Icon(icon),
       title: Text(title),
-      trailing:
-          settings.themeMode == mode
-              ? const Icon(Icons.check)
-              : null,
-      onTap: () =>
-          Navigator.pop(context, mode),
+      trailing: settings.themeMode == mode
+          ? const Icon(Icons.check)
+          : null,
+      onTap: () => Navigator.pop(context, mode),
     );
+  }
+
+  String _themeName() {
+    return switch (settings.themeMode) {
+      ThemeMode.light => 'Light',
+      ThemeMode.dark => 'Dark',
+      ThemeMode.system => 'System',
+    };
   }
 
   @override
   Widget build(BuildContext context) {
-    final scheme =
-        Theme.of(context).colorScheme;
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Profile & Settings',
-        ),
+        title: const Text('Profile & Settings'),
       ),
       body: ListView(
-        padding:
-            const EdgeInsets.fromLTRB(
+        padding: const EdgeInsets.fromLTRB(
           16,
           12,
           16,
@@ -149,36 +142,28 @@ class _SettingsPageState
             elevation: 0,
             child: ListTile(
               leading: const CircleAvatar(
-                child: Icon(
-                  Icons.person_outline,
-                ),
+                child: Icon(Icons.local_library_outlined),
               ),
-              title: const Text(
-                'Local profile',
-              ),
+              title: const Text('MedLibra'),
               subtitle: const Text(
-                'Your MAS AI data stays on this device.',
+                'Your library data stays on this device.',
               ),
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
 
           _section('Appearance'),
 
           _card(
             icon: Icons.palette_outlined,
             title: 'Theme',
-            subtitle:
-                switch (settings.themeMode) {
-              ThemeMode.light => 'Light',
-              ThemeMode.dark => 'Dark',
-              ThemeMode.system => 'System',
-            },
-            onTap: _theme,
+            subtitle: _themeName(),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: _selectTheme,
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
 
           _section('Library storage'),
 
@@ -189,66 +174,65 @@ class _SettingsPageState
                 ? '/storage/emulated/0/MAS AI'
                 : 'Storage access is not enabled',
             trailing: storageReady
-                ? const Icon(
-                    Icons.check_circle_outline,
-                  )
+                ? const Icon(Icons.check_circle_outline)
                 : busy
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child:
-                            CircularProgressIndicator(
+                        child: CircularProgressIndicator(
                           strokeWidth: 2,
                         ),
                       )
                     : FilledButton(
-                        onPressed:
-                            _enableStorage,
-                        child:
-                            const Text(
-                          'Enable',
-                        ),
+                        onPressed: _enableStorage,
+                        child: const Text('Enable'),
                       ),
-            onTap: storageReady
-                ? null
-                : _enableStorage,
+            onTap: storageReady ? null : _enableStorage,
           ),
 
           const SizedBox(height: 10),
 
           _card(
-            icon:
-                Icons.find_in_page_outlined,
+            icon: Icons.find_in_page_outlined,
             title: 'Duplicate files',
             subtitle:
                 'Find identical files and remove copies',
-            trailing: const Icon(
-              Icons.chevron_right,
-            ),
-            onTap: () =>
-                Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) =>
-                    const DuplicateFilesPage(),
-              ),
-            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const DuplicateFilesPage(),
+                ),
+              );
+            },
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
 
-          _section('About storage'),
+          _section('Files'),
+
+          _card(
+            icon: Icons.description_outlined,
+            title: 'Office files',
+            subtitle:
+                'Word and PowerPoint open in their installed apps',
+            trailing: const Icon(Icons.open_in_new),
+          ),
+
+          const SizedBox(height: 18),
+
+          _section('Storage information'),
 
           Card(
             elevation: 0,
-            color:
-                scheme.surfaceContainerLow,
+            color: scheme.surfaceContainerLow,
             child: const Padding(
               padding: EdgeInsets.all(16),
               child: Text(
-                'Imported materials are copied into the MAS AI folder. '
-                'Folders created in Library are mirrored there, so files remain '
-                'available from the Android file manager.',
+                'Imported files are copied into the MAS AI folder. '
+                'Folders created in Library are mirrored there, including nested folders. '
+                'Files can be moved between folders without changing the library structure.',
               ),
             ),
           ),
@@ -259,8 +243,7 @@ class _SettingsPageState
 
   Widget _section(String title) {
     return Padding(
-      padding:
-          const EdgeInsets.fromLTRB(
+      padding: const EdgeInsets.fromLTRB(
         4,
         0,
         4,
@@ -272,8 +255,7 @@ class _SettingsPageState
             .textTheme
             .titleSmall
             ?.copyWith(
-              fontWeight:
-                  FontWeight.w700,
+              fontWeight: FontWeight.w700,
               color: Theme.of(context)
                   .colorScheme
                   .primary,
