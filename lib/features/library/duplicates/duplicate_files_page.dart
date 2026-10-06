@@ -6,9 +6,7 @@ import '../../../core/database/database_repository.dart';
 import '../../../core/storage/library_storage_service.dart';
 
 class DuplicateFilesPage extends StatefulWidget {
-  const DuplicateFilesPage({
-    super.key,
-  });
+  const DuplicateFilesPage({super.key});
 
   @override
   State<DuplicateFilesPage> createState() =>
@@ -17,18 +15,11 @@ class DuplicateFilesPage extends StatefulWidget {
 
 class _DuplicateFilesPageState
     extends State<DuplicateFilesPage> {
-  final repo =
-      DatabaseRepository.instance;
+  final repo = DatabaseRepository.instance;
+  final storage = LibraryStorageService.instance;
 
-  final storage =
-      LibraryStorageService.instance;
-
-  List<List<Map<String, dynamic>>>
-      groups = [];
-
-  Map<int, Map<String, dynamic>>
-      contentById = {};
-
+  List<List<Map<String, dynamic>>> groups = [];
+  Map<int, Map<String, dynamic>> contentById = {};
   bool loading = true;
 
   @override
@@ -38,20 +29,16 @@ class _DuplicateFilesPageState
   }
 
   Future<void> scan() async {
-    if (mounted) {
-      setState(() => loading = true);
-    }
+    setState(() => loading = true);
 
-    final contents =
-        await repo.getContent();
+    final contents = await repo.getContent();
 
     contentById = {
       for (final item in contents)
         item['id'] as int: item,
     };
 
-    final files =
-        await repo.getFiles();
+    final files = await repo.getFiles();
 
     final byHash =
         <String, List<Map<String, dynamic>>>{};
@@ -60,25 +47,19 @@ class _DuplicateFilesPageState
       final path =
           file['file_path']?.toString();
 
-      if (path == null ||
-          path.isEmpty) {
+      if (path == null || path.isEmpty) {
         continue;
       }
 
-      final physical =
-          File(path);
-
-      if (!await physical.exists()) {
+      if (!await File(path).exists()) {
         continue;
       }
 
       var hash =
-          file['file_hash']?.toString() ??
-              '';
+          file['file_hash']?.toString() ?? '';
 
       if (hash.isEmpty) {
-        hash =
-            await storage.hashFile(path);
+        hash = await storage.hashFile(path);
 
         await repo.updateFileHash(
           fileId: file['id'] as int,
@@ -117,10 +98,8 @@ class _DuplicateFilesPageState
     final path =
         file['file_path']?.toString();
 
-    if (path != null &&
-        path.isNotEmpty) {
-      final physical =
-          File(path);
+    if (path != null && path.isNotEmpty) {
+      final physical = File(path);
 
       if (await physical.exists()) {
         await physical.delete();
@@ -173,21 +152,10 @@ class _DuplicateFilesPageState
                     12,
                     24,
                   ),
-                  itemCount:
-                      groups.length,
-                  itemBuilder:
-                      (_, index) {
+                  itemCount: groups.length,
+                  itemBuilder: (_, index) {
                     final group =
                         groups[index];
-
-                    final first =
-                        group.first;
-
-                    final firstContent =
-                        contentById[
-                          first['content_id']
-                              as int
-                        ];
 
                     return Card(
                       child:
@@ -200,12 +168,18 @@ class _DuplicateFilesPageState
                         title: Text(
                           '${group.length} identical files',
                         ),
-                        subtitle: Text(
-                          firstContent?[
-                                    'original_file_name'
-                                  ]
+                        subtitle:
+                            Text(
+                          contentById[
+                                      group.first[
+                                          'content_id']
+                                          as int]
+                                  ?[
+                                  'original_file_name'
+                                ]
                               ?.toString() ??
-                              first['file_name']
+                              group.first[
+                                      'file_name']
                                   .toString(),
                         ),
                         children: [
@@ -214,18 +188,19 @@ class _DuplicateFilesPageState
                             ListTile(
                               title: Text(
                                 contentById[
-                                      file['content_id']
-                                          as int
-                                    ]?[
-                                      'title'
-                                    ]
+                                            file[
+                                                'content_id']
+                                                as int]
+                                        ?['title']
                                     ?.toString() ??
-                                    file['file_name']
+                                    file[
+                                            'file_name']
                                         .toString(),
                               ),
                               subtitle:
                                   Text(
-                                file['file_path']
+                                file[
+                                        'file_path']
                                     .toString(),
                               ),
                               trailing:
