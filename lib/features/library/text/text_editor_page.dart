@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 
 import '../../../core/database/database_repository.dart';
+import '../../../core/storage/library_storage_service.dart';
 
 class TextEditorPage extends StatefulWidget {
   const TextEditorPage({
