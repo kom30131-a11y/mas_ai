@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'core/database/database_service.dart';
@@ -11,27 +12,39 @@ Future<void> main() async {
   await DatabaseService.instance.initialize();
   await AppSettingsController.instance.load();
 
-  final storage = LibraryStorageService.instance;
+  final storage =
+      LibraryStorageService.instance;
 
-  if (await storage.ensureReady(requestPermission: true)) {
+  if (await storage.ensureReady(
+    requestPermission: true,
+  )) {
     await storage.syncFolders();
   }
 
-  runApp(const MedLibraApp());
+  runApp(
+    const MedLibraApp(),
+  );
 }
 
-class MedLibraApp extends StatelessWidget {
-  const MedLibraApp({super.key});
+class MedLibraApp
+    extends StatelessWidget {
+  const MedLibraApp({
+    super.key,
+  });
 
   @override
-  Widget build(BuildContext context) {
-    final settings = AppSettingsController.instance;
+  Widget build(
+    BuildContext context,
+  ) {
+    final settings =
+        AppSettingsController.instance;
 
     return AnimatedBuilder(
       animation: settings,
       builder: (_, __) {
         return MaterialApp(
-          debugShowCheckedModeBanner: false,
+          debugShowCheckedModeBanner:
+              false,
           title: 'MedLibra',
 
           locale: settings.locale,
@@ -41,37 +54,51 @@ class MedLibraApp extends StatelessWidget {
             Locale('en'),
           ],
 
-          localizationsDelegates: const [
-            DefaultWidgetsLocalizations.delegate,
-            DefaultMaterialLocalizations.delegate,
-            DefaultCupertinoLocalizations.delegate,
+          localizationsDelegates:
+              const [
+            DefaultWidgetsLocalizations
+                .delegate,
+            DefaultMaterialLocalizations
+                .delegate,
+            DefaultCupertinoLocalizations
+                .delegate,
           ],
 
           theme: ThemeData(
             useMaterial3: true,
-            colorSchemeSeed: const Color(0xFF0F766E),
-            brightness: Brightness.light,
-            scaffoldBackgroundColor: const Color(0xFFF5F9F8),
+            colorSchemeSeed:
+                const Color(0xFF0F766E),
+            brightness:
+                Brightness.light,
+            scaffoldBackgroundColor:
+                const Color(0xFFF5F9F8),
           ),
 
           darkTheme: ThemeData(
             useMaterial3: true,
-            colorSchemeSeed: const Color(0xFF0F766E),
-            brightness: Brightness.dark,
+            colorSchemeSeed:
+                const Color(0xFF0F766E),
+            brightness:
+                Brightness.dark,
           ),
 
-          themeMode: settings.themeMode,
+          themeMode:
+              settings.themeMode,
 
-          builder: (context, child) {
+          builder:
+              (context, child) {
             return Directionality(
-              textDirection: settings.isArabic
-                  ? TextDirection.rtl
-                  : TextDirection.ltr,
-              child: child ?? const SizedBox.shrink(),
+              textDirection:
+                  settings.isArabic
+                      ? TextDirection.rtl
+                      : TextDirection.ltr,
+              child: child ??
+                  const SizedBox.shrink(),
             );
           },
 
-          home: const LibraryPage(),
+          home:
+              const LibraryPage(),
         );
       },
     );
