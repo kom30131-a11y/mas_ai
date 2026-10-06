@@ -3,7 +3,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../../../core/settings/app_settings_controller.dart';
 import '../../../core/storage/library_storage_service.dart';
-import '../duplicates/duplicate_files_page.dart';
+import '../content/duplicate_files_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
