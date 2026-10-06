@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:open_filex/open_filex.dart';
 
 import '../../../core/storage/library_storage_service.dart';
 import '../code/code_editor_page.dart';
@@ -15,8 +14,7 @@ Future<void> openContent(
   int subjectId,
   int? folderId,
 ) async {
-  final type =
-      item['type']?.toString() ?? '';
+  final type = item['type']?.toString() ?? '';
 
   if (type == 'Text') {
     await Navigator.push(
@@ -32,36 +30,7 @@ Future<void> openContent(
     return;
   }
 
-  if (type == 'Code') {
-    final path =
-        item['file_path']?.toString();
-
-    if (path == null ||
-        path.isEmpty ||
-        !File(path).existsSync()) {
-      _showMissingFile(context);
-      return;
-    }
-
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => CodeEditorPage(
-          title:
-              item['title']?.toString() ??
-                  'Code',
-          path: path,
-          contentId:
-              item['id'] as int,
-        ),
-      ),
-    );
-
-    return;
-  }
-
-  final path =
-      item['file_path']?.toString();
+  final path = item['file_path']?.toString();
 
   if (path == null ||
       path.isEmpty ||
@@ -70,43 +39,60 @@ Future<void> openContent(
     return;
   }
 
-  if (type == 'Word' ||
-      type == 'PowerPoint') {
-    await OpenFilex.open(path);
-    return;
-  }
-
-  if (type == 'PDF' ||
-      type == 'Image') {
+  if (type == 'Code') {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ContentViewerPage(
-          title:
-              item['title']?.toString() ??
-                  'Content',
+        builder: (_) => CodeEditorPage(
+          title: item['title']?.toString() ?? 'Code',
           path: path,
-          type: type,
-          extractedText:
-              item['content']
-                  ?.toString(),
+          contentId: item['id'] as int,
         ),
       ),
     );
     return;
   }
 
-  await OpenFilex.open(path);
+  if (type == 'PDF' ||
+      type == 'Image' ||
+      type == 'Word' ||
+      type == 'PowerPoint') {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ContentViewerPage(
+          title: item['title']?.toString() ?? 'Content',
+          path: path,
+          type: type,
+          extractedText: item['content']?.toString(),
+        ),
+      ),
+    );
+    return;
+  }
+
+  _showUnsupportedFile(context);
 }
 
 void _showMissingFile(
   BuildContext context,
 ) {
-  ScaffoldMessenger.of(context)
-      .showSnackBar(
+  ScaffoldMessenger.of(context).showSnackBar(
     const SnackBar(
       content: Text(
         'File is no longer available.',
+      ),
+    ),
+  );
+}
+
+void _showUnsupportedFile(
+  BuildContext context,
+) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text(
+        'Preview is not available for this file.',
       ),
     ),
   );
@@ -118,14 +104,12 @@ Future<bool> moveContent(
   int subjectId,
   int? folderId,
 ) async {
-  final changed =
-      await Navigator.push<bool>(
+  final changed = await Navigator.push<bool>(
     context,
     MaterialPageRoute(
       builder: (_) => MoveContentPage(
         content: item,
-        currentFolderId:
-            folderId,
+        currentFolderId: folderId,
         subjectId: subjectId,
       ),
     ),
@@ -137,14 +121,11 @@ Future<bool> moveContent(
 Future<void> shareContent(
   Map<String, dynamic> item,
 ) async {
-  final path =
-      item['file_path']?.toString();
+  final path = item['file_path']?.toString();
 
   if (path == null || path.isEmpty) {
     return;
   }
 
-  await LibraryStorageService
-      .instance
-      .shareFile(path);
+  await LibraryStorageService.instance.shareFile(path);
 }
