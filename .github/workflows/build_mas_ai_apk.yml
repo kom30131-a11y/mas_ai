@@ -293,6 +293,19 @@ jobs:
 
           echo "flutter_isolate Android compatibility patched successfully."
 
+      - name: 9.2 Generate MAS AI Samsung-style launcher icon
+        shell: bash
+        run: |
+          test -f assets/icon/mas_ai_icon.png
+
+          dart run flutter_launcher_icons
+
+          test -d android/app/src/main/res/mipmap-hdpi
+          test -d android/app/src/main/res/mipmap-xhdpi
+          test -d android/app/src/main/res/mipmap-xxhdpi
+
+          echo "MAS AI launcher icon generated successfully."
+
       - name: 10. Analyze Flutter project
         run: |
           flutter analyze
