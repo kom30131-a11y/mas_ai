@@ -33,18 +33,44 @@ class MedLibraApp extends StatelessWidget {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
           title: 'MedLibra',
+
+          locale: settings.locale,
+
+          supportedLocales: const [
+            Locale('ar'),
+            Locale('en'),
+          ],
+
+          localizationsDelegates: const [
+            DefaultWidgetsLocalizations.delegate,
+            DefaultMaterialLocalizations.delegate,
+            DefaultCupertinoLocalizations.delegate,
+          ],
+
           theme: ThemeData(
             useMaterial3: true,
             colorSchemeSeed: const Color(0xFF0F766E),
             brightness: Brightness.light,
             scaffoldBackgroundColor: const Color(0xFFF5F9F8),
           ),
+
           darkTheme: ThemeData(
             useMaterial3: true,
             colorSchemeSeed: const Color(0xFF0F766E),
             brightness: Brightness.dark,
           ),
+
           themeMode: settings.themeMode,
+
+          builder: (context, child) {
+            return Directionality(
+              textDirection: settings.isArabic
+                  ? TextDirection.rtl
+                  : TextDirection.ltr,
+              child: child ?? const SizedBox.shrink(),
+            );
+          },
+
           home: const LibraryPage(),
         );
       },
