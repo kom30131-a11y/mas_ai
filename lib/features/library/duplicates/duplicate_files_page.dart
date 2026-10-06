@@ -5,22 +5,34 @@ import 'package:flutter/material.dart';
 import '../../../core/database/database_repository.dart';
 import '../../../core/storage/library_storage_service.dart';
 
-class DuplicateFilesPage extends StatefulWidget {
-  const DuplicateFilesPage({super.key});
+class DuplicateFilesPage
+    extends StatefulWidget {
+  const DuplicateFilesPage({
+    super.key,
+  });
 
   @override
-  State<DuplicateFilesPage> createState() =>
-      _DuplicateFilesPageState();
+  State<DuplicateFilesPage>
+      createState() =>
+          _DuplicateFilesPageState();
 }
 
 class _DuplicateFilesPageState
     extends State<DuplicateFilesPage> {
-  final repo = DatabaseRepository.instance;
-  final storage = LibraryStorageService.instance;
+  final repo =
+      DatabaseRepository.instance;
 
-  List<List<Map<String, dynamic>>> groups = [];
-  Map<int, Map<String, dynamic>> contentById = {};
+  final storage =
+      LibraryStorageService.instance;
+
+  List<List<Map<String, dynamic>>>
+      groups = [];
+
+  Map<int, Map<String, dynamic>>
+      contentById = {};
+
   bool loading = true;
+  bool deleting = false;
 
   @override
   void initState() {
@@ -29,40 +41,53 @@ class _DuplicateFilesPageState
   }
 
   Future<void> scan() async {
-    setState(() => loading = true);
+    if (mounted) {
+      setState(() => loading = true);
+    }
 
-    final contents = await repo.getContent();
+    final contents =
+        await repo.getContent();
 
     contentById = {
       for (final item in contents)
         item['id'] as int: item,
     };
 
-    final files = await repo.getFiles();
+    final files =
+        await repo.getFiles();
 
     final byHash =
-        <String, List<Map<String, dynamic>>>{};
+        <String,
+            List<Map<String, dynamic>>>{};
 
     for (final file in files) {
       final path =
-          file['file_path']?.toString();
+          file['file_path']
+              ?.toString();
 
-      if (path == null || path.isEmpty) {
+      if (path == null ||
+          path.isEmpty) {
         continue;
       }
 
-      if (!await File(path).exists()) {
+      final physical =
+          File(path);
+
+      if (!await physical.exists()) {
         continue;
       }
 
-      var hash =
-          file['file_hash']?.toString() ?? '';
+      final hash =
+          await storage.hashFile(
+        path,
+      );
 
-      if (hash.isEmpty) {
-        hash = await storage.hashFile(path);
-
+      if (file['file_hash']
+              ?.toString() !=
+          hash) {
         await repo.updateFileHash(
-          fileId: file['id'] as int,
+          fileId:
+              file['id'] as int,
           hash: hash,
         );
       }
@@ -75,9 +100,11 @@ class _DuplicateFilesPageState
           .add(file);
     }
 
-    final result = byHash.values
+    final result = byHash
+        .values
         .where(
-          (group) => group.length > 1,
+          (group) =>
+              group.length > 1,
         )
         .toList();
 
@@ -89,30 +116,86 @@ class _DuplicateFilesPageState
     });
   }
 
-  Future<void> _deleteCopy(
-    Map<String, dynamic> file,
+  Future<void> deleteDuplicates(
+    List<Map<String, dynamic>>
+        group,
   ) async {
-    final contentId =
-        file['content_id'] as int?;
+    if (group.length < 2) return;
 
-    final path =
-        file['file_path']?.toString();
+    setState(
+      () => deleting = true,
+    );
 
-    if (path != null && path.isNotEmpty) {
-      final physical = File(path);
+    try {
+      final keep = group.first;
 
-      if (await physical.exists()) {
-        await physical.delete();
+      for (final file
+          in group.skip(1)) {
+        final path =
+            file['file_path']
+                ?.toString();
+
+        if (path != null &&
+            path.isNotEmpty) {
+          final physical =
+              File(path);
+
+          if (await physical.exists()) {
+            await physical.delete();
+          }
+        }
+
+        final contentId =
+            file['content_id']
+                as int?;
+
+        if (contentId != null) {
+          await repo.deleteContent(
+            contentId,
+          );
+        }
+      }
+
+      final keepPath =
+          keep['file_path']
+              ?.toString();
+
+      if (keepPath != null &&
+          keepPath.isNotEmpty) {
+        final hash =
+            await storage.hashFile(
+          keepPath,
+        );
+
+        await repo.updateFileHash(
+          fileId:
+              keep['id'] as int,
+          hash: hash,
+        );
+      }
+
+      await scan();
+    } finally {
+      if (mounted) {
+        setState(
+          () => deleting = false,
+        );
       }
     }
+  }
 
-    if (contentId != null) {
-      await repo.deleteContent(
-        contentId,
-      );
-    }
+  String _name(
+    Map<String, dynamic> file,
+  ) {
+    final contentId =
+        file['content_id']
+            as int?;
 
-    await scan();
+    return contentById[contentId]
+            ?['title']
+        ?.toString() ??
+        file['file_name']
+            .toString();
   }
 
   @override
@@ -152,74 +235,45 @@ class _DuplicateFilesPageState
                     12,
                     24,
                   ),
-                  itemCount: groups.length,
-                  itemBuilder: (_, index) {
+                  itemCount:
+                      groups.length,
+                  itemBuilder:
+                      (_, index) {
                     final group =
                         groups[index];
 
+                    final main =
+                        group.first;
+
+                    final copies =
+                        group.length - 1;
+
                     return Card(
-                      child:
-                          ExpansionTile(
+                      child: ListTile(
                         leading:
                             const Icon(
-                          Icons
-                              .copy_all_outlined,
+                          Icons.copy_all_outlined,
                         ),
                         title: Text(
-                          '${group.length} identical files',
+                          _name(main),
                         ),
-                        subtitle:
-                            Text(
-                          contentById[
-                                      group.first[
-                                          'content_id']
-                                          as int]
-                                  ?[
-                                  'original_file_name'
-                                ]
-                              ?.toString() ??
-                              group.first[
-                                      'file_name']
-                                  .toString(),
+                        subtitle: Text(
+                          '$copies duplicate ${copies == 1 ? 'copy' : 'copies'}',
                         ),
-                        children: [
-                          for (final file
-                              in group)
-                            ListTile(
-                              title: Text(
-                                contentById[
-                                            file[
-                                                'content_id']
-                                                as int]
-                                        ?['title']
-                                    ?.toString() ??
-                                    file[
-                                            'file_name']
-                                        .toString(),
-                              ),
-                              subtitle:
-                                  Text(
-                                file[
-                                        'file_path']
-                                    .toString(),
-                              ),
-                              trailing:
-                                  IconButton(
-                                tooltip:
-                                    'Delete copy',
-                                icon:
-                                    const Icon(
-                                  Icons
-                                      .delete_outline,
-                                ),
-                                onPressed:
-                                    () =>
-                                        _deleteCopy(
-                                  file,
-                                ),
-                              ),
-                            ),
-                        ],
+                        trailing:
+                            FilledButton(
+                          onPressed:
+                              deleting
+                                  ? null
+                                  : () =>
+                                      deleteDuplicates(
+                                    group,
+                                  ),
+                          child:
+                              const Text(
+                            'Delete copies',
+                          ),
+                        ),
                       ),
                     );
                   },
