@@ -17,15 +17,33 @@ Future<void> pickFile(
 ) async {
   final extensions = <String>[
     if (type == 'pdf') 'pdf',
-    if (type == 'word') ...['doc', 'docx'],
-    if (type == 'ppt') ...['ppt', 'pptx'],
-    if (type == 'image') ...['jpg', 'jpeg', 'png', 'webp', 'heic'],
+    if (type == 'word') ...[
+      'doc',
+      'docx',
+    ],
+    if (type == 'ppt') ...[
+      'ppt',
+      'pptx',
+    ],
+    if (type == 'image') ...[
+      'jpg',
+      'jpeg',
+      'png',
+      'webp',
+      'heic',
+    ],
     if (type == 'epub') 'epub',
     if (type == 'textfile') 'txt',
-    if (type == 'html') ...['html', 'htm'],
+    if (type == 'html') ...[
+      'html',
+      'htm',
+    ],
     if (type == 'fb2') 'fb2',
     if (type == 'fb2zip') 'zip',
-    if (type == 'djvu') ...['djvu', 'djv'],
+    if (type == 'djvu') ...[
+      'djvu',
+      'djv',
+    ],
     if (type == 'mobi') 'mobi',
     if (type == 'code') ...[
       'dart',
@@ -65,38 +83,54 @@ Future<void> pickFile(
   if (extensions.isEmpty) return;
 
   try {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: extensions,
     );
 
-    if (result == null || result.files.isEmpty) return;
+    if (result == null ||
+        result.files.isEmpty) {
+      return;
+    }
 
     final file = result.files.first;
     final sourcePath = file.path;
 
-    if (sourcePath == null || sourcePath.isEmpty) return;
+    if (sourcePath == null ||
+        sourcePath.isEmpty) {
+      return;
+    }
 
-    final ready = await storage.ensureReady(
+    final ready =
+        await storage.ensureReady(
       requestPermission: true,
     );
 
     if (!ready) return;
 
-    final storedPath = await storage.copyImportedFile(
+    final storedPath =
+        await storage.copyImportedFile(
       sourcePath: sourcePath,
       subjectId: subjectId,
       folderId: folderId,
       originalName: file.name,
     );
 
-    final storedFile = File(storedPath);
-    final now = DateTime.now().toIso8601String();
-    final contentId = await repo.insertContent({
+    final storedFile =
+        File(storedPath);
+
+    final now =
+        DateTime.now().toIso8601String();
+
+    final contentId =
+        await repo.insertContent({
       'subject_id': subjectId,
       'topic_id': null,
       'folder_id': folderId,
-      'title': p.basenameWithoutExtension(file.name),
+      'title':
+          p.basenameWithoutExtension(
+        file.name,
+      ),
       'type': typeName(type),
       'content': '',
       'file_path': storedPath,
@@ -109,9 +143,13 @@ Future<void> pickFile(
       'file_name': file.name,
       'file_path': storedPath,
       'mime_type': mimeType(type),
-      'file_size': await storedFile.length(),
+      'file_size':
+          await storedFile.length(),
       'extracted_text': null,
-      'file_hash': await storage.hashFile(storedPath),
+      'file_hash':
+          await storage.hashFile(
+        storedPath,
+      ),
       'created_at': now,
     });
   } catch (_) {}
@@ -122,11 +160,13 @@ Future<void> editContent(
   Map<String, dynamic> item,
   VoidCallback refresh,
 ) async {
-  final controller = TextEditingController(
+  final controller =
+      TextEditingController(
     text: item['title']?.toString() ?? '',
   );
 
-  final name = await showDialog<String>(
+  final name =
+      await showDialog<String>(
     context: context,
     builder: (_) => AlertDialog(
       title: const Text('Rename'),
@@ -136,13 +176,21 @@ Future<void> editContent(
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: () =>
+              Navigator.pop(context),
           child: const Text('Cancel'),
         ),
         FilledButton(
           onPressed: () {
-            final value = controller.text.trim();
-            if (value.isNotEmpty) Navigator.pop(context, value);
+            final value =
+                controller.text.trim();
+
+            if (value.isNotEmpty) {
+              Navigator.pop(
+                context,
+                value,
+              );
+            }
           },
           child: const Text('Save'),
         ),
@@ -172,31 +220,51 @@ Future<void> removeContent(
   Map<String, dynamic> item,
   VoidCallback refresh,
 ) async {
-  final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('Delete content?'),
-          content: const Text(
-            'The material and its stored file will be deleted.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
+  final confirmed =
+      await showDialog<bool>(
+            context: context,
+            builder: (_) =>
+                AlertDialog(
+              title: const Text(
+                'Delete content?',
+              ),
+              content: const Text(
+                'The material and its stored file will be deleted.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () =>
+                      Navigator.pop(
+                    context,
+                    false,
+                  ),
+                  child:
+                      const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () =>
+                      Navigator.pop(
+                    context,
+                    true,
+                  ),
+                  child:
+                      const Text('Delete'),
+                ),
+              ],
             ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Delete'),
-            ),
-          ],
-        ),
-      ) ??
-      false;
+          ) ??
+          false;
 
   if (!confirmed) return;
 
-  await storage.deleteContentFile(item);
-  await repo.deleteContent(item['id'] as int);
+  await storage.deleteContentFile(
+    item,
+  );
+
+  await repo.deleteContent(
+    item['id'] as int,
+  );
+
   refresh();
 }
 
@@ -204,23 +272,31 @@ Future<void> shareContent(
   BuildContext context,
   Map<String, dynamic> item,
 ) async {
-  final path = item['file_path']?.toString();
+  final path =
+      item['file_path']?.toString();
 
-  if (path == null || path.isEmpty || !await File(path).exists()) {
+  if (path == null ||
+      path.isEmpty ||
+      !await File(path).exists()) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         const SnackBar(
-          content: Text('File is no longer available.'),
+          content: Text(
+            'File is no longer available.',
+          ),
         ),
       );
     }
+
     return;
   }
 
   await storage.shareFile(path);
 }
 
-String typeName(String type) => {
+String typeName(String type) =>
+    {
       'pdf': 'PDF',
       'word': 'Word',
       'ppt': 'PowerPoint',
@@ -236,19 +312,25 @@ String typeName(String type) => {
     }[type] ??
     'Text';
 
-String? mimeType(String type) => {
+String? mimeType(String type) =>
+    {
       'pdf': 'application/pdf',
       'word':
           'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'ppt':
           'application/vnd.openxmlformats-officedocument.presentationml.presentation',
       'image': 'image/*',
-      'epub': 'application/epub+zip',
+      'epub':
+          'application/epub+zip',
       'textfile': 'text/plain',
       'html': 'text/html',
-      'fb2': 'application/x-fictionbook+xml',
-      'fb2zip': 'application/zip',
-      'djvu': 'image/vnd.djvu',
-      'mobi': 'application/x-mobipocket-ebook',
+      'fb2':
+          'application/x-fictionbook+xml',
+      'fb2zip':
+          'application/zip',
+      'djvu':
+          'image/vnd.djvu',
+      'mobi':
+          'application/x-mobipocket-ebook',
       'code': 'text/plain',
     }[type];
