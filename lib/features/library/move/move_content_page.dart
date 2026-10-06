@@ -23,8 +23,7 @@ class MoveContentPage extends StatefulWidget {
 class _MoveContentPageState
     extends State<MoveContentPage> {
   final repo = DatabaseRepository.instance;
-  final storage =
-      LibraryStorageService.instance;
+  final storage = LibraryStorageService.instance;
 
   List<Map<String, dynamic>> folders = [];
 
@@ -38,8 +37,7 @@ class _MoveContentPageState
   }
 
   Future<void> load() async {
-    final all =
-        await repo.getAllFolders();
+    final all = await repo.getAllFolders();
 
     if (!mounted) return;
 
@@ -56,11 +54,8 @@ class _MoveContentPageState
     });
   }
 
-  Future<void> moveTo(
-    int? folderId,
-  ) async {
-    if (folderId ==
-        widget.currentFolderId) {
+  Future<void> moveTo(int? folderId) async {
+    if (folderId == widget.currentFolderId) {
       Navigator.pop(context, false);
       return;
     }
@@ -81,8 +76,7 @@ class _MoveContentPageState
 
       setState(() => moving = false);
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
             'Could not move this file.',
@@ -94,11 +88,10 @@ class _MoveContentPageState
 
   String pathFor(int? folderId) {
     if (folderId == null) {
-      return 'Library root';
+      return 'Subject root';
     }
 
-    final byId =
-        <int, Map<String, dynamic>>{
+    final byId = <int, Map<String, dynamic>>{
       for (final item in folders)
         item['id'] as int: item,
     };
@@ -117,8 +110,7 @@ class _MoveContentPageState
         item['name'].toString(),
       );
 
-      current =
-          item['parent_id'] as int?;
+      current = item['parent_id'] as int?;
     }
 
     return names.join(' / ');
@@ -128,45 +120,40 @@ class _MoveContentPageState
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Move material',
-        ),
+        title: const Text('Move material'),
       ),
       body: loading
           ? const Center(
-              child:
-                  CircularProgressIndicator(),
+              child: CircularProgressIndicator(),
             )
           : ListView(
               children: [
                 ListTile(
                   leading: const Icon(
-                    Icons.library_books_outlined,
+                    Icons.folder_open_outlined,
                   ),
                   title: const Text(
-                    'Library root',
+                    'Subject root',
                   ),
-                  subtitle:
-                      Text(pathFor(null)),
+                  subtitle: Text(
+                    pathFor(null),
+                  ),
                   trailing:
-                      widget.currentFolderId ==
-                              null
-                          ? const Icon(
-                              Icons.check,
-                            )
+                      widget.currentFolderId == null
+                          ? const Icon(Icons.check)
                           : null,
                   onTap: moving
                       ? null
                       : () => moveTo(null),
                 ),
+
                 for (final folder in folders)
                   ListTile(
                     leading: const Icon(
                       Icons.folder_outlined,
                     ),
                     title: Text(
-                      folder['name']
-                          .toString(),
+                      folder['name'].toString(),
                     ),
                     subtitle: Text(
                       pathFor(
@@ -183,8 +170,7 @@ class _MoveContentPageState
                     onTap: moving
                         ? null
                         : () => moveTo(
-                              folder['id']
-                                  as int,
+                              folder['id'] as int,
                             ),
                   ),
               ],
