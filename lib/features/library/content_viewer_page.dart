@@ -30,13 +30,6 @@ class ContentViewerPage extends StatelessWidget {
       );
     }
 
-    if (_isImage(value)) {
-      return ImageViewerPage(
-        title: title,
-        path: path,
-      );
-    }
-
     if (_isWord(value)) {
       return WordViewerPage(
         title: title,
@@ -51,9 +44,19 @@ class ContentViewerPage extends StatelessWidget {
       );
     }
 
+    if (_isImage(value)) {
+      return ImageViewerPage(
+        title: title,
+        path: path,
+      );
+    }
+
     if (extractedText != null &&
         extractedText!.trim().isNotEmpty) {
-      return _textViewer(context, extractedText!);
+      return _textViewer(
+        context,
+        extractedText!,
+      );
     }
 
     return Scaffold(
@@ -89,7 +92,10 @@ class ContentViewerPage extends StatelessWidget {
         value == 'image';
   }
 
-  Widget _textViewer(BuildContext context, String text) {
+  Widget _textViewer(
+    BuildContext context,
+    String text,
+  ) {
     final isArabic = RegExp(
       r'[\u0600-\u06FF]',
     ).hasMatch(text);
@@ -99,14 +105,16 @@ class ContentViewerPage extends StatelessWidget {
         title: Text(title),
       ),
       body: Directionality(
-        textDirection:
-            isArabic ? TextDirection.rtl : TextDirection.ltr,
+        textDirection: isArabic
+            ? TextDirection.rtl
+            : TextDirection.ltr,
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: SelectableText(
             text,
-            textAlign:
-                isArabic ? TextAlign.right : TextAlign.left,
+            textAlign: isArabic
+                ? TextAlign.right
+                : TextAlign.left,
             style: const TextStyle(
               fontSize: 16,
               height: 1.6,
