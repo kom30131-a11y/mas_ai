@@ -11,28 +11,14 @@ Future<void> main() async {
   runApp(const MasAiApp());
 }
 
-class MasAiApp extends StatefulWidget {
+class MasAiApp extends StatelessWidget {
   const MasAiApp({super.key});
-
-  @override
-  State<MasAiApp> createState() => _MasAiAppState();
-}
-
-class _MasAiAppState extends State<MasAiApp> {
-  ThemeMode _themeMode = ThemeMode.system;
-
-  void _setThemeMode(ThemeMode mode) {
-    setState(() {
-      _themeMode = mode;
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'MAS AI',
-      themeMode: _themeMode,
       theme: ThemeData(
         useMaterial3: true,
         colorSchemeSeed: Colors.indigo,
@@ -44,6 +30,7 @@ class _MasAiAppState extends State<MasAiApp> {
         colorSchemeSeed: Colors.indigo,
         brightness: Brightness.dark,
       ),
+      themeMode: ThemeMode.system,
       home: const LibraryPage(),
     );
   }
