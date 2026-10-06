@@ -36,7 +36,9 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _enableStorage() async {
-    setState(() => busy = true);
+    setState(() {
+      busy = true;
+    });
 
     final ready = await storage.ensureReady(
       requestPermission: true,
@@ -53,13 +55,14 @@ class _SettingsPageState extends State<SettingsPage> {
       busy = false;
     });
 
-    if (!ready && mounted) {
+    if (!ready) {
       await openAppSettings();
     }
   }
 
   Future<void> _selectTheme() async {
-    final selected = await showModalBottomSheet<ThemeMode>(
+    final selected =
+        await showModalBottomSheet<ThemeMode>(
       context: context,
       showDragHandle: true,
       builder: (context) {
@@ -108,7 +111,9 @@ class _SettingsPageState extends State<SettingsPage> {
       trailing: settings.themeMode == mode
           ? const Icon(Icons.check)
           : null,
-      onTap: () => Navigator.pop(context, mode),
+      onTap: () {
+        Navigator.pop(context, mode);
+      },
     );
   }
 
@@ -122,8 +127,6 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profile & Settings'),
@@ -142,7 +145,9 @@ class _SettingsPageState extends State<SettingsPage> {
             elevation: 0,
             child: ListTile(
               leading: const CircleAvatar(
-                child: Icon(Icons.local_library_outlined),
+                child: Icon(
+                  Icons.local_library_outlined,
+                ),
               ),
               title: const Text('MedLibra'),
               subtitle: const Text(
@@ -159,7 +164,9 @@ class _SettingsPageState extends State<SettingsPage> {
             icon: Icons.palette_outlined,
             title: 'Theme',
             subtitle: _themeName(),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(
+              Icons.chevron_right,
+            ),
             onTap: _selectTheme,
           ),
 
@@ -171,15 +178,18 @@ class _SettingsPageState extends State<SettingsPage> {
             icon: Icons.folder_outlined,
             title: 'MAS AI folder',
             subtitle: storageReady
-                ? '/storage/emulated/0/MAS AI'
+                ? 'Internal storage / MAS AI'
                 : 'Storage access is not enabled',
             trailing: storageReady
-                ? const Icon(Icons.check_circle_outline)
+                ? const Icon(
+                    Icons.check_circle_outline,
+                  )
                 : busy
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(
+                        child:
+                            CircularProgressIndicator(
                           strokeWidth: 2,
                         ),
                       )
@@ -187,7 +197,9 @@ class _SettingsPageState extends State<SettingsPage> {
                         onPressed: _enableStorage,
                         child: const Text('Enable'),
                       ),
-            onTap: storageReady ? null : _enableStorage,
+            onTap: storageReady
+                ? null
+                : _enableStorage,
           ),
 
           const SizedBox(height: 10),
@@ -197,12 +209,15 @@ class _SettingsPageState extends State<SettingsPage> {
             title: 'Duplicate files',
             subtitle:
                 'Find identical files and remove copies',
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(
+              Icons.chevron_right,
+            ),
             onTap: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => const DuplicateFilesPage(),
+                  builder: (_) =>
+                      const DuplicateFilesPage(),
                 ),
               );
             },
@@ -214,10 +229,12 @@ class _SettingsPageState extends State<SettingsPage> {
 
           _card(
             icon: Icons.description_outlined,
-            title: 'Office files',
+            title: 'Word & PowerPoint',
             subtitle:
-                'Word and PowerPoint open in their installed apps',
-            trailing: const Icon(Icons.open_in_new),
+                'Displayed inside MedLibra',
+            trailing: const Icon(
+              Icons.visibility_outlined,
+            ),
           ),
 
           const SizedBox(height: 18),
@@ -226,13 +243,14 @@ class _SettingsPageState extends State<SettingsPage> {
 
           Card(
             elevation: 0,
-            color: scheme.surfaceContainerLow,
             child: const Padding(
               padding: EdgeInsets.all(16),
               child: Text(
-                'Imported files are copied into the MAS AI folder. '
-                'Folders created in Library are mirrored there, including nested folders. '
-                'Files can be moved between folders without changing the library structure.',
+                'Imported files are stored in the public '
+                'Internal storage/MAS AI folder, so they remain '
+                'visible in the phone file manager. '
+                'Library folders and nested folders are mirrored '
+                'there as real folders.',
               ),
             ),
           ),
