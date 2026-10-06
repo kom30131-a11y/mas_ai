@@ -24,6 +24,7 @@ class TextEditorPage extends StatefulWidget {
 
 class _TextEditorPageState extends State<TextEditorPage> {
   final repo = DatabaseRepository.instance;
+  final storage = LibraryStorageService.instance;
 
   late final QuillController _controller;
   late final TextEditingController _titleController;
@@ -43,6 +44,7 @@ class _TextEditorPageState extends State<TextEditorPage> {
     super.initState();
 
     final item = widget.item;
+
     final document = _documentFromContent(
       item?['content']?.toString(),
     );
@@ -135,28 +137,90 @@ class _TextEditorPageState extends State<TextEditorPage> {
     setState(() => _saving = true);
 
     try {
-      final content = jsonEncode(
+      final deltaJson = jsonEncode(
         _controller.document.toDelta().toJson(),
       );
 
+      final plainText = _controller.document.toPlainText();
+
+      String? oldPath;
+
+      if (!_isNew) {
+        oldPath = widget.item!['file_path']?.toString();
+      }
+
+      final filePath = await storage.saveText(
+        subjectId: widget.subjectId,
+        folderId: widget.folderId,
+        text: plainText,
+        title: title,
+        oldPath: oldPath,
+      );
+
+      final now = DateTime.now().toIso8601String();
+
       if (_isNew) {
-        await repo.insertContent({
+        final contentId = await repo.insertContent({
           'subject_id': widget.subjectId,
           'topic_id': null,
           'folder_id': widget.folderId,
           'title': title,
           'type': 'Text',
-          'content': content,
-          'file_path': null,
-          'original_file_name': null,
-          'created_at': DateTime.now().toIso8601String(),
+          'content': deltaJson,
+          'file_path': filePath,
+          'original_file_name': '$title.txt',
+          'created_at': now,
+        });
+
+        await repo.insertFile({
+          'content_id': contentId,
+          'file_name': '$title.txt',
+          'file_path': filePath,
+          'mime_type': 'text/plain',
+          'file_size': plainText.length,
+          'extracted_text': plainText,
+          'file_hash': await storage.hashFile(filePath),
+          'created_at': now,
         });
       } else {
+        final contentId = widget.item!['id'] as int;
+
         await repo.updateContent(
-          contentId: widget.item!['id'] as int,
+          contentId: contentId,
           title: title,
-          content: content,
+          content: deltaJson,
+          filePath: filePath,
+          originalFileName: '$title.txt',
         );
+
+        final files = await repo.getFiles(
+          contentId: contentId,
+        );
+
+        if (files.isEmpty) {
+          await repo.insertFile({
+            'content_id': contentId,
+            'file_name': '$title.txt',
+            'file_path': filePath,
+            'mime_type': 'text/plain',
+            'file_size': plainText.length,
+            'extracted_text': plainText,
+            'file_hash': await storage.hashFile(filePath),
+            'created_at': now,
+          });
+        } else {
+          final file = files.first;
+
+          await repo.updateFilePath(
+            contentId: contentId,
+            filePath: filePath,
+          );
+
+          await repo.updateFileHash(
+            fileId: file['id'] as int,
+            hash: await storage.hashFile(filePath),
+          );
+        }
       }
 
       if (!mounted) return;
