@@ -29,7 +29,127 @@ class DatabaseRepository {
 
   Future<int> deleteSubject(int id) async {
     final db = await DatabaseHelper.instance.database;
-    return db.delete('subjects', where: 'id = ?', whereArgs: [id]);
+
+    return db.transaction<int>((txn) async {
+      final topicRows = await txn.query(
+        'topics',
+        columns: ['id'],
+        where: 'subject_id = ?',
+        whereArgs: [id],
+      );
+      final topicIds = topicRows
+          .map((row) => row['id'] as int)
+          .toList();
+
+      final contentRows = await txn.query(
+        'content',
+        columns: ['id'],
+        where: 'subject_id = ?',
+        whereArgs: [id],
+      );
+      final contentIds = contentRows
+          .map((row) => row['id'] as int)
+          .toList();
+
+      final conditions = <String>[];
+      final args = <dynamic>[];
+
+      if (contentIds.isNotEmpty) {
+        conditions.add(
+          'content_id IN (${List.filled(contentIds.length, '?').join(',')})',
+        );
+        args.addAll(contentIds);
+      }
+
+      if (topicIds.isNotEmpty) {
+        conditions.add(
+          'topic_id IN (${List.filled(topicIds.length, '?').join(',')})',
+        );
+        args.addAll(topicIds);
+      }
+
+      if (conditions.isNotEmpty) {
+        final where = conditions.join(' OR ');
+        final questionRows = await txn.query(
+          'questions',
+          columns: ['id'],
+          where: where,
+          whereArgs: args,
+        );
+        final questionIds = questionRows
+            .map((row) => row['id'] as int)
+            .toList();
+
+        if (questionIds.isNotEmpty) {
+          final q = List.filled(questionIds.length, '?').join(',');
+          await txn.delete(
+            'attempts',
+            where: 'question_id IN ($q)',
+            whereArgs: questionIds,
+          );
+        }
+
+        await txn.delete(
+          'questions',
+          where: where,
+          whereArgs: args,
+        );
+      }
+
+      if (contentIds.isNotEmpty) {
+        final placeholders = List.filled(contentIds.length, '?').join(',');
+
+        await txn.delete(
+          'mind_maps',
+          where: 'content_id IN ($placeholders)',
+          whereArgs: contentIds,
+        );
+
+        await txn.delete(
+          'files',
+          where: 'content_id IN ($placeholders)',
+          whereArgs: contentIds,
+        );
+      }
+
+      if (topicIds.isNotEmpty) {
+        final placeholders = List.filled(topicIds.length, '?').join(',');
+        await txn.delete(
+          'reviews',
+          where: 'topic_id IN ($placeholders)',
+          whereArgs: topicIds,
+        );
+        await txn.delete(
+          'mind_maps',
+          where: 'topic_id IN ($placeholders)',
+          whereArgs: topicIds,
+        );
+      }
+
+      await txn.delete(
+        'content',
+        where: 'subject_id = ?',
+        whereArgs: [id],
+      );
+
+      await txn.delete(
+        'folders',
+        where: 'subject_id = ?',
+        whereArgs: [id],
+      );
+
+      await txn.delete(
+        'topics',
+        where: 'subject_id = ?',
+        whereArgs: [id],
+      );
+
+      return txn.delete(
+        'subjects',
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+    });
   }
 
   Future<int> insertTopic(Map<String, dynamic> data) async {
@@ -243,8 +363,49 @@ class DatabaseRepository {
 
   Future<int> deleteContent(int id) async {
     final db = await DatabaseHelper.instance.database;
-    await db.delete('files', where: 'content_id = ?', whereArgs: [id]);
-    return db.delete('content', where: 'id = ?', whereArgs: [id]);
+
+    return db.transaction<int>((txn) async {
+      final questionRows = await txn.query(
+        'questions',
+        columns: ['id'],
+        where: 'content_id = ?',
+        whereArgs: [id],
+      );
+      final questionIds = questionRows
+          .map((row) => row['id'] as int)
+          .toList();
+
+      if (questionIds.isNotEmpty) {
+        final placeholders = List.filled(questionIds.length, '?').join(',');
+        await txn.delete(
+          'attempts',
+          where: 'question_id IN ($placeholders)',
+          whereArgs: questionIds,
+        );
+      }
+
+      await txn.delete(
+        'questions',
+        where: 'content_id = ?',
+        whereArgs: [id],
+      );
+      await txn.delete(
+        'mind_maps',
+        where: 'content_id = ?',
+        whereArgs: [id],
+      );
+      await txn.delete(
+        'files',
+        where: 'content_id = ?',
+        whereArgs: [id],
+      );
+
+      return txn.delete(
+        'content',
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+    });
   }
 
   Future<int> insertFile(Map<String, dynamic> data) async {
