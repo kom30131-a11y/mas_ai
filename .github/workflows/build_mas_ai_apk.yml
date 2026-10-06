@@ -1,4 +1,4 @@
-name: Build MAS AI APK
+name: Build MedLibra APK
 
 on:
   workflow_dispatch:
@@ -24,26 +24,69 @@ jobs:
           rm -rf build
 
       - name: 4. Create fresh Android project
-        run: flutter create --platforms=android .
+        run: |
+          flutter create --platforms=android .
 
       - name: 4.1 Remove generated Flutter test
-        run: rm -f test/widget_test.dart
+        run: |
+          rm -f test/widget_test.dart
 
-      - name: 4.2 Allow MAS AI shared-library folder access
+      - name: 4.2 Set MedLibra app name and storage permission
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
+
           path = Path('android/app/src/main/AndroidManifest.xml')
           text = path.read_text()
-          permission = '<uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />'
-          if permission not in text:
-              text = text.replace(
-                  '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
-                  '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    ' + permission
+
+          # Set the application name shown on the Android phone.
+          updated = re.sub(
+              r'android:label="[^"]*"',
+              'android:label="MedLibra"',
+              text,
+              count=1,
+          )
+
+          if updated == text:
+              raise SystemExit(
+                  'Could not find android:label in AndroidManifest.xml'
               )
+
+          text = updated
+
+          # Allow MAS AI / MedLibra library storage access.
+          permission = (
+              '<uses-permission '
+              'android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />'
+          )
+
+          if permission not in text:
+              manifest_tag = (
+                  '<manifest '
+                  'xmlns:android="http://schemas.android.com/apk/res/android">'
+              )
+
+              if manifest_tag not in text:
+                  raise SystemExit(
+                      'Could not find the manifest tag in AndroidManifest.xml'
+                  )
+
+              text = text.replace(
+                  manifest_tag,
+                  manifest_tag + '\n    ' + permission,
+                  1,
+              )
+
           path.write_text(text)
           PY
+
+          grep -q 'android:label="MedLibra"' \
+            android/app/src/main/AndroidManifest.xml
+
+          grep -q 'MANAGE_EXTERNAL_STORAGE' \
+            android/app/src/main/AndroidManifest.xml
 
       - name: 5. Configure Android compatibility
         shell: bash
@@ -57,9 +100,14 @@ jobs:
 
           python3 - <<'PY'
           from pathlib import Path
+
           path = Path('android/build.gradle.kts')
           text = path.read_text()
-          marker = '// file_picker 11.x compatibility with AGP 9 legacy Kotlin mode.'
+
+          marker = (
+              '// file_picker 11.x compatibility with AGP 9 legacy Kotlin mode.'
+          )
+
           block = '''
           // file_picker 11.x compatibility with AGP 9 legacy Kotlin mode.
           subprojects {
@@ -73,6 +121,7 @@ jobs:
               }
           }
           '''
+
           if marker not in text:
               text = text.rstrip() + '\n\n' + block
               path.write_text(text)
@@ -82,6 +131,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p android/app/src/main/kotlin/com/example/mas_ai
+
           cat > android/app/src/main/kotlin/com/example/mas_ai/MainActivity.kt <<'EOF'
           package com.example.mas_ai
 
@@ -92,85 +142,180 @@ jobs:
           import io.flutter.plugin.common.MethodChannel
 
           class MainActivity : FlutterActivity() {
+
               private val channelName = "mas_ai/storage"
               private val requestCode = 1001
               private val prefsName = "mas_ai_storage"
               private val prefsKey = "tree_uri"
+
               private var pendingResult: MethodChannel.Result? = null
 
-              override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+              override fun configureFlutterEngine(
+                  flutterEngine: FlutterEngine
+              ) {
                   super.configureFlutterEngine(flutterEngine)
-                  MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
-                      .setMethodCallHandler { call, result ->
-                          when (call.method) {
-                              "isStorageConfigured" -> result.success(getSavedUri() != null)
-                              "getStorageUri" -> result.success(getSavedUri())
-                              "chooseStorageFolder" -> {
-                                  pendingResult = result
-                                  chooseStorageFolder()
-                              }
-                              else -> result.notImplemented()
+
+                  MethodChannel(
+                      flutterEngine.dartExecutor.binaryMessenger,
+                      channelName
+                  ).setMethodCallHandler { call, result ->
+
+                      when (call.method) {
+
+                          "isStorageConfigured" -> {
+                              result.success(
+                                  getSavedUri() != null
+                              )
+                          }
+
+                          "getStorageUri" -> {
+                              result.success(
+                                  getSavedUri()
+                              )
+                          }
+
+                          "chooseStorageFolder" -> {
+                              pendingResult = result
+                              chooseStorageFolder()
+                          }
+
+                          else -> {
+                              result.notImplemented()
                           }
                       }
+                  }
               }
 
               private fun chooseStorageFolder() {
-                  val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+                  val intent = Intent(
+                      Intent.ACTION_OPEN_DOCUMENT_TREE
+                  ).apply {
                       addFlags(
                           Intent.FLAG_GRANT_READ_URI_PERMISSION or
                               Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
                               Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
                       )
                   }
-                  startActivityForResult(intent, requestCode)
+
+                  startActivityForResult(
+                      intent,
+                      requestCode
+                  )
               }
 
-              override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-                  super.onActivityResult(requestCode, resultCode, data)
-                  if (requestCode != this.requestCode) return
+              override fun onActivityResult(
+                  requestCode: Int,
+                  resultCode: Int,
+                  data: Intent?
+              ) {
+                  super.onActivityResult(
+                      requestCode,
+                      resultCode,
+                      data
+                  )
+
+                  if (requestCode != this.requestCode) {
+                      return
+                  }
+
                   val result = pendingResult
                   pendingResult = null
-                  if (resultCode != RESULT_OK || data?.data == null) {
+
+                  if (
+                      resultCode != RESULT_OK ||
+                      data?.data == null
+                  ) {
                       result?.success(false)
                       return
                   }
+
                   val selectedUri = data.data!!
+
                   try {
                       contentResolver.takePersistableUriPermission(
                           selectedUri,
                           Intent.FLAG_GRANT_READ_URI_PERMISSION or
                               Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                       )
-                      val selectedFolder = DocumentFile.fromTreeUri(this, selectedUri)
-                      if (selectedFolder == null || !selectedFolder.canWrite()) {
+
+                      val selectedFolder =
+                          DocumentFile.fromTreeUri(
+                              this,
+                              selectedUri
+                          )
+
+                      if (
+                          selectedFolder == null ||
+                          !selectedFolder.canWrite()
+                      ) {
                           result?.success(false)
                           return
                       }
-                      val masAiFolder = selectedFolder.findFile("MAS AI")
-                          ?: selectedFolder.createDirectory("MAS AI")
+
+                      val masAiFolder =
+                          selectedFolder.findFile("MAS AI")
+                              ?: selectedFolder.createDirectory("MAS AI")
+
                       if (masAiFolder == null) {
                           result?.success(false)
                           return
                       }
-                      createDirectoryIfMissing(masAiFolder, "Content")
-                      createDirectoryIfMissing(masAiFolder, "Backups")
-                      createDirectoryIfMissing(masAiFolder, "Exports")
-                      saveUri(masAiFolder.uri.toString())
+
+                      createDirectoryIfMissing(
+                          masAiFolder,
+                          "Content"
+                      )
+
+                      createDirectoryIfMissing(
+                          masAiFolder,
+                          "Backups"
+                      )
+
+                      createDirectoryIfMissing(
+                          masAiFolder,
+                          "Exports"
+                      )
+
+                      saveUri(
+                          masAiFolder.uri.toString()
+                      )
+
                       result?.success(true)
+
                   } catch (_: Exception) {
                       result?.success(false)
                   }
               }
 
-              private fun createDirectoryIfMissing(parent: DocumentFile, name: String) =
-                  parent.findFile(name) ?: parent.createDirectory(name)
-
-              private fun saveUri(uri: String) {
-                  getSharedPreferences(prefsName, MODE_PRIVATE).edit().putString(prefsKey, uri).apply()
+              private fun createDirectoryIfMissing(
+                  parent: DocumentFile,
+                  name: String
+              ): DocumentFile? {
+                  return parent.findFile(name)
+                      ?: parent.createDirectory(name)
               }
 
-              private fun getSavedUri(): String? =
-                  getSharedPreferences(prefsName, MODE_PRIVATE).getString(prefsKey, null)
+              private fun saveUri(uri: String) {
+                  getSharedPreferences(
+                      prefsName,
+                      MODE_PRIVATE
+                  ).edit()
+                      .putString(
+                          prefsKey,
+                          uri
+                      )
+                      .apply()
+              }
+
+              private fun getSavedUri(): String? {
+                  return getSharedPreferences(
+                      prefsName,
+                      MODE_PRIVATE
+                  ).getString(
+                      prefsKey,
+                      null
+                  )
+              }
           }
           EOF
 
@@ -179,65 +324,112 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+
           path = Path('android/app/build.gradle.kts')
           text = path.read_text()
-          deps = [
+
+          dependencies = [
               'implementation("androidx.documentfile:documentfile:1.1.0")',
               'implementation("com.google.mlkit:text-recognition-chinese:16.0.1")',
               'implementation("com.google.mlkit:text-recognition-devanagari:16.0.1")',
               'implementation("com.google.mlkit:text-recognition-japanese:16.0.1")',
               'implementation("com.google.mlkit:text-recognition-korean:16.0.1")',
           ]
-          missing = [x for x in deps if x not in text]
+
+          missing = [
+              dependency
+              for dependency in dependencies
+              if dependency not in text
+          ]
+
           if missing:
-              text = text.rstrip() + '\n\ndependencies {\n' + '\n'.join('    '+x for x in missing) + '\n}\n'
-              path.write_text(text)
+              block = (
+                  '\n\ndependencies {\n'
+                  + '\n'.join(
+                      '    ' + dependency
+                      for dependency in missing
+                  )
+                  + '\n}\n'
+              )
+
+              path.write_text(
+                  text.rstrip() + block
+              )
           PY
 
       - name: 8. Verify Android configuration
         shell: bash
         run: |
           test -f android/app/src/main/kotlin/com/example/mas_ai/MainActivity.kt
-          grep -q 'MANAGE_EXTERNAL_STORAGE' android/app/src/main/AndroidManifest.xml
-          grep -q 'android.builtInKotlin=false' android/gradle.properties
-          grep -q 'android.newDsl=false' android/gradle.properties
-          grep -q 'file_picker 11.x compatibility' android/build.gradle.kts
-          grep -q 'androidx.documentfile:documentfile:1.1.0' android/app/build.gradle.kts
+
+          grep -q 'MANAGE_EXTERNAL_STORAGE' \
+            android/app/src/main/AndroidManifest.xml
+
+          grep -q 'android:label="MedLibra"' \
+            android/app/src/main/AndroidManifest.xml
+
+          grep -q 'android.builtInKotlin=false' \
+            android/gradle.properties
+
+          grep -q 'android.newDsl=false' \
+            android/gradle.properties
+
+          grep -q 'file_picker 11.x compatibility' \
+            android/build.gradle.kts
+
+          grep -q 'androidx.documentfile:documentfile:1.1.0' \
+            android/app/build.gradle.kts
 
       - name: 9. Get Flutter dependencies
-        run: flutter pub get
+        run: |
+          flutter pub get
 
       - name: 9.1 Patch flutter_isolate Android compatibility
         shell: bash
         run: |
           FILE="$HOME/.pub-cache/hosted/pub.dev/flutter_isolate-2.1.0/android/src/main/java/com/rmawatson/flutterisolate/FlutterIsolatePlugin.java"
-          test -f "$FILE"
-          sed -i '/import io\.flutter\.view\.FlutterRunArguments;/d' "$FILE"
-          if grep -q 'FlutterRunArguments' "$FILE"; then exit 1; fi
 
-      - name: 9.2 Generate MAS AI launcher icon
+          test -f "$FILE"
+
+          sed -i \
+            '/import io\.flutter\.view\.FlutterRunArguments;/d' \
+            "$FILE"
+
+          if grep -q 'FlutterRunArguments' "$FILE"; then
+            echo "FlutterIsolate compatibility patch failed."
+            exit 1
+          fi
+
+      - name: 9.2 Generate MedLibra launcher icon
         shell: bash
         run: |
           test -f assets/icon/mas_ai_icon.png
           test -f assets/icon/mas_ai_icon_foreground.png
+
           dart run flutter_launcher_icons
+
           test -d android/app/src/main/res/mipmap-hdpi
           test -d android/app/src/main/res/mipmap-xhdpi
           test -d android/app/src/main/res/mipmap-xxhdpi
 
       - name: 10. Analyze Flutter project
-        run: flutter analyze
+        run: |
+          flutter analyze
 
       - name: 11. Build release APK
-        run: flutter build apk --release
+        run: |
+          flutter build apk --release
 
       - name: 12. Verify APK
+        shell: bash
         run: |
           test -f build/app/outputs/flutter-apk/app-release.apk
-          ls -lh build/app/outputs/flutter-apk/app-release.apk
+
+          ls -lh \
+            build/app/outputs/flutter-apk/app-release.apk
 
       - name: 13. Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: mas-ai-apk
+          name: medlibra-apk
           path: build/app/outputs/flutter-apk/app-release.apk
