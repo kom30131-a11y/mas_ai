@@ -7,6 +7,7 @@ import '../code/code_editor_page.dart';
 import '../content_viewer_page.dart';
 import '../move/move_content_page.dart';
 import '../text/text_editor_page.dart';
+import '../word/word_viewer_page.dart';
 
 Future<void> openContent(
   BuildContext context,
@@ -14,7 +15,8 @@ Future<void> openContent(
   int subjectId,
   int? folderId,
 ) async {
-  final type = item['type']?.toString() ?? '';
+  final type =
+      item['type']?.toString() ?? '';
 
   if (type == 'Text') {
     await Navigator.push(
@@ -30,7 +32,8 @@ Future<void> openContent(
     return;
   }
 
-  final path = item['file_path']?.toString();
+  final path =
+      item['file_path']?.toString();
 
   if (path == null ||
       path.isEmpty ||
@@ -44,7 +47,8 @@ Future<void> openContent(
       context,
       MaterialPageRoute(
         builder: (_) => CodeEditorPage(
-          title: item['title']?.toString() ?? 'Code',
+          title:
+              item['title']?.toString() ?? 'Code',
           path: path,
           contentId: item['id'] as int,
         ),
@@ -53,18 +57,33 @@ Future<void> openContent(
     return;
   }
 
+  if (type == 'Word') {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => WordViewerPage(
+          title:
+              item['title']?.toString() ?? 'Word',
+          path: path,
+        ),
+      ),
+    );
+    return;
+  }
+
   if (type == 'PDF' ||
       type == 'Image' ||
-      type == 'Word' ||
       type == 'PowerPoint') {
     await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ContentViewerPage(
-          title: item['title']?.toString() ?? 'Content',
+          title:
+              item['title']?.toString() ?? 'Content',
           path: path,
           type: type,
-          extractedText: item['content']?.toString(),
+          extractedText:
+              item['content']?.toString(),
         ),
       ),
     );
@@ -104,7 +123,8 @@ Future<bool> moveContent(
   int subjectId,
   int? folderId,
 ) async {
-  final changed = await Navigator.push<bool>(
+  final changed =
+      await Navigator.push<bool>(
     context,
     MaterialPageRoute(
       builder: (_) => MoveContentPage(
@@ -121,11 +141,14 @@ Future<bool> moveContent(
 Future<void> shareContent(
   Map<String, dynamic> item,
 ) async {
-  final path = item['file_path']?.toString();
+  final path =
+      item['file_path']?.toString();
 
   if (path == null || path.isEmpty) {
     return;
   }
 
-  await LibraryStorageService.instance.shareFile(path);
+  await LibraryStorageService
+      .instance
+      .shareFile(path);
 }
