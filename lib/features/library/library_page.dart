@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/database/database_repository.dart';
 import 'actions/library_actions.dart' as actions;
 import 'search/library_search_page.dart';
+import 'settings/settings_page.dart';
 import 'subject_page.dart';
 
 final _repo = DatabaseRepository.instance;
@@ -26,9 +27,7 @@ class _LibraryState extends State<LibraryPage> {
 
   Future<void> load() async {
     final data = await _repo.getSubjects();
-
     if (!mounted) return;
-
     setState(() {
       subjects = data;
       loading = false;
@@ -38,12 +37,16 @@ class _LibraryState extends State<LibraryPage> {
   Future<void> openSearch() async {
     await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => const LibrarySearchPage(),
-      ),
+      MaterialPageRoute(builder: (_) => const LibrarySearchPage()),
     );
-
     if (mounted) await load();
+  }
+
+  Future<void> openSettings() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SettingsPage()),
+    );
   }
 
   Future<void> openSubject(Map<String, dynamic> item) async {
@@ -56,7 +59,6 @@ class _LibraryState extends State<LibraryPage> {
         ),
       ),
     );
-
     if (mounted) await load();
   }
 
@@ -64,42 +66,40 @@ class _LibraryState extends State<LibraryPage> {
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.edit_outlined),
-                  title: const Text('Rename'),
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    actions.renameSubject(context, item, load);
-                  },
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.edit_outlined),
+                title: const Text('Rename'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  actions.renameSubject(context, item, load);
+                },
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.delete_outline,
+                  color: Theme.of(context).colorScheme.error,
                 ),
-                ListTile(
-                  leading: Icon(
-                    Icons.delete_outline,
+                title: Text(
+                  'Delete',
+                  style: TextStyle(
                     color: Theme.of(context).colorScheme.error,
                   ),
-                  title: Text(
-                    'Delete',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  ),
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    actions.removeSubject(context, item, load);
-                  },
                 ),
-              ],
-            ),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  actions.removeSubject(context, item, load);
+                },
+              ),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -119,25 +119,27 @@ class _LibraryState extends State<LibraryPage> {
         titleSpacing: 20,
         title: Row(
           children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: scheme.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                Icons.auto_stories_outlined,
-                color: scheme.primary,
-                size: 21,
+            InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: openSettings,
+              child: Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: scheme.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.auto_stories_outlined,
+                  color: scheme.primary,
+                  size: 21,
+                ),
               ),
             ),
             const SizedBox(width: 12),
             const Text(
               'Library',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-              ),
+              style: TextStyle(fontWeight: FontWeight.w700),
             ),
           ],
         ),
@@ -158,9 +160,7 @@ class _LibraryState extends State<LibraryPage> {
         ],
       ),
       body: loading
-          ? const Center(
-              child: CircularProgressIndicator(),
-            )
+          ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: load,
               child: subjects.isEmpty
@@ -264,9 +264,7 @@ class _SubjectCard extends StatelessWidget {
 class _EmptyLibrary extends StatelessWidget {
   final VoidCallback onAdd;
 
-  const _EmptyLibrary({
-    required this.onAdd,
-  });
+  const _EmptyLibrary({required this.onAdd});
 
   @override
   Widget build(BuildContext context) {
