@@ -11,7 +11,8 @@ Future<String?> askSubjectName(
   String? initialValue,
   String title = 'New subject',
 }) async {
-  final controller = TextEditingController(text: initialValue);
+  final controller =
+      TextEditingController(text: initialValue);
 
   final name = await showDialog<String>(
     context: context,
@@ -23,13 +24,21 @@ Future<String?> askSubjectName(
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: () =>
+              Navigator.pop(context),
           child: const Text('Cancel'),
         ),
         FilledButton(
           onPressed: () {
-            final value = controller.text.trim();
-            if (value.isNotEmpty) Navigator.pop(context, value);
+            final value =
+                controller.text.trim();
+
+            if (value.isNotEmpty) {
+              Navigator.pop(
+                context,
+                value,
+              );
+            }
           },
           child: const Text('Save'),
         ),
@@ -38,6 +47,7 @@ Future<String?> askSubjectName(
   );
 
   controller.dispose();
+
   return name;
 }
 
@@ -45,29 +55,49 @@ Future<void> addSubject(
   BuildContext context,
   VoidCallback refresh,
 ) async {
-  final name = await askSubjectName(context);
+  final name =
+      await askSubjectName(context);
+
   if (name == null) return;
 
-  final existing = await _repo.getSubjects();
+  final existing =
+      await _repo.getSubjects();
+
   final duplicate = existing.any(
     (item) =>
-        item['name']?.toString().trim().toLowerCase() ==
+        item['name']
+            ?.toString()
+            .trim()
+            .toLowerCase() ==
         name.trim().toLowerCase(),
   );
 
   if (duplicate) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('A subject with this name already exists.')),
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
+      const SnackBar(
+        content: Text(
+          'A subject with this name already exists.',
+        ),
+      ),
     );
+
     return;
   }
 
-  final id = await _repo.insertSubject({
+  final id =
+      await _repo.insertSubject({
     'name': name,
-    'created_at': DateTime.now().toIso8601String(),
+    'created_at':
+        DateTime.now().toIso8601String(),
   });
 
   await _storage.subjectDirectory(id);
+
+  if (!context.mounted) return;
+
   refresh();
 }
 
@@ -76,27 +106,47 @@ Future<void> renameSubject(
   Map<String, dynamic> item,
   VoidCallback refresh,
 ) async {
-  final oldName = item['name']?.toString() ?? 'Subject';
-  final name = await askSubjectName(
+  final oldName =
+      item['name']?.toString() ??
+          'Subject';
+
+  final name =
+      await askSubjectName(
     context,
     initialValue: oldName,
     title: 'Rename subject',
   );
 
-  if (name == null || name == oldName) return;
+  if (name == null ||
+      name == oldName) {
+    return;
+  }
 
-  final existing = await _repo.getSubjects();
+  final existing =
+      await _repo.getSubjects();
+
   final duplicate = existing.any(
     (other) =>
         other['id'] != item['id'] &&
-        other['name']?.toString().trim().toLowerCase() ==
-        name.trim().toLowerCase(),
+        other['name']
+                ?.toString()
+                .trim()
+                .toLowerCase() ==
+            name.trim().toLowerCase(),
   );
 
   if (duplicate) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('A subject with this name already exists.')),
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
+      const SnackBar(
+        content: Text(
+          'A subject with this name already exists.',
+        ),
+      ),
     );
+
     return;
   }
 
@@ -110,6 +160,8 @@ Future<void> renameSubject(
     name: name,
   );
 
+  if (!context.mounted) return;
+
   refresh();
 }
 
@@ -118,30 +170,54 @@ Future<void> removeSubject(
   Map<String, dynamic> item,
   VoidCallback refresh,
 ) async {
-  final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('Delete subject?'),
-          content: const Text(
-            'The subject, its database entries, and its stored files will be deleted.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
+  final confirmed =
+      await showDialog<bool>(
+            context: context,
+            builder: (_) =>
+                AlertDialog(
+              title: const Text(
+                'Delete subject?',
+              ),
+              content: const Text(
+                'The subject, its database entries, and its stored files will be deleted.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () =>
+                      Navigator.pop(
+                    context,
+                    false,
+                  ),
+                  child: const Text(
+                    'Cancel',
+                  ),
+                ),
+                FilledButton(
+                  onPressed: () =>
+                      Navigator.pop(
+                    context,
+                    true,
+                  ),
+                  child: const Text(
+                    'Delete',
+                  ),
+                ),
+              ],
             ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Delete'),
-            ),
-          ],
-        ),
-      ) ??
-      false;
+          ) ??
+          false;
 
   if (!confirmed) return;
 
-  await _storage.deleteSubjectDirectory(item['id'] as int);
-  await _repo.deleteSubject(item['id']);
+  await _storage.deleteSubjectDirectory(
+    item['id'] as int,
+  );
+
+  await _repo.deleteSubject(
+    item['id'],
+  );
+
+  if (!context.mounted) return;
+
   refresh();
 }
