@@ -27,18 +27,12 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _checkStorage() async {
     final ready = await storage.ensureReady();
-
     if (!mounted) return;
-
-    setState(() {
-      storageReady = ready;
-    });
+    setState(() => storageReady = ready);
   }
 
   Future<void> _enableStorage() async {
-    setState(() {
-      busy = true;
-    });
+    setState(() => busy = true);
 
     final ready = await storage.ensureReady(
       requestPermission: true,
@@ -55,14 +49,11 @@ class _SettingsPageState extends State<SettingsPage> {
       busy = false;
     });
 
-    if (!ready) {
-      await openAppSettings();
-    }
+    if (!ready) await openAppSettings();
   }
 
   Future<void> _selectTheme() async {
-    final selected =
-        await showModalBottomSheet<ThemeMode>(
+    final selected = await showModalBottomSheet<ThemeMode>(
       context: context,
       showDragHandle: true,
       builder: (context) {
@@ -93,10 +84,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
     if (selected != null) {
       await settings.setThemeMode(selected);
-
-      if (mounted) {
-        setState(() {});
-      }
+      if (mounted) setState(() {});
     }
   }
 
@@ -111,9 +99,7 @@ class _SettingsPageState extends State<SettingsPage> {
       trailing: settings.themeMode == mode
           ? const Icon(Icons.check)
           : null,
-      onTap: () {
-        Navigator.pop(context, mode);
-      },
+      onTap: () => Navigator.pop(context, mode),
     );
   }
 
@@ -132,22 +118,14 @@ class _SettingsPageState extends State<SettingsPage> {
         title: const Text('Profile & Settings'),
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          16,
-          12,
-          16,
-          32,
-        ),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         children: [
           _section('Profile'),
-
           Card(
             elevation: 0,
             child: ListTile(
               leading: const CircleAvatar(
-                child: Icon(
-                  Icons.local_library_outlined,
-                ),
+                child: Icon(Icons.local_library_outlined),
               ),
               title: const Text('MedLibra'),
               subtitle: const Text(
@@ -155,102 +133,71 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
           ),
-
           const SizedBox(height: 18),
-
           _section('Appearance'),
-
           _card(
             icon: Icons.palette_outlined,
             title: 'Theme',
             subtitle: _themeName(),
-            trailing: const Icon(
-              Icons.chevron_right,
-            ),
+            trailing: const Icon(Icons.chevron_right),
             onTap: _selectTheme,
           ),
-
           const SizedBox(height: 18),
-
           _section('Library storage'),
-
           _card(
             icon: Icons.folder_outlined,
-            title: 'MAS AI folder',
+            title: 'MedLibra folder',
             subtitle: storageReady
-                ? 'Internal storage / MAS AI'
+                ? 'Internal storage / MedLibra'
                 : 'Storage access is not enabled',
             trailing: storageReady
-                ? const Icon(
-                    Icons.check_circle_outline,
-                  )
+                ? const Icon(Icons.check_circle_outline)
                 : busy
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child:
-                            CircularProgressIndicator(
-                          strokeWidth: 2,
-                        ),
+                        child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : FilledButton(
                         onPressed: _enableStorage,
                         child: const Text('Enable'),
                       ),
-            onTap: storageReady
-                ? null
-                : _enableStorage,
+            onTap: storageReady ? null : _enableStorage,
           ),
-
           const SizedBox(height: 10),
-
           _card(
             icon: Icons.find_in_page_outlined,
             title: 'Duplicate files',
-            subtitle:
-                'Find identical files and remove copies',
-            trailing: const Icon(
-              Icons.chevron_right,
-            ),
+            subtitle: 'Find identical files and remove copies',
+            trailing: const Icon(Icons.chevron_right),
             onTap: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) =>
-                      const DuplicateFilesPage(),
+                  builder: (_) => const DuplicateFilesPage(),
                 ),
               );
             },
           ),
-
           const SizedBox(height: 18),
-
           _section('Files'),
-
           _card(
             icon: Icons.description_outlined,
             title: 'Word & PowerPoint',
-            subtitle:
-                'Displayed inside MedLibra',
-            trailing: const Icon(
-              Icons.visibility_outlined,
-            ),
+            subtitle: 'Displayed inside MedLibra',
+            trailing: const Icon(Icons.visibility_outlined),
           ),
-
           const SizedBox(height: 18),
-
           _section('Storage information'),
-
-          Card(
+          const Card(
             elevation: 0,
-            child: const Padding(
+            child: Padding(
               padding: EdgeInsets.all(16),
               child: Text(
                 'Imported files are stored in the public '
-                'Internal storage/MAS AI folder, so they remain '
-                'visible in the phone file manager. '
-                'Library folders and nested folders are mirrored '
-                'there as real folders.',
+                'Internal storage/MedLibra folder, so they remain '
+                'visible in the phone file manager. Subjects, folders, '
+                'and nested folders are mirrored there as real folders.',
               ),
             ),
           ),
@@ -261,22 +208,12 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Widget _section(String title) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        4,
-        0,
-        4,
-        8,
-      ),
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
       child: Text(
         title,
-        style: Theme.of(context)
-            .textTheme
-            .titleSmall
-            ?.copyWith(
+        style: Theme.of(context).textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.w700,
-              color: Theme.of(context)
-                  .colorScheme
-                  .primary,
+              color: Theme.of(context).colorScheme.primary,
             ),
       ),
     );
