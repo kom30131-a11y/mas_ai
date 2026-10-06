@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/database/database_repository.dart';
+import '../../../core/storage/library_storage_service.dart';
 
 final _repo = DatabaseRepository.instance;
+final _storage = LibraryStorageService.instance;
 
 Future<String?> askSubjectName(
   BuildContext context, {
   String? initialValue,
   String title = 'New subject',
 }) async {
-  final controller = TextEditingController(
-    text: initialValue,
-  );
+  final controller = TextEditingController(text: initialValue);
 
   final name = await showDialog<String>(
     context: context,
@@ -20,9 +20,6 @@ Future<String?> askSubjectName(
       content: TextField(
         controller: controller,
         autofocus: true,
-        decoration: const InputDecoration(
-          labelText: 'Subject name',
-        ),
       ),
       actions: [
         TextButton(
@@ -32,10 +29,7 @@ Future<String?> askSubjectName(
         FilledButton(
           onPressed: () {
             final value = controller.text.trim();
-
-            if (value.isNotEmpty) {
-              Navigator.pop(context, value);
-            }
+            if (value.isNotEmpty) Navigator.pop(context, value);
           },
           child: const Text('Save'),
         ),
@@ -52,14 +46,28 @@ Future<void> addSubject(
   VoidCallback refresh,
 ) async {
   final name = await askSubjectName(context);
-
   if (name == null) return;
 
-  await _repo.insertSubject({
+  final existing = await _repo.getSubjects();
+  final duplicate = existing.any(
+    (item) =>
+        item['name']?.toString().trim().toLowerCase() ==
+        name.trim().toLowerCase(),
+  );
+
+  if (duplicate) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('A subject with this name already exists.')),
+    );
+    return;
+  }
+
+  final id = await _repo.insertSubject({
     'name': name,
     'created_at': DateTime.now().toIso8601String(),
   });
 
+  await _storage.subjectDirectory(id);
   refresh();
 }
 
@@ -68,13 +76,34 @@ Future<void> renameSubject(
   Map<String, dynamic> item,
   VoidCallback refresh,
 ) async {
+  final oldName = item['name']?.toString() ?? 'Subject';
   final name = await askSubjectName(
     context,
-    initialValue: item['name']?.toString(),
+    initialValue: oldName,
     title: 'Rename subject',
   );
 
-  if (name == null) return;
+  if (name == null || name == oldName) return;
+
+  final existing = await _repo.getSubjects();
+  final duplicate = existing.any(
+    (other) =>
+        other['id'] != item['id'] &&
+        other['name']?.toString().trim().toLowerCase() ==
+        name.trim().toLowerCase(),
+  );
+
+  if (duplicate) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('A subject with this name already exists.')),
+    );
+    return;
+  }
+
+  await _storage.renameSubjectDirectory(
+    oldName: oldName,
+    newName: name,
+  );
 
   await _repo.renameSubject(
     subjectId: item['id'],
@@ -89,23 +118,20 @@ Future<void> removeSubject(
   Map<String, dynamic> item,
   VoidCallback refresh,
 ) async {
-  final confirmed =
-      await showDialog<bool>(
+  final confirmed = await showDialog<bool>(
         context: context,
         builder: (_) => AlertDialog(
           title: const Text('Delete subject?'),
           content: const Text(
-            'This subject will be deleted.',
+            'The subject, its database entries, and its stored files will be deleted.',
           ),
           actions: [
             TextButton(
-              onPressed: () =>
-                  Navigator.pop(context, false),
+              onPressed: () => Navigator.pop(context, false),
               child: const Text('Cancel'),
             ),
             FilledButton(
-              onPressed: () =>
-                  Navigator.pop(context, true),
+              onPressed: () => Navigator.pop(context, true),
               child: const Text('Delete'),
             ),
           ],
@@ -115,9 +141,7 @@ Future<void> removeSubject(
 
   if (!confirmed) return;
 
-  await _repo.deleteSubject(
-    item['id'],
-  );
-
+  await _storage.deleteSubjectDirectory(item['id'] as int);
+  await _repo.deleteSubject(item['id']);
   refresh();
 }
