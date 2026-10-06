@@ -1,7 +1,7 @@
 import 'dart:io';
 
+import 'package:docx_viewer_plus/docx_viewer_plus.dart';
 import 'package:flutter/material.dart';
-import 'package:microsoft_viewer/microsoft_viewer.dart';
 
 class WordViewerPage extends StatefulWidget {
   final String title;
@@ -18,71 +18,123 @@ class WordViewerPage extends StatefulWidget {
 }
 
 class _WordViewerPageState extends State<WordViewerPage> {
-  MicrosoftViewer? _viewer;
-  String? _error;
-  bool _loading = true;
+  final _key = GlobalKey<DocxViewerWidgetState>();
 
-  @override
-  void initState() {
-    super.initState();
-    _loadFile();
-  }
+  bool _saving = false;
 
-  Future<void> _loadFile() async {
+  Future<void> _save() async {
+    if (_saving) return;
+
+    setState(() => _saving = true);
+
     try {
-      final bytes = await File(widget.path).readAsBytes();
+      final file = File(widget.path);
+
+      final saved = await _key.currentState?.save(
+        outputPath: file.path,
+      );
 
       if (!mounted) return;
 
-      setState(() {
-        _viewer = MicrosoftViewer(
-          bytes,
-          true,
-          key: ValueKey(widget.path),
+      if (saved != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Word document saved'),
+          ),
         );
-        _loading = false;
-      });
+      }
     } catch (e) {
       if (!mounted) return;
 
-      setState(() {
-        _error = 'Unable to open Word document.\n$e';
-        _loading = false;
-      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Save failed: $e'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  Future<void> _share() async {
+    try {
+      final bytes =
+          await _key.currentState?.getDocxBytes();
+
+      if (bytes == null) return;
+
+      final temp = File(
+        '${Directory.systemTemp.path}/'
+        '${widget.title.replaceAll(RegExp(r'[\\\\/:*?"<>|]'), '_')}.docx',
+      );
+
+      await temp.writeAsBytes(bytes);
+
+      if (!mounted) return;
+
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [
+            XFile(temp.path),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Share failed: $e'),
+        ),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final arabic =
+        Directionality.of(context) == TextDirection.rtl;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
-      ),
-      body: _buildBody(),
-    );
-  }
-
-  Widget _buildBody() {
-    if (_loading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
-    }
-
-    if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            _error!,
-            textAlign: TextAlign.center,
+        actions: [
+          IconButton(
+            tooltip: 'Save',
+            onPressed: _saving ? null : _save,
+            icon: _saving
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Icon(Icons.save),
           ),
+          IconButton(
+            tooltip: 'Share',
+            onPressed: _share,
+            icon: const Icon(Icons.share),
+          ),
+        ],
+      ),
+      body: DocxViewerWidget(
+        key: _key,
+        filePath: widget.path,
+        config: DocxViewerConfig(
+          toolbarPosition: ToolbarPosition.bottom,
+          forceTextDirection:
+              arabic
+                  ? TextDirection.rtl
+                  : TextDirection.ltr,
+          strings: arabic
+              ? DocxViewerStrings.arabic
+              : null,
         ),
-      );
-    }
-
-    return SizedBox.expand(
-      child: _viewer ?? const SizedBox.shrink(),
+      ),
     );
   }
 }
