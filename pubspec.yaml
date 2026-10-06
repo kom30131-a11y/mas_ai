@@ -16,7 +16,12 @@ dependencies:
   open_filex: ^4.7.0
   shared_preferences: ^2.5.5
   path: ^1.9.1
+  path_provider: ^2.1.5
   file_picker: ^11.0.3
+  permission_handler: ^12.0.1
+  share_plus: ^10.1.4
+  archive: ^4.2.0
+  crypto: ^3.0.7
   google_mlkit_text_recognition: ^0.17.1
 
   syncfusion_flutter_pdf: ^33.2.13
@@ -25,7 +30,6 @@ dependencies:
 
   docx_dart: ^1.2.0
   microsoft_viewer: ^0.0.8
-  path_provider: ^2.1.5
   pdfx: ^2.11.0
   flutter_quill: ^11.6.0
 
@@ -49,5 +53,5 @@ flutter_launcher_icons:
 
   adaptive_icon_background: "#0F766E"
   adaptive_icon_foreground: "assets/icon/mas_ai_icon_foreground.png"
-  adaptive_icon_foreground_inset: 0
+  adaptive_icon_foreground_inset: 12
   adaptive_icon_monochrome: "assets/icon/mas_ai_icon_monochrome.png"
