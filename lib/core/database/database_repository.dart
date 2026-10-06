@@ -2,12 +2,7 @@ import 'database_helper.dart';
 
 class DatabaseRepository {
   DatabaseRepository._();
-
-  static final DatabaseRepository instance = DatabaseRepository._();
-
-  // ============================================================
-  // Subjects
-  // ============================================================
+  static final instance = DatabaseRepository._();
 
   Future<int> insertSubject(Map<String, dynamic> data) async {
     final db = await DatabaseHelper.instance.database;
@@ -24,7 +19,6 @@ class DatabaseRepository {
     required String name,
   }) async {
     final db = await DatabaseHelper.instance.database;
-
     return db.update(
       'subjects',
       {'name': name.trim()},
@@ -35,35 +29,19 @@ class DatabaseRepository {
 
   Future<int> deleteSubject(int id) async {
     final db = await DatabaseHelper.instance.database;
-
-    return db.delete(
-      'subjects',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    return db.delete('subjects', where: 'id = ?', whereArgs: [id]);
   }
-
-  // ============================================================
-  // Topics
-  // ============================================================
 
   Future<int> insertTopic(Map<String, dynamic> data) async {
     final db = await DatabaseHelper.instance.database;
     return db.insert('topics', data);
   }
 
-  Future<List<Map<String, dynamic>>> getTopics({
-    int? subjectId,
-  }) async {
+  Future<List<Map<String, dynamic>>> getTopics({int? subjectId}) async {
     final db = await DatabaseHelper.instance.database;
-
     if (subjectId == null) {
-      return db.query(
-        'topics',
-        orderBy: 'id DESC',
-      );
+      return db.query('topics', orderBy: 'id DESC');
     }
-
     return db.query(
       'topics',
       where: 'subject_id = ?',
@@ -74,26 +52,15 @@ class DatabaseRepository {
 
   Future<int> deleteTopic(int id) async {
     final db = await DatabaseHelper.instance.database;
-
-    return db.delete(
-      'topics',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    return db.delete('topics', where: 'id = ?', whereArgs: [id]);
   }
-
-  // ============================================================
-  // Topic Study Progress
-  // ============================================================
 
   Future<int> updateTopicMastery({
     required int topicId,
     required double mastery,
   }) async {
     final db = await DatabaseHelper.instance.database;
-
     final value = mastery.clamp(0.0, 100.0);
-
     return db.update(
       'topics',
       {'mastery': value},
@@ -102,10 +69,6 @@ class DatabaseRepository {
     );
   }
 
-  // ============================================================
-  // Library Folders
-  // ============================================================
-
   Future<int> insertFolder({
     required String name,
     int? parentId,
@@ -113,24 +76,33 @@ class DatabaseRepository {
   }) async {
     final db = await DatabaseHelper.instance.database;
     final now = DateTime.now().toIso8601String();
-
-    return db.insert(
-      'folders',
-      {
-        'name': name.trim(),
-        'parent_id': parentId,
-        'subject_id': subjectId,
-        'created_at': now,
-        'updated_at': now,
-      },
-    );
+    return db.insert('folders', {
+      'name': name.trim(),
+      'parent_id': parentId,
+      'subject_id': subjectId,
+      'created_at': now,
+      'updated_at': now,
+    });
   }
 
-  Future<List<Map<String, dynamic>>> getFolders({
-    int? parentId,
-  }) async {
+  Future<Map<String, dynamic>?> getFolder(int folderId) async {
     final db = await DatabaseHelper.instance.database;
+    final rows = await db.query(
+      'folders',
+      where: 'id = ?',
+      whereArgs: [folderId],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : rows.first;
+  }
 
+  Future<List<Map<String, dynamic>>> getAllFolders() async {
+    final db = await DatabaseHelper.instance.database;
+    return db.query('folders', orderBy: 'name COLLATE NOCASE ASC');
+  }
+
+  Future<List<Map<String, dynamic>>> getFolders({int? parentId}) async {
+    final db = await DatabaseHelper.instance.database;
     if (parentId == null) {
       return db.query(
         'folders',
@@ -138,7 +110,6 @@ class DatabaseRepository {
         orderBy: 'name COLLATE NOCASE ASC',
       );
     }
-
     return db.query(
       'folders',
       where: 'parent_id = ?',
@@ -152,7 +123,6 @@ class DatabaseRepository {
     required String name,
   }) async {
     final db = await DatabaseHelper.instance.database;
-
     return db.update(
       'folders',
       {
@@ -169,45 +139,26 @@ class DatabaseRepository {
     await _deleteFolderRecursive(db, folderId);
   }
 
-  Future<void> _deleteFolderRecursive(
-    dynamic db,
-    int folderId,
-  ) async {
+  Future<void> _deleteFolderRecursive(dynamic db, int folderId) async {
     final children = await db.query(
       'folders',
       columns: ['id'],
       where: 'parent_id = ?',
       whereArgs: [folderId],
     );
-
     for (final child in children) {
-      await _deleteFolderRecursive(
-        db,
-        child['id'] as int,
-      );
+      await _deleteFolderRecursive(db, child['id'] as int);
     }
-
     await db.update(
       'content',
       {'folder_id': null},
       where: 'folder_id = ?',
       whereArgs: [folderId],
     );
-
-    await db.delete(
-      'folders',
-      where: 'id = ?',
-      whereArgs: [folderId],
-    );
+    await db.delete('folders', where: 'id = ?', whereArgs: [folderId]);
   }
 
-  // ============================================================
-  // Content
-  // ============================================================
-
-  Future<int> insertContent(
-    Map<String, dynamic> data,
-  ) async {
+  Future<int> insertContent(Map<String, dynamic> data) async {
     final db = await DatabaseHelper.instance.database;
     return db.insert('content', data);
   }
@@ -217,7 +168,6 @@ class DatabaseRepository {
     int? folderId,
   }) async {
     final db = await DatabaseHelper.instance.database;
-
     if (folderId != null) {
       return db.query(
         'content',
@@ -226,7 +176,6 @@ class DatabaseRepository {
         orderBy: 'id DESC',
       );
     }
-
     if (topicId != null) {
       return db.query(
         'content',
@@ -235,29 +184,15 @@ class DatabaseRepository {
         orderBy: 'id DESC',
       );
     }
-
-    return db.query(
-      'content',
-      orderBy: 'id DESC',
-    );
+    return db.query('content', orderBy: 'id DESC');
   }
-
-  // ============================================================
-  // Study Content
-  // ============================================================
 
   Future<List<Map<String, dynamic>>> getContentForTopics(
     List<int> topicIds,
   ) async {
     if (topicIds.isEmpty) return [];
-
     final db = await DatabaseHelper.instance.database;
-
-    final placeholders = List.filled(
-      topicIds.length,
-      '?',
-    ).join(',');
-
+    final placeholders = List.filled(topicIds.length, '?').join(',');
     return db.query(
       'content',
       where: 'topic_id IN ($placeholders)',
@@ -270,21 +205,18 @@ class DatabaseRepository {
     required int contentId,
     String? title,
     String? content,
+    String? filePath,
+    String? originalFileName,
   }) async {
     final db = await DatabaseHelper.instance.database;
-
     final data = <String, dynamic>{};
-
-    if (title != null) {
-      data['title'] = title.trim();
+    if (title != null) data['title'] = title.trim();
+    if (content != null) data['content'] = content;
+    if (filePath != null) data['file_path'] = filePath;
+    if (originalFileName != null) {
+      data['original_file_name'] = originalFileName;
     }
-
-    if (content != null) {
-      data['content'] = content;
-    }
-
     if (data.isEmpty) return 0;
-
     return db.update(
       'content',
       data,
@@ -296,12 +228,14 @@ class DatabaseRepository {
   Future<int> moveContentToFolder({
     required int contentId,
     int? folderId,
+    String? filePath,
   }) async {
     final db = await DatabaseHelper.instance.database;
-
+    final data = <String, dynamic>{'folder_id': folderId};
+    if (filePath != null) data['file_path'] = filePath;
     return db.update(
       'content',
-      {'folder_id': folderId},
+      data,
       where: 'id = ?',
       whereArgs: [contentId],
     );
@@ -309,43 +243,20 @@ class DatabaseRepository {
 
   Future<int> deleteContent(int id) async {
     final db = await DatabaseHelper.instance.database;
-
-    await db.delete(
-      'files',
-      where: 'content_id = ?',
-      whereArgs: [id],
-    );
-
-    return db.delete(
-      'content',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    await db.delete('files', where: 'content_id = ?', whereArgs: [id]);
+    return db.delete('content', where: 'id = ?', whereArgs: [id]);
   }
 
-  // ============================================================
-  // Files
-  // ============================================================
-
-  Future<int> insertFile(
-    Map<String, dynamic> data,
-  ) async {
+  Future<int> insertFile(Map<String, dynamic> data) async {
     final db = await DatabaseHelper.instance.database;
     return db.insert('files', data);
   }
 
-  Future<List<Map<String, dynamic>>> getFiles({
-    int? contentId,
-  }) async {
+  Future<List<Map<String, dynamic>>> getFiles({int? contentId}) async {
     final db = await DatabaseHelper.instance.database;
-
     if (contentId == null) {
-      return db.query(
-        'files',
-        orderBy: 'id DESC',
-      );
+      return db.query('files', orderBy: 'id DESC');
     }
-
     return db.query(
       'files',
       where: 'content_id = ?',
@@ -354,39 +265,45 @@ class DatabaseRepository {
     );
   }
 
-  Future<int> deleteFile(int id) async {
+  Future<int> updateFilePath({
+    required int contentId,
+    required String filePath,
+  }) async {
     final db = await DatabaseHelper.instance.database;
-
-    return db.delete(
+    return db.update(
       'files',
-      where: 'id = ?',
-      whereArgs: [id],
+      {'file_path': filePath},
+      where: 'content_id = ?',
+      whereArgs: [contentId],
     );
   }
 
-  // ============================================================
-  // Questions
-  // ============================================================
+  Future<int> updateFileHash({
+    required int fileId,
+    required String hash,
+  }) async {
+    final db = await DatabaseHelper.instance.database;
+    return db.update(
+      'files',
+      {'file_hash': hash},
+      where: 'id = ?',
+      whereArgs: [fileId],
+    );
+  }
 
-  Future<int> insertQuestion(
-    Map<String, dynamic> data,
-  ) async {
+  Future<int> deleteFile(int id) async {
+    final db = await DatabaseHelper.instance.database;
+    return db.delete('files', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> insertQuestion(Map<String, dynamic> data) async {
     final db = await DatabaseHelper.instance.database;
     return db.insert('questions', data);
   }
 
-  Future<List<Map<String, dynamic>>> getQuestions({
-    int? contentId,
-  }) async {
+  Future<List<Map<String, dynamic>>> getQuestions({int? contentId}) async {
     final db = await DatabaseHelper.instance.database;
-
-    if (contentId == null) {
-      return db.query(
-        'questions',
-        orderBy: 'id DESC',
-      );
-    }
-
+    if (contentId == null) return db.query('questions', orderBy: 'id DESC');
     return db.query(
       'questions',
       where: 'content_id = ?',
@@ -397,37 +314,17 @@ class DatabaseRepository {
 
   Future<int> deleteQuestion(int id) async {
     final db = await DatabaseHelper.instance.database;
-
-    return db.delete(
-      'questions',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    return db.delete('questions', where: 'id = ?', whereArgs: [id]);
   }
 
-  // ============================================================
-  // Attempts
-  // ============================================================
-
-  Future<int> insertAttempt(
-    Map<String, dynamic> data,
-  ) async {
+  Future<int> insertAttempt(Map<String, dynamic> data) async {
     final db = await DatabaseHelper.instance.database;
     return db.insert('attempts', data);
   }
 
-  Future<List<Map<String, dynamic>>> getAttempts({
-    int? questionId,
-  }) async {
+  Future<List<Map<String, dynamic>>> getAttempts({int? questionId}) async {
     final db = await DatabaseHelper.instance.database;
-
-    if (questionId == null) {
-      return db.query(
-        'attempts',
-        orderBy: 'id DESC',
-      );
-    }
-
+    if (questionId == null) return db.query('attempts', orderBy: 'id DESC');
     return db.query(
       'attempts',
       where: 'question_id = ?',
@@ -436,29 +333,14 @@ class DatabaseRepository {
     );
   }
 
-  // ============================================================
-  // Reviews
-  // ============================================================
-
-  Future<int> insertReview(
-    Map<String, dynamic> data,
-  ) async {
+  Future<int> insertReview(Map<String, dynamic> data) async {
     final db = await DatabaseHelper.instance.database;
     return db.insert('reviews', data);
   }
 
-  Future<List<Map<String, dynamic>>> getReviews({
-    int? topicId,
-  }) async {
+  Future<List<Map<String, dynamic>>> getReviews({int? topicId}) async {
     final db = await DatabaseHelper.instance.database;
-
-    if (topicId == null) {
-      return db.query(
-        'reviews',
-        orderBy: 'id DESC',
-      );
-    }
-
+    if (topicId == null) return db.query('reviews', orderBy: 'id DESC');
     return db.query(
       'reviews',
       where: 'topic_id = ?',
@@ -467,29 +349,14 @@ class DatabaseRepository {
     );
   }
 
-  // ============================================================
-  // Mind Maps
-  // ============================================================
-
-  Future<int> insertMindMap(
-    Map<String, dynamic> data,
-  ) async {
+  Future<int> insertMindMap(Map<String, dynamic> data) async {
     final db = await DatabaseHelper.instance.database;
     return db.insert('mind_maps', data);
   }
 
-  Future<List<Map<String, dynamic>>> getMindMaps({
-    int? contentId,
-  }) async {
+  Future<List<Map<String, dynamic>>> getMindMaps({int? contentId}) async {
     final db = await DatabaseHelper.instance.database;
-
-    if (contentId == null) {
-      return db.query(
-        'mind_maps',
-        orderBy: 'id DESC',
-      );
-    }
-
+    if (contentId == null) return db.query('mind_maps', orderBy: 'id DESC');
     return db.query(
       'mind_maps',
       where: 'content_id = ?',
@@ -500,11 +367,6 @@ class DatabaseRepository {
 
   Future<int> deleteMindMap(int id) async {
     final db = await DatabaseHelper.instance.database;
-
-    return db.delete(
-      'mind_maps',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    return db.delete('mind_maps', where: 'id = ?', whereArgs: [id]);
   }
 }

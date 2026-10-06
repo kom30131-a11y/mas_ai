@@ -3,35 +3,27 @@ import 'package:sqflite/sqflite.dart';
 
 class DatabaseHelper {
   DatabaseHelper._();
-
   static final DatabaseHelper instance = DatabaseHelper._();
-
   Database? _database;
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-
     _database = await _openDatabase();
-
     return _database!;
   }
 
   Future<Database> _openDatabase() async {
     final databasesPath = await getDatabasesPath();
     final path = join(databasesPath, 'mas_ai.db');
-
     return openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: _createDatabase,
       onUpgrade: _upgradeDatabase,
     );
   }
 
-  Future<void> _createDatabase(
-    Database db,
-    int version,
-  ) async {
+  Future<void> _createDatabase(Database db, int version) async {
     await db.execute('''
       CREATE TABLE subjects (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,7 +31,6 @@ class DatabaseHelper {
         created_at TEXT NOT NULL
       )
     ''');
-
     await db.execute('''
       CREATE TABLE topics (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -50,7 +41,6 @@ class DatabaseHelper {
         FOREIGN KEY (subject_id) REFERENCES subjects (id)
       )
     ''');
-
     await db.execute('''
       CREATE TABLE folders (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -63,7 +53,6 @@ class DatabaseHelper {
         FOREIGN KEY (subject_id) REFERENCES subjects (id)
       )
     ''');
-
     await db.execute('''
       CREATE TABLE content (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -81,7 +70,6 @@ class DatabaseHelper {
         FOREIGN KEY (folder_id) REFERENCES folders (id)
       )
     ''');
-
     await db.execute('''
       CREATE TABLE questions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -97,7 +85,6 @@ class DatabaseHelper {
         FOREIGN KEY (topic_id) REFERENCES topics (id)
       )
     ''');
-
     await db.execute('''
       CREATE TABLE attempts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -109,7 +96,6 @@ class DatabaseHelper {
         FOREIGN KEY (question_id) REFERENCES questions (id)
       )
     ''');
-
     await db.execute('''
       CREATE TABLE reviews (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -121,7 +107,6 @@ class DatabaseHelper {
         FOREIGN KEY (topic_id) REFERENCES topics (id)
       )
     ''');
-
     await db.execute('''
       CREATE TABLE mind_maps (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -135,7 +120,6 @@ class DatabaseHelper {
         FOREIGN KEY (topic_id) REFERENCES topics (id)
       )
     ''');
-
     await db.execute('''
       CREATE TABLE files (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -145,6 +129,7 @@ class DatabaseHelper {
         mime_type TEXT,
         file_size INTEGER,
         extracted_text TEXT,
+        file_hash TEXT,
         created_at TEXT NOT NULL,
         FOREIGN KEY (content_id) REFERENCES content (id)
       )
@@ -157,14 +142,10 @@ class DatabaseHelper {
     int newVersion,
   ) async {
     if (oldVersion < 2) {
-      await db.execute('''
-        ALTER TABLE content ADD COLUMN file_path TEXT
-      ''');
-
-      await db.execute('''
-        ALTER TABLE content ADD COLUMN original_file_name TEXT
-      ''');
-
+      await db.execute('ALTER TABLE content ADD COLUMN file_path TEXT');
+      await db.execute(
+        'ALTER TABLE content ADD COLUMN original_file_name TEXT',
+      );
       await db.execute('''
         CREATE TABLE mind_maps (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -178,7 +159,6 @@ class DatabaseHelper {
           FOREIGN KEY (topic_id) REFERENCES topics (id)
         )
       ''');
-
       await db.execute('''
         CREATE TABLE files (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -193,7 +173,6 @@ class DatabaseHelper {
         )
       ''');
     }
-
     if (oldVersion < 3) {
       await db.execute('''
         CREATE TABLE folders (
@@ -207,16 +186,15 @@ class DatabaseHelper {
           FOREIGN KEY (subject_id) REFERENCES subjects (id)
         )
       ''');
-
-      await db.execute('''
-        ALTER TABLE content ADD COLUMN folder_id INTEGER
-      ''');
+      await db.execute('ALTER TABLE content ADD COLUMN folder_id INTEGER');
+    }
+    if (oldVersion < 4) {
+      await db.execute('ALTER TABLE files ADD COLUMN file_hash TEXT');
     }
   }
 
   Future<void> close() async {
     final db = _database;
-
     if (db != null) {
       await db.close();
       _database = null;
