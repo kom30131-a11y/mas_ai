@@ -19,9 +19,7 @@ class WordViewerSearch {
           builder: (context, setState) {
             final session = controller.findSession;
             final total = session.hits.length;
-            final current = total == 0
-                ? 0
-                : session.index.clamp(0, total - 1) + 1;
+            final current = total == 0 ? 0 : session.index.clamp(0, total - 1) + 1;
 
             void reveal(OfficeFindHit? hit) {
               if (hit == null) return;
@@ -32,17 +30,13 @@ class WordViewerSearch {
 
             void runSearch() {
               final query = queryController.text.trim();
-
               if (query.isEmpty) {
                 controller.closeFind();
                 setState(() {});
                 return;
               }
 
-              final hits = controller.find(
-                OfficeFindOptions(query: query),
-              );
-
+              final hits = controller.find(OfficeFindOptions(query: query));
               if (hits.isEmpty) {
                 controller.closeFind();
                 setState(() {});
@@ -52,13 +46,8 @@ class WordViewerSearch {
               reveal(controller.findSession.current);
             }
 
-            void revealNext() {
-              reveal(controller.findNext());
-            }
-
-            void revealPrevious() {
-              reveal(controller.findPrevious());
-            }
+            void revealNext() => reveal(controller.findNext());
+            void revealPrevious() => reveal(controller.findPrevious());
 
             void replaceAll() {
               final query = queryController.text.trim();
@@ -72,14 +61,8 @@ class WordViewerSearch {
               );
 
               if (count > 0) {
-                final hits = controller.find(
-                  OfficeFindOptions(query: query),
-                );
-                reveal(
-                  hits.isEmpty
-                      ? null
-                      : controller.findSession.current,
-                );
+                final hits = controller.find(OfficeFindOptions(query: query));
+                reveal(hits.isEmpty ? null : controller.findSession.current);
               }
 
               setState(() {});
@@ -87,18 +70,14 @@ class WordViewerSearch {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
-                    count == 0
-                        ? 'No matches found.'
-                        : '$count replacement(s) made.',
+                    count == 0 ? 'No matches found.' : '$count replacement(s) made.',
                   ),
                 ),
               );
             }
 
             return AlertDialog(
-              title: Text(
-                replace ? 'Find and replace' : 'Find in document',
-              ),
+              title: Text(replace ? 'Find and replace' : 'Find in document'),
               content: SizedBox(
                 width: 420,
                 child: SingleChildScrollView(
@@ -108,15 +87,11 @@ class WordViewerSearch {
                       TextField(
                         controller: queryController,
                         autofocus: true,
-                        textInputAction: replace
-                            ? TextInputAction.next
-                            : TextInputAction.search,
+                        textInputAction: replace ? TextInputAction.next : TextInputAction.search,
                         decoration: InputDecoration(
                           labelText: 'Find',
                           prefixIcon: const Icon(Icons.search),
-                          suffixText: total == 0
-                              ? null
-                              : '$current/$total',
+                          suffixText: total == 0 ? null : '$current/$total',
                         ),
                         onSubmitted: (_) => runSearch(),
                       ),
@@ -138,24 +113,18 @@ class WordViewerSearch {
                             Expanded(
                               child: Text(
                                 '$total match(es)',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyMedium,
+                                style: Theme.of(context).textTheme.bodyMedium,
                               ),
                             ),
                             IconButton(
                               tooltip: 'Previous match',
                               onPressed: revealPrevious,
-                              icon: const Icon(
-                                Icons.keyboard_arrow_up,
-                              ),
+                              icon: const Icon(Icons.keyboard_arrow_up),
                             ),
                             IconButton(
                               tooltip: 'Next match',
                               onPressed: revealNext,
-                              icon: const Icon(
-                                Icons.keyboard_arrow_down,
-                              ),
+                              icon: const Icon(Icons.keyboard_arrow_down),
                             ),
                           ],
                         ),
