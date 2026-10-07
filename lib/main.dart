@@ -48,12 +48,14 @@ class MedLibraApp extends StatelessWidget {
           brightness: Brightness.dark,
         ),
         themeMode: settings.themeMode,
-        builder: (context, child) => Directionality(
-          textDirection: settings.isArabic
-              ? TextDirection.rtl
-              : TextDirection.ltr,
-          child: child ?? const SizedBox.shrink(),
-        ),
+        builder: (context, child) {
+          return Directionality(
+            textDirection: settings.isArabic
+                ? TextDirection.rtl
+                : TextDirection.ltr,
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
         home: const LibraryPage(),
       ),
     );
