@@ -27,6 +27,7 @@ dependencies:
   syncfusion_flutter_pdf: ^33.2.13
   syncfusion_flutter_pdfviewer: ^33.2.13
   http: ^1.5.0
+  quds_office_editor: ^0.5.1
 
   docx_dart: ^1.2.0
   docx_viewer_plus: ^1.1.4
