@@ -20,42 +20,27 @@ class WordToolbarDocument extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.table_of_contents),
                 title: const Text('Table of contents'),
-                onTap: () => Navigator.pop(
-                  context,
-                  'toc',
-                ),
+                onTap: () => Navigator.pop(context, 'toc'),
               ),
               ListTile(
                 leading: const Icon(Icons.functions),
                 title: const Text('Equation'),
-                onTap: () => Navigator.pop(
-                  context,
-                  'equation',
-                ),
+                onTap: () => Navigator.pop(context, 'equation'),
               ),
               ListTile(
                 leading: const Icon(Icons.link),
                 title: const Text('Hyperlink'),
-                onTap: () => Navigator.pop(
-                  context,
-                  'link',
-                ),
+                onTap: () => Navigator.pop(context, 'link'),
               ),
               ListTile(
                 leading: const Icon(Icons.comment),
                 title: const Text('Comment'),
-                onTap: () => Navigator.pop(
-                  context,
-                  'comment',
-                ),
+                onTap: () => Navigator.pop(context, 'comment'),
               ),
               ListTile(
                 leading: const Icon(Icons.notes),
                 title: const Text('Footnote'),
-                onTap: () => Navigator.pop(
-                  context,
-                  'footnote',
-                ),
+                onTap: () => Navigator.pop(context, 'footnote'),
               ),
             ],
           ),
@@ -63,7 +48,7 @@ class WordToolbarDocument extends StatelessWidget {
       },
     );
 
-    if (value == null) return;
+    if (!context.mounted || value == null) return;
 
     switch (value) {
       case 'toc':
