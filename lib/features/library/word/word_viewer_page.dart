@@ -539,33 +539,7 @@ class _WordViewerPageState extends State<WordViewerPage>
     if (mounted) Navigator.pop(context);
   }
 
-  Widget _surface(WordEditorController controller) {
-    final editor = QudsWordEditor(
-      controller: controller,
-      toolbarBuilder: _editing
-          ? (_, value) => WordEditorToolbar(
-                controller: value,
-                onFitPage: () =>
-                    WordViewerViewport.fitCurrentPage(value),
-              )
-          : (_, value) => const SizedBox.shrink(),
-    );
-
-    if (_editing) return editor;
-
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        editor,
-        Positioned(
-          left: 12,
-          right: 12,
-          bottom: 12,
-          child: _pageStatus(controller),
-        ),
-      ],
-    );
-  }
+  
 
   Widget _pageStatus(WordEditorController controller) {
     final count = controller.pageCount;
