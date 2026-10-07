@@ -8,10 +8,13 @@ final _storage = LibraryStorageService.instance;
 
 Future<bool> _storageReady(BuildContext context) async {
   final ready = await _storage.ensureReady(requestPermission: true);
+
   if (ready || !context.mounted) return ready;
+
   ScaffoldMessenger.of(context).showSnackBar(
     const SnackBar(content: Text('Storage permission is required.')),
   );
+
   return false;
 }
 
@@ -21,11 +24,15 @@ Future<String?> askSubjectName(
   String title = 'New subject',
 }) async {
   final controller = TextEditingController(text: initialValue);
+
   final name = await showDialog<String>(
     context: context,
     builder: (_) => AlertDialog(
       title: Text(title),
-      content: TextField(controller: controller, autofocus: true),
+      content: TextField(
+        controller: controller,
+        autofocus: true,
+      ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
@@ -34,13 +41,17 @@ Future<String?> askSubjectName(
         FilledButton(
           onPressed: () {
             final value = controller.text.trim();
-            if (value.isNotEmpty) Navigator.pop(context, value);
+
+            if (value.isNotEmpty) {
+              Navigator.pop(context, value);
+            }
           },
           child: const Text('Save'),
         ),
       ],
     ),
   );
+
   controller.dispose();
   return name;
 }
@@ -50,19 +61,28 @@ Future<void> addSubject(
   VoidCallback refresh,
 ) async {
   final name = await askSubjectName(context);
-  if (name == null || !await _storageReady(context)) return;
+
+  if (name == null || !context.mounted) return;
+
+  if (!await _storageReady(context)) return;
 
   final existing = await _repo.getSubjects();
+
   final duplicate = existing.any(
-    (item) => item['name']?.toString().trim().toLowerCase() ==
+    (item) =>
+        item['name']?.toString().trim().toLowerCase() ==
         name.trim().toLowerCase(),
   );
 
   if (duplicate) {
     if (!context.mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('A subject with this name already exists.')),
+      const SnackBar(
+        content: Text('A subject with this name already exists.'),
+      ),
     );
+
     return;
   }
 
@@ -72,7 +92,10 @@ Future<void> addSubject(
   });
 
   await _storage.subjectDirectory(id);
-  if (context.mounted) refresh();
+
+  if (context.mounted) {
+    refresh();
+  }
 }
 
 Future<void> renameSubject(
@@ -81,14 +104,21 @@ Future<void> renameSubject(
   VoidCallback refresh,
 ) async {
   final oldName = item['name']?.toString() ?? 'Subject';
+
   final name = await askSubjectName(
     context,
     initialValue: oldName,
     title: 'Rename subject',
   );
-  if (name == null || name == oldName || !await _storageReady(context)) return;
+
+  if (name == null || name == oldName || !context.mounted) {
+    return;
+  }
+
+  if (!await _storageReady(context)) return;
 
   final existing = await _repo.getSubjects();
+
   final duplicate = existing.any(
     (other) =>
         other['id'] != item['id'] &&
@@ -98,15 +128,29 @@ Future<void> renameSubject(
 
   if (duplicate) {
     if (!context.mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('A subject with this name already exists.')),
+      const SnackBar(
+        content: Text('A subject with this name already exists.'),
+      ),
     );
+
     return;
   }
 
-  await _storage.renameSubjectDirectory(oldName: oldName, newName: name);
-  await _repo.renameSubject(subjectId: item['id'] as int, name: name);
-  if (context.mounted) refresh();
+  await _storage.renameSubjectDirectory(
+    oldName: oldName,
+    newName: name,
+  );
+
+  await _repo.renameSubject(
+    subjectId: item['id'] as int,
+    name: name,
+  );
+
+  if (context.mounted) {
+    refresh();
+  }
 }
 
 Future<void> removeSubject(
@@ -136,9 +180,19 @@ Future<void> removeSubject(
       ) ??
       false;
 
-  if (!confirmed || !await _storageReady(context)) return;
+  if (!confirmed || !context.mounted) return;
 
-  await _storage.deleteSubjectDirectory(item['id'] as int);
-  await _repo.deleteSubject(item['id'] as int);
-  if (context.mounted) refresh();
+  if (!await _storageReady(context)) return;
+
+  await _storage.deleteSubjectDirectory(
+    item['id'] as int,
+  );
+
+  await _repo.deleteSubject(
+    item['id'] as int,
+  );
+
+  if (context.mounted) {
+    refresh();
+  }
 }
