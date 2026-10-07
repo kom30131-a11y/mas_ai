@@ -518,7 +518,6 @@ class _WordViewerPageState extends State<WordViewerPage>
             return WordEditorToolbar(controller: value, onFitPage: _fitWidth);
           },
         ),
-        // زر عائم سريع لتعديل المقياس (Quick Zoom/Fit Button)
         if (!_editing)
           Positioned(
             bottom: 16,
@@ -535,7 +534,6 @@ class _WordViewerPageState extends State<WordViewerPage>
   }
 
   List<Widget> _appBarActions(WordEditorController controller) {
-    // مؤشر مرئي لحالة الحفظ التلقائي في الـ AppBar
     final isDirty = controller.isDirty;
     final statusWidget = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
