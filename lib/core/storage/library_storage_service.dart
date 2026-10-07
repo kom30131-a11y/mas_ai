@@ -31,20 +31,15 @@ class LibraryStorageService {
         p.join(base.path, rootName),
       );
 
-      await _root!.create(
-        recursive: true,
-      );
-
+      await _root!.create(recursive: true);
       return true;
     }
 
-    if (!await Permission.manageExternalStorage
-        .isGranted) {
+    if (!await Permission.manageExternalStorage.isGranted) {
       if (!requestPermission) return false;
 
       final status =
-          await Permission.manageExternalStorage
-              .request();
+          await Permission.manageExternalStorage.request();
 
       if (!status.isGranted) return false;
     }
@@ -53,18 +48,15 @@ class LibraryStorageService {
       '/storage/emulated/0/$rootName',
     );
 
-    await _root!.create(
-      recursive: true,
-    );
+    await _root!.create(recursive: true);
 
-    return true;
+    return await _root!.exists();
   }
 
   Future<void> syncFolders() async {
     if (!await ensureReady()) return;
 
-    final folders =
-        await _repo.getAllFolders();
+    final folders = await _repo.getAllFolders();
 
     for (final folder in folders) {
       await folderDirectory(
@@ -74,49 +66,77 @@ class LibraryStorageService {
   }
 
   Future<Directory?> rootDirectory() async {
-    if (_root == null &&
-        !await ensureReady()) {
+    if (_root == null && !await ensureReady()) {
       return null;
+    }
+
+    if (!await _root!.exists()) {
+      await _root!.create(recursive: true);
     }
 
     return _root;
   }
 
-  Future<Directory?> folderDirectory(
-    int? folderId,
+  Future<String?> _folderPath(
+    int folderId,
   ) async {
-    final root =
-        await rootDirectory();
+    final root = await rootDirectory();
 
     if (root == null) return null;
 
-    if (folderId == null) return root;
-
     final parts = <String>[];
+    final visited = <int>{};
 
     int? current = folderId;
 
     while (current != null) {
+      if (!visited.add(current)) {
+        return null;
+      }
+
       final folder =
           await _repo.getFolder(current);
 
-      if (folder == null) return null;
+      if (folder == null) {
+        return null;
+      }
 
-      parts.insert(
-        0,
-        folder['name'].toString(),
-      );
+      final name =
+          folder['name']?.toString().trim();
+
+      if (name == null || name.isEmpty) {
+        return null;
+      }
+
+      parts.insert(0, name);
 
       current =
           folder['parent_id'] as int?;
     }
 
-    final directory = Directory(
-      p.joinAll([
-        root.path,
-        ...parts,
-      ]),
+    return p.join(
+      root.path,
+      ...parts,
     );
+  }
+
+  Future<Directory?> folderDirectory(
+    int? folderId,
+  ) async {
+    final root = await rootDirectory();
+
+    if (root == null) return null;
+
+    if (folderId == null) {
+      return root;
+    }
+
+    final path =
+        await _folderPath(folderId);
+
+    if (path == null) return null;
+
+    final directory = Directory(path);
 
     await directory.create(
       recursive: true,
@@ -159,9 +179,7 @@ class LibraryStorageService {
       return source.path;
     }
 
-    await source.copy(
-      destination.path,
-    );
+    await source.copy(destination.path);
 
     return destination.path;
   }
@@ -204,66 +222,207 @@ class LibraryStorageService {
     required Map<String, dynamic> content,
     required int? destinationFolderId,
   }) async {
-    final oldPath =
-        content['file_path']?.toString();
-
-    final folder =
+    final destination =
         await folderDirectory(
       destinationFolderId,
     );
 
-    if (folder == null) {
+    if (destination == null) {
       throw const FileSystemException(
         'Destination folder unavailable.',
       );
     }
 
-    if (oldPath != null &&
-        oldPath.isNotEmpty) {
-      final source = File(oldPath);
+    final oldPath =
+        content['file_path']?.toString();
 
-      if (await source.exists()) {
-        final destination =
-            await _uniqueFile(
-          folder,
-          p.basename(oldPath),
-        );
-
-        if (p.normalize(source.path) !=
-            p.normalize(
-              destination.path,
-            )) {
-          await source.rename(
-            destination.path,
-          );
-
-          await _repo.moveContentToFolder(
-            contentId:
-                content['id'] as int,
-            folderId:
-                destinationFolderId,
-            filePath:
-                destination.path,
-          );
-
-          await _repo.updateFilePath(
-            contentId:
-                content['id'] as int,
-            filePath:
-                destination.path,
-          );
-
-          return;
-        }
-      }
+    if (oldPath == null ||
+        oldPath.isEmpty) {
+      await _repo.moveContentToFolder(
+        contentId:
+            content['id'] as int,
+        folderId:
+            destinationFolderId,
+      );
+      return;
     }
+
+    final source = File(oldPath);
+
+    if (!await source.exists()) {
+      throw const FileSystemException(
+        'Source file does not exist.',
+      );
+    }
+
+    final target =
+        await _uniqueFile(
+      destination,
+      p.basename(oldPath),
+    );
+
+    if (p.normalize(source.path) ==
+        p.normalize(target.path)) {
+      await _repo.moveContentToFolder(
+        contentId:
+            content['id'] as int,
+        folderId:
+            destinationFolderId,
+        filePath:
+            target.path,
+      );
+      return;
+    }
+
+    await source.rename(target.path);
 
     await _repo.moveContentToFolder(
       contentId:
           content['id'] as int,
       folderId:
           destinationFolderId,
+      filePath:
+          target.path,
     );
+
+    await _repo.updateFilePath(
+      contentId:
+          content['id'] as int,
+      filePath:
+          target.path,
+    );
+  }
+
+  Future<void> moveFolderDirectory({
+    required int folderId,
+    required int? destinationParentId,
+  }) async {
+    if (destinationParentId == folderId) {
+      throw const FileSystemException(
+        'A folder cannot contain itself.',
+      );
+    }
+
+    if (destinationParentId != null &&
+        await _isDescendant(
+          folderId,
+          destinationParentId,
+        )) {
+      throw const FileSystemException(
+        'A folder cannot be moved inside itself.',
+      );
+    }
+
+    final sourcePath =
+        await _folderPath(folderId);
+
+    if (sourcePath == null) {
+      throw const FileSystemException(
+        'Source folder does not exist.',
+      );
+    }
+
+    final source = Directory(sourcePath);
+
+    if (!await source.exists()) {
+      throw const FileSystemException(
+        'Source folder does not exist.',
+      );
+    }
+
+    final parent =
+        await folderDirectory(
+      destinationParentId,
+    );
+
+    if (parent == null) {
+      throw const FileSystemException(
+        'Destination folder unavailable.',
+      );
+    }
+
+    final destination = Directory(
+      p.join(
+        parent.path,
+        p.basename(source.path),
+      ),
+    );
+
+    if (p.normalize(source.path) ==
+        p.normalize(destination.path)) {
+      return;
+    }
+
+    if (await destination.exists()) {
+      throw const FileSystemException(
+        'A folder with this name already exists.',
+      );
+    }
+
+    await source.rename(
+      destination.path,
+    );
+
+    try {
+      final result =
+          await _repo.moveFolder(
+        folderId: folderId,
+        parentId: destinationParentId,
+      );
+
+      if (result == 0) {
+        await Directory(
+          destination.path,
+        ).rename(source.path);
+
+        throw const FileSystemException(
+          'Could not update folder location.',
+        );
+      }
+    } catch (_) {
+      if (await destination.exists() &&
+          !await source.exists()) {
+        await destination.rename(
+          source.path,
+        );
+      }
+
+      rethrow;
+    }
+  }
+
+  Future<bool> _isDescendant(
+    int folderId,
+    int possibleChildId,
+  ) async {
+    var current = possibleChildId;
+    final visited = <int>{};
+
+    while (true) {
+      if (!visited.add(current)) {
+        return true;
+      }
+
+      if (current == folderId) {
+        return true;
+      }
+
+      final folder =
+          await _repo.getFolder(current);
+
+      if (folder == null) {
+        return false;
+      }
+
+      final parent =
+          folder['parent_id'] as int?;
+
+      if (parent == null) {
+        return false;
+      }
+
+      current = parent;
+    }
   }
 
   Future<void> renameContentFile({
@@ -439,15 +598,14 @@ class LibraryStorageService {
       );
     }
 
-    final folder =
-        await _repo.getFolder(folderId);
+    final sourcePath =
+        await _folderPath(folderId);
 
-    if (folder != null) {
+    if (sourcePath != null) {
       final directory =
-          await folderDirectory(folderId);
+          Directory(sourcePath);
 
-      if (directory != null &&
-          await directory.exists()) {
+      if (await directory.exists()) {
         await directory.delete(
           recursive: true,
         );
@@ -489,6 +647,12 @@ class LibraryStorageService {
             p.normalize(
               newDirectory.path,
             )) {
+      if (await newDirectory.exists()) {
+        throw const FileSystemException(
+          'A folder with this name already exists.',
+        );
+      }
+
       await oldDirectory.rename(
         newDirectory.path,
       );
