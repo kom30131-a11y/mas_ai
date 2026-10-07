@@ -1,86 +1,169 @@
+import 'package:flutter/material.dart';
 import 'package:quds_office_editor/quds_office_editor.dart';
 
 class WordEditorLayout {
   const WordEditorLayout._();
 
   static void a4(WordEditorController c) {
-    c.setPageSize(OfficePageSize.a4Portrait);
-    c.relayout();
+    c.setPageSize(WmlPageSize.a4());
+    c.setPageLandscape(false);
+    c.refresh();
   }
 
-  static void a4Landscape(WordEditorController c) {
-    c.setPageSize(OfficePageSize.a4Landscape);
-    c.setPageLandscape(true);
-    c.relayout();
+  static void letter(WordEditorController c) {
+    c.setPageSize(WmlPageSize.letter());
+    c.setPageLandscape(false);
+    c.refresh();
+  }
+
+  static void legal(WordEditorController c) {
+    c.setPageSize(WmlPageSize.legal());
+    c.setPageLandscape(false);
+    c.refresh();
   }
 
   static void portrait(WordEditorController c) {
     c.setPageLandscape(false);
-    c.relayout();
+    c.refresh();
   }
 
   static void landscape(WordEditorController c) {
     c.setPageLandscape(true);
-    c.relayout();
+    c.refresh();
+  }
+
+  static void margins(
+    WordEditorController c, {
+    double top = 56.7,
+    double right = 56.7,
+    double bottom = 56.7,
+    double left = 56.7,
+  }) {
+    final current = c.pageMargins;
+
+    c.setPageMargins(
+      WmlPageMargins(
+        top: top,
+        right: right,
+        bottom: bottom,
+        left: left,
+        header: current.header,
+        footer: current.footer,
+      ),
+    );
+
+    c.refresh();
   }
 
   static void normalMargins(WordEditorController c) {
-    c.setPageMargins(const OfficePageMargins());
-    c.relayout();
+    c.setPageMargins(const WmlPageMargins());
+    c.refresh();
   }
 
   static void narrowMargins(WordEditorController c) {
-    c.setPageMargins(
-      const OfficePageMargins(
-        topTwips: 720,
-        rightTwips: 720,
-        bottomTwips: 720,
-        leftTwips: 720,
-        headerTwips: 500,
-        footerTwips: 500,
-      ),
+    margins(
+      c,
+      top: 36,
+      right: 36,
+      bottom: 36,
+      left: 36,
     );
-    c.relayout();
   }
 
   static void wideMargins(WordEditorController c) {
-    c.setPageMargins(
-      const OfficePageMargins(
-        topTwips: 1440,
-        rightTwips: 1440,
-        bottomTwips: 1440,
-        leftTwips: 1440,
-        headerTwips: 900,
-        footerTwips: 900,
-      ),
+    margins(
+      c,
+      top: 72,
+      right: 72,
+      bottom: 72,
+      left: 72,
     );
-    c.relayout();
   }
 
   static void columns(
-    WordEditorController c, {
-    required int count,
-    double spacing = 36,
+    WordEditorController c,
+    int count, {
+    double space = 36,
     bool separator = false,
   }) {
     c.setSectionColumns(
-      count,
-      space: spacing,
+      count.clamp(1, 4),
+      space: space,
       sep: separator,
     );
-    c.relayout();
+    c.refresh();
   }
 
   static void singleColumn(WordEditorController c) {
-    columns(c, count: 1);
+    columns(c, 1);
   }
 
   static void twoColumns(WordEditorController c) {
-    columns(c, count: 2);
+    columns(c, 2);
   }
 
   static void threeColumns(WordEditorController c) {
-    columns(c, count: 3);
+    columns(c, 3);
+  }
+
+  static void pageBreak(WordEditorController c) {
+    c.insertPageBreak();
+    c.refresh();
+  }
+
+  static void columnBreak(WordEditorController c) {
+    c.insertColumnBreak();
+    c.refresh();
+  }
+
+  static void sectionBreak(WordEditorController c) {
+    c.insertSectionBreak();
+    c.refresh();
+  }
+
+  static void header(WordEditorController c) {
+    c.beginHeaderFooterEdit(
+      c.visiblePageIndex,
+      footer: false,
+    );
+    c.refresh();
+  }
+
+  static void footer(WordEditorController c) {
+    c.beginHeaderFooterEdit(
+      c.visiblePageIndex,
+      footer: true,
+    );
+    c.refresh();
+  }
+
+  static void exitHeaderFooter(WordEditorController c) {
+    c.endHeaderFooterEdit();
+    c.refresh();
+  }
+
+  static void differentFirstPage(
+    WordEditorController c,
+    bool value,
+  ) {
+    c.setDifferentFirstPage(value);
+    c.refresh();
+  }
+
+  static void differentOddEven(
+    WordEditorController c,
+    bool value,
+  ) {
+    c.setDifferentOddEven(value);
+    c.refresh();
+  }
+
+  static void lineNumbers(
+    WordEditorController c,
+    bool value,
+  ) {
+    c.setLineNumbers(value);
+    c.refresh();
   }
 
   static void watermark(
@@ -88,11 +171,97 @@ class WordEditorLayout {
     String text,
   ) {
     c.setWatermark(text);
-    c.relayout();
+    c.refresh();
   }
 
-  static void removeWatermark(WordEditorController c) {
+  static void clearWatermark(WordEditorController c) {
     c.setWatermark('');
+    c.refresh();
+  }
+
+  static void fitWidth(WordEditorController c) {
+    final pages = c.documentLaidOut.pages;
+    if (pages.isEmpty || c.viewport.extent.width <= 0) return;
+
+    final index = c.visiblePageIndex.clamp(0, pages.length - 1);
+    final page = pages[index];
+
+    if (page.width <= 0) return;
+
+    final available = (c.viewport.extent.width - 16).clamp(
+      1.0,
+      double.infinity,
+    );
+
+    final scale = (available / page.width).clamp(
+      c.viewport.clampMin,
+      c.viewport.clampMax,
+    );
+
+    c.viewport.setScale(scale);
+    c.refresh();
+  }
+
+  static void zoomIn(WordEditorController c) {
+    final next = (c.viewport.scale * 1.1).clamp(
+      c.viewport.clampMin,
+      c.viewport.clampMax,
+    );
+
+    c.viewport.setScale(next);
+    c.refresh();
+  }
+
+  static void zoomOut(WordEditorController c) {
+    final next = (c.viewport.scale / 1.1).clamp(
+      c.viewport.clampMin,
+      c.viewport.clampMax,
+    );
+
+    c.viewport.setScale(next);
+    c.refresh();
+  }
+
+  static void actualSize(WordEditorController c) {
+    c.viewport.setScale(1.0.clamp(
+      c.viewport.clampMin,
+      c.viewport.clampMax,
+    ));
+    c.refresh();
+  }
+
+  static String pageInfo(WordEditorController c) {
+    if (c.pageCount == 0) return '0 / 0';
+    return '${c.visiblePageIndex + 1} / ${c.pageCount}';
+  }
+
+  static void nextPage(WordEditorController c) {
+    if (c.visiblePageIndex >= c.pageCount - 1) return;
+
+    c.viewport.scrollBy(
+      Offset(
+        0,
+        c.pageSize.height * c.viewport.scale,
+      ),
+    );
+    c.refresh();
+  }
+
+  static void previousPage(WordEditorController c) {
+    if (c.visiblePageIndex <= 0) return;
+
+    c.viewport.scrollBy(
+      Offset(
+        0,
+        -c.pageSize.height * c.viewport.scale,
+      ),
+    );
+    c.refresh();
+  }
+
+  static void relayout(WordEditorController c) {
+    c.fitPaintMetrics();
     c.relayout();
+    c.refresh();
   }
 }
