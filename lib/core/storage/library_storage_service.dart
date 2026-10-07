@@ -116,7 +116,7 @@ class LibraryStorageService {
 
     return p.join(
       root.path,
-      ...parts,
+      p.joinAll(parts),
     );
   }
 
@@ -371,9 +371,12 @@ class LibraryStorageService {
       );
 
       if (result == 0) {
-        await Directory(
-          destination.path,
-        ).rename(source.path);
+        if (await destination.exists() &&
+            !await source.exists()) {
+          await destination.rename(
+            source.path,
+          );
+        }
 
         throw const FileSystemException(
           'Could not update folder location.',
