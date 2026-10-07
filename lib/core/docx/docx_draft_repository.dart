@@ -1,9 +1,12 @@
+import 'package:sqflite/sqflite.dart';
+
 import '../database/database_helper.dart';
 
 class DocxDraftRepository {
   DocxDraftRepository._();
 
-  static final instance = DocxDraftRepository._();
+  static final instance =
+      DocxDraftRepository._();
 
   Future<void> ensureReady() async {
     final db =
