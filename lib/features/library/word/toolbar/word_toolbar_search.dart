@@ -1,0 +1,68 @@
+import 'package:flutter/material.dart';
+import 'package:quds_office_editor/quds_office_editor.dart';
+
+class WordToolbarSearch extends StatelessWidget {
+  final WordEditorController controller;
+
+  const WordToolbarSearch({
+    super.key,
+    required this.controller,
+  });
+
+  Future<void> _search(BuildContext context) async {
+    final queryController = TextEditingController();
+
+    final query = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Find'),
+          content: TextField(
+            controller: queryController,
+            autofocus: true,
+            textInputAction: TextInputAction.search,
+            decoration: const InputDecoration(
+              hintText: 'Search',
+            ),
+            onSubmitted: (value) {
+              Navigator.pop(context, value);
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(
+                  context,
+                  queryController.text,
+                );
+              },
+              child: const Text('Find'),
+            ),
+          ],
+        );
+      },
+    );
+
+    queryController.dispose();
+
+    if (query == null || query.trim().isEmpty) return;
+
+    controller.find(
+      query.trim(),
+    );
+    controller.refresh();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: 'Find',
+      onPressed: () => _search(context),
+      icon: const Icon(Icons.search),
+    );
+  }
+}
