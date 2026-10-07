@@ -76,8 +76,7 @@ class _WordViewerPageState extends State<WordViewerPage>
     controller.syncConfig(
       controller.config.copyWith(
         theme: _dark ? OfficeTheme.dark : OfficeTheme.light,
-        textDirection:
-            _rtl ? TextDirection.rtl : TextDirection.ltr,
+        textDirection: _rtl ? TextDirection.rtl : TextDirection.ltr,
         strings: _rtl ? OfficeStrings.arabic : OfficeStrings.english,
       ),
     );
@@ -118,8 +117,7 @@ class _WordViewerPageState extends State<WordViewerPage>
         path: sourcePath,
         config: OfficeSurfaceConfig(
           mode: OfficeInteractionMode.viewing,
-          textDirection:
-              _rtl ? TextDirection.rtl : TextDirection.ltr,
+          textDirection: _rtl ? TextDirection.rtl : TextDirection.ltr,
           strings: _rtl ? OfficeStrings.arabic : OfficeStrings.english,
           theme: _dark ? OfficeTheme.dark : OfficeTheme.light,
           showRulers: false,
@@ -185,21 +183,18 @@ class _WordViewerPageState extends State<WordViewerPage>
   Future<String> _resolveSourcePath() async {
     final original = File(widget.path);
     final id = widget.contentId;
-
     if (id == null) return widget.path;
 
     final draft = await _drafts.getDraft(id);
     if (draft == null) return widget.path;
 
     final draftPath = draft['draft_path']?.toString();
-
     if (draftPath == null || draftPath.isEmpty) {
       await _drafts.deleteDraft(id);
       return widget.path;
     }
 
     final draftFile = File(draftPath);
-
     if (!await draftFile.exists()) {
       await _drafts.deleteDraft(id);
       return widget.path;
@@ -220,7 +215,6 @@ class _WordViewerPageState extends State<WordViewerPage>
     }
 
     final recover = await _showDraftDialog();
-
     if (recover) return draftPath;
 
     await _drafts.deleteDraft(id);
@@ -230,28 +224,21 @@ class _WordViewerPageState extends State<WordViewerPage>
 
   void _showRecoveredMessage() {
     if (!mounted) return;
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Recovered local Word draft.'),
-        ),
+        const SnackBar(content: Text('Recovered local Word draft.')),
       );
     });
   }
 
   Future<bool> _showDraftDialog() async {
     if (!mounted) return false;
-
     final result = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Recover unsaved Word draft?'),
-        content: const Text(
-          'A newer local draft was found for this document.',
-        ),
+        content: const Text('A newer local draft was found for this document.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -264,16 +251,12 @@ class _WordViewerPageState extends State<WordViewerPage>
         ],
       ),
     );
-
     return result ?? false;
   }
 
   void _onChanged() {
     final controller = _controller;
-
-    if (controller == null || !controller.isDirty || _saving) {
-      return;
-    }
+    if (controller == null || !controller.isDirty || _saving) return;
 
     _draftTimer?.cancel();
     _draftTimer = Timer(
@@ -285,73 +268,51 @@ class _WordViewerPageState extends State<WordViewerPage>
   Future<void> _saveDraft() async {
     final id = widget.contentId;
     final controller = _controller;
-
-    if (id == null ||
-        controller == null ||
-        !controller.isDirty ||
-        _saving) {
-      return;
-    }
+    if (id == null || controller == null || !controller.isDirty || _saving) return;
 
     try {
       final bytes = await controller.saveBytesAsync();
-
       final draftPath = await _docx.writeDraft(
         contentId: id,
         originalPath: widget.path,
         bytes: bytes,
       );
-
       await _drafts.saveDraft(
         contentId: id,
         draftPath: draftPath,
         originalPath: widget.path,
       );
+      if (mounted) setState(() {});
     } catch (_) {}
   }
 
   Future<bool> _save() async {
     final controller = _controller;
-
     if (controller == null || _saving) return false;
 
     setState(() => _saving = true);
 
     try {
       final bytes = await controller.saveBytesAsync();
-
       await _docx.writeAtomic(widget.path, bytes);
 
       final id = widget.contentId;
-
       if (id != null) {
-        await _repo.updateContent(
-          contentId: id,
-          filePath: widget.path,
-        );
-
-        await _repo.updateFilePath(
-          contentId: id,
-          filePath: widget.path,
-        );
+        await _repo.updateContent(contentId: id, filePath: widget.path);
+        await _repo.updateFilePath(contentId: id, filePath: widget.path);
 
         final hash = await _storage.hashFile(widget.path);
         final files = await _repo.getFiles(contentId: id);
 
         for (final file in files) {
           final fileId = file['id'];
-
           if (fileId is int) {
-            await _repo.updateFileHash(
-              fileId: fileId,
-              hash: hash,
-            );
+            await _repo.updateFileHash(fileId: fileId, hash: hash);
           }
         }
 
         final draft = await _drafts.getDraft(id);
         final draftPath = draft?['draft_path']?.toString();
-
         await _drafts.deleteDraft(id);
 
         if (draftPath != null && draftPath.isNotEmpty) {
@@ -360,22 +321,16 @@ class _WordViewerPageState extends State<WordViewerPage>
       }
 
       controller.markClean();
-
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Word document saved.'),
-          ),
+          const SnackBar(content: Text('Word document saved.')),
         );
       }
-
       return true;
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Save failed: $e'),
-          ),
+          SnackBar(content: Text('Save failed: $e')),
         );
       }
       return false;
@@ -392,26 +347,18 @@ class _WordViewerPageState extends State<WordViewerPage>
 
     try {
       final bytes = await controller.saveBytesAsync();
-
       final path = await _docx.exportCopy(
         fileName: p.basename(widget.path),
         bytes: bytes,
       );
-
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Exported to:\n$path'),
-        ),
+        SnackBar(content: Text('Exported to:\n$path')),
       );
     } catch (e) {
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Export failed: $e'),
-        ),
+        SnackBar(content: Text('Export failed: $e')),
       );
     }
   }
@@ -422,65 +369,34 @@ class _WordViewerPageState extends State<WordViewerPage>
 
     try {
       final bytes = await controller.saveBytesAsync();
-
-      final safeName = widget.title.replaceAll(
-        RegExp(r'[\\/:*?"<>|]'),
-        '_',
-      );
-
-      final file = File(
-        '${Directory.systemTemp.path}/$safeName.docx',
-      );
-
+      final safeName = widget.title.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+      final file = File('${Directory.systemTemp.path}/$safeName.docx');
       await file.writeAsBytes(bytes, flush: true);
-
-      await Share.shareXFiles([
-        XFile(file.path),
-      ]);
+      await Share.shareXFiles([XFile(file.path)]);
     } catch (e) {
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Share failed: $e'),
-        ),
+        SnackBar(content: Text('Share failed: $e')),
       );
     }
   }
 
-  void _scheduleFitWidth(
-    WordEditorController controller, {
-    bool resetScroll = false,
-  }) {
+  void _scheduleFitWidth(WordEditorController controller, {bool resetScroll = false}) {
     var attempts = 0;
-
     void fit() {
-      if (!mounted || !identical(_controller, controller)) {
-        return;
-      }
-
-      final fitted = WordViewerViewport.fitWidth(
-        controller,
-        resetScroll: resetScroll,
-      );
-
+      if (!mounted || !identical(_controller, controller)) return;
+      final fitted = WordViewerViewport.fitWidth(controller, resetScroll: resetScroll);
       if (fitted || attempts >= 8) return;
-
       attempts++;
       WidgetsBinding.instance.addPostFrameCallback((_) => fit());
     }
-
     WidgetsBinding.instance.addPostFrameCallback((_) => fit());
   }
 
   void _fitWidth() {
     final controller = _controller;
     if (controller == null) return;
-
-    _scheduleFitWidth(
-      controller,
-      resetScroll: false,
-    );
+    _scheduleFitWidth(controller, resetScroll: false);
   }
 
   void _enterEditing() {
@@ -491,9 +407,7 @@ class _WordViewerPageState extends State<WordViewerPage>
     controller.setMode(OfficeInteractionMode.editing);
     controller.attachInput();
 
-    if (mounted) {
-      setState(() => _editing = true);
-    }
+    if (mounted) setState(() => _editing = true);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !identical(_controller, controller)) return;
@@ -519,50 +433,33 @@ class _WordViewerPageState extends State<WordViewerPage>
         _selecting = false;
       });
     }
-
     _fitWidth();
   }
 
   void _enterSelecting() {
     final controller = _controller;
     if (controller == null || _editing) return;
-
     controller.setMode(OfficeInteractionMode.selecting);
-
-    if (mounted) {
-      setState(() => _selecting = true);
-    }
-
+    if (mounted) setState(() => _selecting = true);
     controller.refresh();
   }
 
   void _finishSelecting() {
     final controller = _controller;
     if (controller == null || !_selecting) return;
-
     controller.setMode(OfficeInteractionMode.viewing);
-
-    if (mounted) {
-      setState(() => _selecting = false);
-    }
-
+    if (mounted) setState(() => _selecting = false);
     controller.refresh();
   }
 
   Future<void> _showSearch({required bool replace}) async {
     final controller = _controller;
     if (controller == null) return;
-
-    await WordViewerSearch.show(
-      context,
-      controller,
-      replace: replace,
-    );
+    await WordViewerSearch.show(context, controller, replace: replace);
   }
 
   Future<void> _handleBack() async {
     final controller = _controller;
-
     if (controller == null || !controller.isDirty) {
       if (mounted) Navigator.pop(context);
       return;
@@ -572,85 +469,94 @@ class _WordViewerPageState extends State<WordViewerPage>
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Unsaved changes'),
-        content: const Text(
-          'Save your Word changes before leaving?',
-        ),
+        content: const Text('Save your Word changes before leaving?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(
-              context,
-              _ExitChoice.cancel,
-            ),
+            onPressed: () => Navigator.pop(context, _ExitChoice.cancel),
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(
-              context,
-              _ExitChoice.discard,
-            ),
+            onPressed: () => Navigator.pop(context, _ExitChoice.discard),
             child: const Text('Discard'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(
-              context,
-              _ExitChoice.save,
-            ),
+            onPressed: () => Navigator.pop(context, _ExitChoice.save),
             child: const Text('Save'),
           ),
         ],
       ),
     );
 
-    if (!mounted ||
-        choice == null ||
-        choice == _ExitChoice.cancel) {
-      return;
-    }
+    if (!mounted || choice == null || choice == _ExitChoice.cancel) return;
 
     if (choice == _ExitChoice.save) {
-      if (await _save() && mounted) {
-        Navigator.pop(context);
-      }
+      if (await _save() && mounted) Navigator.pop(context);
       return;
     }
 
     final id = widget.contentId;
-
     if (id != null) {
       final draft = await _drafts.getDraft(id);
       final draftPath = draft?['draft_path']?.toString();
-
       await _drafts.deleteDraft(id);
-
       if (draftPath != null && draftPath.isNotEmpty) {
         await _docx.deleteFile(draftPath);
       }
     }
 
     controller.markClean();
-
     if (mounted) Navigator.pop(context);
   }
 
   Widget _surface(WordEditorController controller) {
-    return QudsWordEditor(
-      controller: controller,
-      toolbarBuilder: (_, value) {
-        if (!_editing) {
-          return const SizedBox.shrink();
-        }
-
-        return WordEditorToolbar(
-          controller: value,
-          onFitPage: _fitWidth,
-        );
-      },
+    return Stack(
+      children: [
+        QudsWordEditor(
+          controller: controller,
+          toolbarBuilder: (_, value) {
+            if (!_editing) return const SizedBox.shrink();
+            return WordEditorToolbar(controller: value, onFitPage: _fitWidth);
+          },
+        ),
+        // زر عائم سريع لتعديل المقياس (Quick Zoom/Fit Button)
+        if (!_editing)
+          Positioned(
+            bottom: 16,
+            right: 16,
+            child: FloatingActionButton.small(
+              heroTag: 'fit_width_fab',
+              tooltip: 'Fit Width',
+              onPressed: _fitWidth,
+              child: const Icon(Icons.fit_screen),
+            ),
+          ),
+      ],
     );
   }
 
   List<Widget> _appBarActions(WordEditorController controller) {
+    // مؤشر مرئي لحالة الحفظ التلقائي في الـ AppBar
+    final isDirty = controller.isDirty;
+    final statusWidget = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Center(
+        child: Tooltip(
+          message: isDirty ? 'Unsaved modifications' : 'All changes saved',
+          child: Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isDirty ? Colors.orangeAccent : Colors.greenAccent,
+            ),
+          ),
+        ),
+      ),
+    );
+
     if (_editing) {
       return [
+        statusWidget,
         if (_saving)
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 12),
@@ -658,32 +564,24 @@ class _WordViewerPageState extends State<WordViewerPage>
               child: SizedBox(
                 width: 20,
                 height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                ),
+                child: CircularProgressIndicator(strokeWidth: 2),
               ),
             ),
           )
         else
           IconButton(
             tooltip: 'Save',
-            onPressed: controller.isDirty
-                ? () => unawaited(_save())
-                : null,
+            onPressed: isDirty ? () => unawaited(_save()) : null,
             icon: const Icon(Icons.save),
           ),
         IconButton(
           tooltip: 'Find',
-          onPressed: () => unawaited(
-            _showSearch(replace: false),
-          ),
+          onPressed: () => unawaited(_showSearch(replace: false)),
           icon: const Icon(Icons.search),
         ),
         IconButton(
           tooltip: 'Find and replace',
-          onPressed: () => unawaited(
-            _showSearch(replace: true),
-          ),
+          onPressed: () => unawaited(_showSearch(replace: true)),
           icon: const Icon(Icons.find_replace),
         ),
         IconButton(
@@ -698,20 +596,17 @@ class _WordViewerPageState extends State<WordViewerPage>
         ),
         IconButton(
           tooltip: 'Done',
-          onPressed: _saving
-              ? null
-              : () => unawaited(_finishEditing()),
+          onPressed: _saving ? null : () => unawaited(_finishEditing()),
           icon: const Icon(Icons.check),
         ),
       ];
     }
 
     return [
+      statusWidget,
       IconButton(
         tooltip: 'Find',
-        onPressed: () => unawaited(
-          _showSearch(replace: false),
-        ),
+        onPressed: () => unawaited(_showSearch(replace: false)),
         icon: const Icon(Icons.search),
       ),
       IconButton(
@@ -753,27 +648,18 @@ class _WordViewerPageState extends State<WordViewerPage>
   Widget build(BuildContext context) {
     if (_loading) {
       return Scaffold(
-        appBar: AppBar(
-          title: Text(widget.title),
-        ),
-        body: const Center(
-          child: CircularProgressIndicator(),
-        ),
+        appBar: AppBar(title: Text(widget.title)),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_error != null || _controller == null) {
       return Scaffold(
-        appBar: AppBar(
-          title: Text(widget.title),
-        ),
+        appBar: AppBar(title: Text(widget.title)),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
-            child: Text(
-              _error ?? 'Could not open DOCX.',
-              textAlign: TextAlign.center,
-            ),
+            child: Text(_error ?? 'Could not open DOCX.', textAlign: TextAlign.center),
           ),
         ),
       );
@@ -793,11 +679,7 @@ class _WordViewerPageState extends State<WordViewerPage>
           },
           child: Scaffold(
             appBar: AppBar(
-              title: Text(
-                controller.isDirty
-                    ? '${widget.title} *'
-                    : widget.title,
-              ),
+              title: Text(controller.isDirty ? '${widget.title} *' : widget.title),
               actions: _appBarActions(controller),
             ),
             body: _surface(controller),
