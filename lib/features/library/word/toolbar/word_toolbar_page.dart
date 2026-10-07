@@ -40,19 +40,13 @@ class WordToolbarPage extends StatelessWidget {
 
     if (value == null) return;
 
-    if (value == 'a4') {
-      controller.setPageSize(
-        OfficePageSize.a4Portrait,
-      );
-    } else if (value == 'a4_landscape') {
-      controller.setPageSize(
-        OfficePageSize.a4Landscape,
-      );
-    } else {
-      controller.setPageSize(
-        OfficePageSize.widescreen,
-      );
-    }
+    controller.setPageSize(
+      value == 'a4'
+          ? WmlPageSize.a4Portrait
+          : value == 'a4_landscape'
+              ? WmlPageSize.a4Landscape
+              : WmlPageSize.widescreen,
+    );
 
     controller.refresh();
   }
