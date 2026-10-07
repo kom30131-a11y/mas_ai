@@ -3,8 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:quds_office_editor/quds_office_editor.dart';
 
-import 'word_viewer_viewport.dart';
-
 class WordEditorToolbar extends StatelessWidget {
   final WordEditorController controller;
   final VoidCallback onFitPage;
