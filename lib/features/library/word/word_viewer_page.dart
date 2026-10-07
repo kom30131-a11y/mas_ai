@@ -45,6 +45,7 @@ class _WordViewerPageState extends State<WordViewerPage>
   bool _saving = false;
   bool _editing = false;
   bool _selecting = false;
+  bool _singlePageView = true;
   String? _error;
 
   @override
