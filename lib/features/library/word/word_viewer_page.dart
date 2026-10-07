@@ -80,15 +80,11 @@ class _WordViewerPageState extends State<WordViewerPage>
         path: sourcePath,
         config: OfficeSurfaceConfig(
           mode: OfficeInteractionMode.editing,
-          textDirection: rtl
-              ? TextDirection.rtl
-              : TextDirection.ltr,
-          strings: rtl
-              ? OfficeStrings.arabic
-              : OfficeStrings.english,
-          theme: dark
-              ? OfficeTheme.dark
-              : OfficeTheme.light,
+          textDirection:
+              rtl ? TextDirection.rtl : TextDirection.ltr,
+          strings:
+              rtl ? OfficeStrings.arabic : OfficeStrings.english,
+          theme: dark ? OfficeTheme.dark : OfficeTheme.light,
           enableUndo: true,
         ),
       );
@@ -202,9 +198,7 @@ class _WordViewerPageState extends State<WordViewerPage>
   void _onChanged() {
     final controller = _controller;
 
-    if (controller == null ||
-        !controller.isDirty ||
-        _saving) {
+    if (controller == null || !controller.isDirty || _saving) {
       return;
     }
 
@@ -446,8 +440,180 @@ class _WordViewerPageState extends State<WordViewerPage>
     if (mounted) Navigator.pop(context);
   }
 
+  void _showFontSizeMenu(
+    BuildContext context,
+    WordEditorController controller,
+  ) {
+    const sizes = <double>[
+      8,
+      9,
+      10,
+      11,
+      12,
+      14,
+      16,
+      18,
+      20,
+      24,
+      28,
+      32,
+      36,
+      48,
+    ];
+
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (_) => SafeArea(
+        child: ListView.builder(
+          shrinkWrap: true,
+          itemCount: sizes.length,
+          itemBuilder: (_, index) {
+            final size = sizes[index];
+
+            return ListTile(
+              title: Text(
+                size.toStringAsFixed(0),
+                style: TextStyle(fontSize: size.clamp(12, 28)),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                controller.applyRunFormat(
+                  (props) => props.fontSizeHalfPoints =
+                      (size * 2).round(),
+                );
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  void _showColorMenu(
+    BuildContext context,
+    WordEditorController controller, {
+    required bool highlight,
+  }) {
+    const colors = <String>[
+      '000000',
+      '444444',
+      'D32F2F',
+      '1976D2',
+      '388E3C',
+      'F57C00',
+      '7B1FA2',
+      '00838F',
+    ];
+
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Wrap(
+          children: [
+            for (final hex in colors)
+              ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: Color(
+                    int.parse('FF$hex', radix: 16),
+                  ),
+                ),
+                title: Text(hex),
+                onTap: () {
+                  Navigator.pop(context);
+                  controller.applyRunFormat(
+                    (props) {
+                      if (highlight) {
+                        props.highlight = hex;
+                      } else {
+                        props.color = hex;
+                      }
+                    },
+                  );
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showTableMenu(
+    BuildContext context,
+    WordEditorController controller,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.table_chart),
+              title: const Text('Insert 3 × 3 table'),
+              onTap: () {
+                Navigator.pop(context);
+                controller.insertTable(rows: 3, columns: 3);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.add_row),
+              title: const Text('Insert row'),
+              enabled: controller.isInTable,
+              onTap: () {
+                Navigator.pop(context);
+                controller.insertTableRow(
+                  after: true,
+                  table: controller.selectedTable,
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.view_column),
+              title: const Text('Insert column'),
+              enabled: controller.isInTable,
+              onTap: () {
+                Navigator.pop(context);
+                controller.insertTableColumn(
+                  after: true,
+                  table: controller.selectedTable,
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.merge_type),
+              title: const Text('Merge selected cells'),
+              enabled: controller.canMergeTableCells,
+              onTap: () {
+                Navigator.pop(context);
+                controller.mergeTableCells();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.call_split),
+              title: const Text('Unmerge cells'),
+              enabled: controller.canUnmergeTableCells,
+              onTap: () {
+                Navigator.pop(context);
+                controller.unmergeTableCells();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.fit_screen),
+              title: const Text('Auto fit table'),
+              enabled: controller.isInTable,
+              onTap: () {
+                Navigator.pop(context);
+                controller.autoFitTable(WordTableAutoFit.window);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _toolbar(WordEditorController controller) {
     final primary = Theme.of(context).colorScheme.primary;
+    final run = controller.activeRunProps;
 
     return Material(
       elevation: 2,
@@ -471,18 +637,39 @@ class _WordViewerPageState extends State<WordViewerPage>
             const VerticalDivider(width: 12),
 
             IconButton(
+              tooltip: 'Copy',
+              onPressed: controller.canCopy
+                  ? () => unawaited(controller.copyToClipboard())
+                  : null,
+              icon: const Icon(Icons.copy),
+            ),
+            IconButton(
+              tooltip: 'Cut',
+              onPressed: controller.canCut
+                  ? () => unawaited(controller.cutToClipboard())
+                  : null,
+              icon: const Icon(Icons.content_cut),
+            ),
+            IconButton(
+              tooltip: 'Paste',
+              onPressed: controller.canPaste
+                  ? () => unawaited(controller.pasteFromClipboard())
+                  : null,
+              icon: const Icon(Icons.content_paste),
+            ),
+
+            const VerticalDivider(width: 12),
+
+            IconButton(
               tooltip: 'Bold',
               onPressed: () => controller.applyRunFormat(
                 (props) => props.bold = !props.bold,
               ),
               icon: Icon(
                 Icons.format_bold,
-                color: controller.activeRunProps.bold
-                    ? primary
-                    : null,
+                color: run.bold ? primary : null,
               ),
             ),
-
             IconButton(
               tooltip: 'Italic',
               onPressed: () => controller.applyRunFormat(
@@ -490,12 +677,9 @@ class _WordViewerPageState extends State<WordViewerPage>
               ),
               icon: Icon(
                 Icons.format_italic,
-                color: controller.activeRunProps.italic
-                    ? primary
-                    : null,
+                color: run.italic ? primary : null,
               ),
             ),
-
             IconButton(
               tooltip: 'Underline',
               onPressed: () => controller.applyRunFormat(
@@ -508,12 +692,69 @@ class _WordViewerPageState extends State<WordViewerPage>
               ),
               icon: Icon(
                 Icons.format_underlined,
-                color:
-                    controller.activeRunProps.underline !=
-                            WmlUnderline.none
-                        ? primary
-                        : null,
+                color: run.underline != WmlUnderline.none
+                    ? primary
+                    : null,
               ),
+            ),
+            IconButton(
+              tooltip: 'Strikethrough',
+              onPressed: () => controller.applyRunFormat(
+                (props) => props.strike = !props.strike,
+              ),
+              icon: Icon(
+                Icons.strikethrough_s,
+                color: run.strike ? primary : null,
+              ),
+            ),
+
+            IconButton(
+              tooltip: 'Font size',
+              onPressed: () =>
+                  _showFontSizeMenu(context, controller),
+              icon: const Icon(Icons.format_size),
+            ),
+            IconButton(
+              tooltip: 'Text color',
+              onPressed: () => _showColorMenu(
+                context,
+                controller,
+                highlight: false,
+              ),
+              icon: const Icon(Icons.format_color_text),
+            ),
+            IconButton(
+              tooltip: 'Highlight',
+              onPressed: () => _showColorMenu(
+                context,
+                controller,
+                highlight: true,
+              ),
+              icon: const Icon(Icons.highlight),
+            ),
+
+            PopupMenuButton<WmlVertAlign>(
+              tooltip: 'Text position',
+              icon: const Icon(Icons.vertical_align_center),
+              onSelected: (value) {
+                controller.applyRunFormat(
+                  (props) => props.vertAlign = value,
+                );
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  value: WmlVertAlign.baseline,
+                  child: Text('Normal'),
+                ),
+                PopupMenuItem(
+                  value: WmlVertAlign.superscript,
+                  child: Text('Superscript'),
+                ),
+                PopupMenuItem(
+                  value: WmlVertAlign.subscript,
+                  child: Text('Subscript'),
+                ),
+              ],
             ),
 
             const VerticalDivider(width: 12),
@@ -526,7 +767,6 @@ class _WordViewerPageState extends State<WordViewerPage>
               ),
               icon: const Icon(Icons.format_align_left),
             ),
-
             IconButton(
               tooltip: 'Center',
               onPressed: () => controller.applyParagraphFormat(
@@ -535,7 +775,6 @@ class _WordViewerPageState extends State<WordViewerPage>
               ),
               icon: const Icon(Icons.format_align_center),
             ),
-
             IconButton(
               tooltip: 'Align right',
               onPressed: () => controller.applyParagraphFormat(
@@ -544,7 +783,6 @@ class _WordViewerPageState extends State<WordViewerPage>
               ),
               icon: const Icon(Icons.format_align_right),
             ),
-
             IconButton(
               tooltip: 'Justify',
               onPressed: () => controller.applyParagraphFormat(
@@ -554,8 +792,6 @@ class _WordViewerPageState extends State<WordViewerPage>
               icon: const Icon(Icons.format_align_justify),
             ),
 
-            const VerticalDivider(width: 12),
-
             IconButton(
               tooltip: 'Bulleted list',
               onPressed: () => controller.toggleList(
@@ -563,7 +799,6 @@ class _WordViewerPageState extends State<WordViewerPage>
               ),
               icon: const Icon(Icons.format_list_bulleted),
             ),
-
             IconButton(
               tooltip: 'Numbered list',
               onPressed: () => controller.toggleList(
@@ -588,6 +823,85 @@ class _WordViewerPageState extends State<WordViewerPage>
                 PopupMenuItem(
                   value: 3,
                   child: Text('Heading 3'),
+                ),
+              ],
+            ),
+
+            PopupMenuButton<String>(
+              tooltip: 'More',
+              icon: const Icon(Icons.more_horiz),
+              onSelected: (value) {
+                switch (value) {
+                  case 'indent+':
+                    controller.setParagraphIndent(left: 24);
+                    break;
+                  case 'indent-':
+                    controller.setParagraphIndent(left: 0);
+                    break;
+                  case 'rtl':
+                    controller.setParagraphDirection(rtl: true);
+                    break;
+                  case 'ltr':
+                    controller.setParagraphDirection(rtl: false);
+                    break;
+                  case 'page':
+                    controller.insertPageBreak();
+                    break;
+                  case 'section':
+                    controller.insertSectionBreak();
+                    break;
+                  case 'landscape':
+                    controller.setPageLandscape(
+                      !controller.isPageLandscape,
+                    );
+                    break;
+                  case 'table':
+                    unawaited(
+                      _showTableMenu(context, controller),
+                    );
+                    break;
+                  case 'select':
+                    controller.selectAll();
+                    break;
+                }
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  value: 'indent+',
+                  child: Text('Increase indent'),
+                ),
+                PopupMenuItem(
+                  value: 'indent-',
+                  child: Text('Reset indent'),
+                ),
+                PopupMenuItem(
+                  value: 'rtl',
+                  child: Text('RTL paragraph'),
+                ),
+                PopupMenuItem(
+                  value: 'ltr',
+                  child: Text('LTR paragraph'),
+                ),
+                PopupMenuDivider(),
+                PopupMenuItem(
+                  value: 'page',
+                  child: Text('Page break'),
+                ),
+                PopupMenuItem(
+                  value: 'section',
+                  child: Text('Section break'),
+                ),
+                PopupMenuItem(
+                  value: 'landscape',
+                  child: Text('Toggle landscape'),
+                ),
+                PopupMenuItem(
+                  value: 'table',
+                  child: Text('Table tools'),
+                ),
+                PopupMenuItem(
+                  value: 'select',
+                  child: Text('Select all'),
                 ),
               ],
             ),
