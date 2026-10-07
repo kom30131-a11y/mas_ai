@@ -16,8 +16,7 @@ class LibraryStorageService {
 
   static const rootName = 'MAS AI';
 
-  final _repo =
-      DatabaseRepository.instance;
+  final _repo = DatabaseRepository.instance;
 
   Directory? _root;
 
@@ -29,10 +28,7 @@ class LibraryStorageService {
           await getApplicationDocumentsDirectory();
 
       _root = Directory(
-        p.join(
-          base.path,
-          rootName,
-        ),
+        p.join(base.path, rootName),
       );
 
       await _root!.create(
@@ -42,17 +38,13 @@ class LibraryStorageService {
       return true;
     }
 
-    if (!await Permission
-        .manageExternalStorage
-        .isGranted) {
+    if (!await Permission.manageExternalStorage.isGranted) {
       if (!requestPermission) {
         return false;
       }
 
       final status =
-          await Permission
-              .manageExternalStorage
-              .request();
+          await Permission.manageExternalStorage.request();
 
       if (!status.isGranted) {
         return false;
@@ -71,8 +63,7 @@ class LibraryStorageService {
   }
 
   Future<Directory?> rootDirectory() async {
-    if (_root == null &&
-        !await ensureReady()) {
+    if (_root == null && !await ensureReady()) {
       return null;
     }
 
@@ -88,15 +79,13 @@ class LibraryStorageService {
   Future<Directory?> subjectDirectory(
     int subjectId,
   ) async {
-    final root =
-        await rootDirectory();
+    final root = await rootDirectory();
 
     if (root == null) {
       return null;
     }
 
-    final subjects =
-        await _repo.getSubjects();
+    final subjects = await _repo.getSubjects();
 
     Map<String, dynamic>? subject;
 
@@ -112,21 +101,14 @@ class LibraryStorageService {
     }
 
     final name =
-        subject['name']
-            ?.toString()
-            .trim();
+        subject['name']?.toString().trim();
 
-    if (name == null ||
-        name.isEmpty) {
+    if (name == null || name.isEmpty) {
       return null;
     }
 
-    final directory =
-        Directory(
-      p.join(
-        root.path,
-        name,
-      ),
+    final directory = Directory(
+      p.join(root.path, name),
     );
 
     await directory.create(
@@ -141,47 +123,36 @@ class LibraryStorageService {
       return;
     }
 
-    final subjects =
-        await _repo.getSubjects();
+    final subjects = await _repo.getSubjects();
 
-    for (final subject
-        in subjects) {
+    for (final subject in subjects) {
       await subjectDirectory(
         subject['id'] as int,
       );
     }
 
-    final folders =
-        await _repo.getAllFolders();
+    final folders = await _repo.getAllFolders();
 
-    for (final folder
-        in folders) {
+    for (final folder in folders) {
       await folderDirectory(
         folder['id'] as int,
       );
     }
   }
 
-  Future<String?>
-      _folderPath(
+  Future<String?> _folderPath(
     int folderId,
   ) async {
-    final root =
-        await rootDirectory();
+    final root = await rootDirectory();
 
     if (root == null) {
       return null;
     }
 
-    final parts =
-        <String>[];
+    final parts = <String>[];
+    final visited = <int>{};
 
-    final visited =
-        <int>{};
-
-    int? current =
-        folderId;
-
+    int? current = folderId;
     int? subjectId;
 
     while (current != null) {
@@ -190,36 +161,26 @@ class LibraryStorageService {
       }
 
       final folder =
-          await _repo.getFolder(
-        current,
-      );
+          await _repo.getFolder(current);
 
       if (folder == null) {
         return null;
       }
 
       final name =
-          folder['name']
-              ?.toString()
-              .trim();
+          folder['name']?.toString().trim();
 
-      if (name == null ||
-          name.isEmpty) {
+      if (name == null || name.isEmpty) {
         return null;
       }
 
-      parts.insert(
-        0,
-        name,
-      );
+      parts.insert(0, name);
 
       subjectId ??=
-          folder['subject_id']
-              as int?;
+          folder['subject_id'] as int?;
 
       current =
-          folder['parent_id']
-              as int?;
+          folder['parent_id'] as int?;
     }
 
     if (subjectId == null) {
@@ -230,9 +191,7 @@ class LibraryStorageService {
     }
 
     final subject =
-        await subjectDirectory(
-      subjectId,
-    );
+        await subjectDirectory(subjectId);
 
     if (subject == null) {
       return null;
@@ -244,8 +203,7 @@ class LibraryStorageService {
     );
   }
 
-  Future<Directory?>
-      folderDirectory(
+  Future<Directory?> folderDirectory(
     int? folderId,
   ) async {
     if (folderId == null) {
@@ -253,16 +211,13 @@ class LibraryStorageService {
     }
 
     final path =
-        await _folderPath(
-      folderId,
-    );
+        await _folderPath(folderId);
 
     if (path == null) {
       return null;
     }
 
-    final directory =
-        Directory(path);
+    final directory = Directory(path);
 
     await directory.create(
       recursive: true,
@@ -271,8 +226,7 @@ class LibraryStorageService {
     return directory;
   }
 
-  Future<String>
-      copyImportedFile({
+  Future<String> copyImportedFile({
     required String sourcePath,
     int? subjectId,
     required int? folderId,
@@ -282,17 +236,12 @@ class LibraryStorageService {
 
     if (folderId != null) {
       folder =
-          await folderDirectory(
-        folderId,
-      );
+          await folderDirectory(folderId);
     } else if (subjectId != null) {
       folder =
-          await subjectDirectory(
-        subjectId,
-      );
+          await subjectDirectory(subjectId);
     } else {
-      folder =
-          await rootDirectory();
+      folder = await rootDirectory();
     }
 
     if (folder == null) {
@@ -301,8 +250,7 @@ class LibraryStorageService {
       );
     }
 
-    final source =
-        File(sourcePath);
+    final source = File(sourcePath);
 
     if (!await source.exists()) {
       throw const FileSystemException(
@@ -316,18 +264,12 @@ class LibraryStorageService {
       originalName,
     );
 
-    if (p.normalize(
-          source.path,
-        ) ==
-        p.normalize(
-          destination.path,
-        )) {
+    if (p.normalize(source.path) ==
+        p.normalize(destination.path)) {
       return source.path;
     }
 
-    await source.copy(
-      destination.path,
-    );
+    await source.copy(destination.path);
 
     return destination.path;
   }
@@ -343,17 +285,12 @@ class LibraryStorageService {
 
     if (folderId != null) {
       folder =
-          await folderDirectory(
-        folderId,
-      );
+          await folderDirectory(folderId);
     } else if (subjectId != null) {
       folder =
-          await subjectDirectory(
-        subjectId,
-      );
+          await subjectDirectory(subjectId);
     } else {
-      folder =
-          await rootDirectory();
+      folder = await rootDirectory();
     }
 
     if (folder == null) {
@@ -362,8 +299,7 @@ class LibraryStorageService {
       );
     }
 
-    final name =
-        '$title.txt';
+    final name = '$title.txt';
 
     final file = oldPath == null
         ? await _uniqueFile(
@@ -376,9 +312,7 @@ class LibraryStorageService {
       recursive: true,
     );
 
-    await file.writeAsString(
-      text,
-    );
+    await file.writeAsString(text);
 
     return file.path;
   }
@@ -389,14 +323,12 @@ class LibraryStorageService {
     required int? destinationFolderId,
   }) async {
     final sourcePath =
-        content['file_path']
-            ?.toString();
+        content['file_path']?.toString();
 
     if (sourcePath == null ||
         sourcePath.isEmpty) {
       final result =
-          await _repo
-              .moveContentToSubject(
+          await _repo.moveContentToSubject(
         contentId:
             content['id'] as int,
         subjectId:
@@ -414,8 +346,7 @@ class LibraryStorageService {
       return;
     }
 
-    final source =
-        File(sourcePath);
+    final source = File(sourcePath);
 
     if (!await source.exists()) {
       throw const FileSystemException(
@@ -425,8 +356,7 @@ class LibraryStorageService {
 
     Directory? destination;
 
-    if (destinationFolderId !=
-        null) {
+    if (destinationFolderId != null) {
       final folder =
           await _repo.getFolder(
         destinationFolderId,
@@ -460,26 +390,19 @@ class LibraryStorageService {
     final target =
         await _uniqueFile(
       destination,
-      p.basename(
-        source.path,
-      ),
+      p.basename(source.path),
     );
 
     final sourceNormalized =
-        p.normalize(
-      source.path,
-    );
+        p.normalize(source.path);
 
     final targetNormalized =
-        p.normalize(
-      target.path,
-    );
+        p.normalize(target.path);
 
     if (sourceNormalized ==
         targetNormalized) {
       final result =
-          await _repo
-              .moveContentToSubject(
+          await _repo.moveContentToSubject(
         contentId:
             content['id'] as int,
         subjectId:
@@ -499,14 +422,11 @@ class LibraryStorageService {
       return;
     }
 
-    await source.rename(
-      target.path,
-    );
+    await source.rename(target.path);
 
     try {
       final result =
-          await _repo
-              .moveContentToSubject(
+          await _repo.moveContentToSubject(
         contentId:
             content['id'] as int,
         subjectId:
@@ -518,13 +438,9 @@ class LibraryStorageService {
       );
 
       if (result == 0) {
-        if (await File(
-              target.path,
-            ).exists() &&
+        if (await File(target.path).exists() &&
             !await source.exists()) {
-          await File(
-            target.path,
-          ).rename(
+          await File(target.path).rename(
             source.path,
           );
         }
@@ -541,13 +457,9 @@ class LibraryStorageService {
             target.path,
       );
     } catch (_) {
-      if (await File(
-            target.path,
-          ).exists() &&
+      if (await File(target.path).exists() &&
           !await source.exists()) {
-        await File(
-          target.path,
-        ).rename(
+        await File(target.path).rename(
           source.path,
         );
       }
@@ -560,15 +472,13 @@ class LibraryStorageService {
     required int folderId,
     required int? destinationParentId,
   }) async {
-    if (destinationParentId ==
-        folderId) {
+    if (destinationParentId == folderId) {
       throw const FileSystemException(
         'A folder cannot contain itself.',
       );
     }
 
-    if (destinationParentId !=
-            null &&
+    if (destinationParentId != null &&
         await _isDescendant(
           folderId,
           destinationParentId,
@@ -579,9 +489,7 @@ class LibraryStorageService {
     }
 
     final sourcePath =
-        await _folderPath(
-      folderId,
-    );
+        await _folderPath(folderId);
 
     if (sourcePath == null) {
       throw const FileSystemException(
@@ -589,8 +497,7 @@ class LibraryStorageService {
       );
     }
 
-    final source =
-        Directory(sourcePath);
+    final source = Directory(sourcePath);
 
     if (!await source.exists()) {
       throw const FileSystemException(
@@ -609,22 +516,15 @@ class LibraryStorageService {
       );
     }
 
-    final destination =
-        Directory(
+    final destination = Directory(
       p.join(
         parent.path,
-        p.basename(
-          source.path,
-        ),
+        p.basename(source.path),
       ),
     );
 
-    if (p.normalize(
-          source.path,
-        ) ==
-        p.normalize(
-          destination.path,
-        )) {
+    if (p.normalize(source.path) ==
+        p.normalize(destination.path)) {
       return;
     }
 
@@ -641,17 +541,13 @@ class LibraryStorageService {
     try {
       final result =
           await _repo.moveFolder(
-        folderId:
-            folderId,
-        parentId:
-            destinationParentId,
+        folderId: folderId,
+        parentId: destinationParentId,
       );
 
       if (result == 0) {
-        if (await destination
-                .exists() &&
-            !await source
-                .exists()) {
+        if (await destination.exists() &&
+            !await source.exists()) {
           await destination.rename(
             source.path,
           );
@@ -662,8 +558,7 @@ class LibraryStorageService {
         );
       }
     } catch (_) {
-      if (await destination
-              .exists() &&
+      if (await destination.exists() &&
           !await source.exists()) {
         await destination.rename(
           source.path,
@@ -678,39 +573,29 @@ class LibraryStorageService {
     int folderId,
     int possibleChildId,
   ) async {
-    var current =
-        possibleChildId;
-
-    final visited =
-        <int>{};
+    var current = possibleChildId;
+    final visited = <int>{};
 
     while (true) {
-      if (!visited.add(
-        current,
-      )) {
+      if (!visited.add(current)) {
         return true;
       }
 
-      if (current ==
-          folderId) {
+      if (current == folderId) {
         return true;
       }
 
       final folder =
-          await _repo.getFolder(
-        current,
-      );
+          await _repo.getFolder(current);
 
       if (folder == null) {
         return false;
       }
 
       final parent =
-          folder['parent_id']
-              as int?;
+          folder['parent_id'] as int?;
 
-      if (parent ==
-          null) {
+      if (parent == null) {
         return false;
       }
 
@@ -718,13 +603,11 @@ class LibraryStorageService {
     }
   }
 
-  Future<void>
-      renameSubjectDirectory({
+  Future<void> renameSubjectDirectory({
     required int subjectId,
     required String newName,
   }) async {
-    final root =
-        await rootDirectory();
+    final root = await rootDirectory();
 
     if (root == null) {
       throw const FileSystemException(
@@ -737,10 +620,8 @@ class LibraryStorageService {
 
     Map<String, dynamic>? subject;
 
-    for (final item
-        in subjects) {
-      if (item['id'] ==
-          subjectId) {
+    for (final item in subjects) {
+      if (item['id'] == subjectId) {
         subject = item;
         break;
       }
@@ -753,12 +634,9 @@ class LibraryStorageService {
     }
 
     final oldName =
-        subject['name']
-            ?.toString()
-            .trim();
+        subject['name']?.toString().trim();
 
-    final cleanName =
-        newName.trim();
+    final cleanName = newName.trim();
 
     if (oldName == null ||
         oldName.isEmpty ||
@@ -768,28 +646,22 @@ class LibraryStorageService {
       );
     }
 
-    final oldDirectory =
-        Directory(
+    final oldDirectory = Directory(
       p.join(
         root.path,
         oldName,
       ),
     );
 
-    final newDirectory =
-        Directory(
+    final newDirectory = Directory(
       p.join(
         root.path,
         cleanName,
       ),
     );
 
-    if (p.normalize(
-          oldDirectory.path,
-        ) ==
-        p.normalize(
-          newDirectory.path,
-        )) {
+    if (p.normalize(oldDirectory.path) ==
+        p.normalize(newDirectory.path)) {
       await newDirectory.create(
         recursive: true,
       );
@@ -813,12 +685,10 @@ class LibraryStorageService {
     }
   }
 
-  Future<void>
-      deleteSubjectDirectory(
+  Future<void> deleteSubjectDirectory(
     int subjectId,
   ) async {
-    final root =
-        await rootDirectory();
+    final root = await rootDirectory();
 
     if (root == null) {
       return;
@@ -829,10 +699,8 @@ class LibraryStorageService {
 
     Map<String, dynamic>? subject;
 
-    for (final item
-        in subjects) {
-      if (item['id'] ==
-          subjectId) {
+    for (final item in subjects) {
+      if (item['id'] == subjectId) {
         subject = item;
         break;
       }
@@ -843,17 +711,13 @@ class LibraryStorageService {
     }
 
     final name =
-        subject['name']
-            ?.toString()
-            .trim();
+        subject['name']?.toString().trim();
 
-    if (name == null ||
-        name.isEmpty) {
+    if (name == null || name.isEmpty) {
       return;
     }
 
-    final directory =
-        Directory(
+    final directory = Directory(
       p.join(
         root.path,
         name,
@@ -872,16 +736,14 @@ class LibraryStorageService {
     required String newTitle,
   }) async {
     final oldPath =
-        content['file_path']
-            ?.toString();
+        content['file_path']?.toString();
 
     if (oldPath == null ||
         oldPath.isEmpty) {
       return;
     }
 
-    final source =
-        File(oldPath);
+    final source = File(oldPath);
 
     if (!await source.exists()) {
       return;
@@ -890,30 +752,23 @@ class LibraryStorageService {
     final extension =
         p.extension(oldPath);
 
-    final newName =
-        extension.isEmpty
-            ? newTitle.trim()
-            : '${newTitle.trim()}$extension';
+    final newName = extension.isEmpty
+        ? newTitle.trim()
+        : '${newTitle.trim()}$extension';
 
-    final destination =
-        File(
+    final destination = File(
       p.join(
         source.parent.path,
         newName,
       ),
     );
 
-    if (p.normalize(
-          source.path,
-        ) ==
-        p.normalize(
-          destination.path,
-        )) {
+    if (p.normalize(source.path) ==
+        p.normalize(destination.path)) {
       return;
     }
 
-    if (await destination
-        .exists()) {
+    if (await destination.exists()) {
       throw const FileSystemException(
         'A file with this name already exists.',
       );
@@ -929,9 +784,7 @@ class LibraryStorageService {
       filePath:
           destination.path,
       originalFileName:
-          p.basename(
-        destination.path,
-      ),
+          p.basename(destination.path),
     );
 
     await _repo.updateFilePath(
@@ -946,16 +799,13 @@ class LibraryStorageService {
     Map<String, dynamic> content,
   ) async {
     final path =
-        content['file_path']
-            ?.toString();
+        content['file_path']?.toString();
 
-    if (path == null ||
-        path.isEmpty) {
+    if (path == null || path.isEmpty) {
       return;
     }
 
-    final file =
-        File(path);
+    final file = File(path);
 
     if (await file.exists()) {
       await file.delete();
@@ -965,8 +815,7 @@ class LibraryStorageService {
   Future<void> prepareFolderDeletion(
     int folderId,
   ) async {
-    final root =
-        await rootDirectory();
+    final root = await rootDirectory();
 
     if (root == null) {
       return;
@@ -975,33 +824,22 @@ class LibraryStorageService {
     final folders =
         await _repo.getAllFolders();
 
-    final descendants =
-        <int>{
-      folderId,
-    };
+    final descendants = <int>{folderId};
 
     var changed = true;
 
     while (changed) {
       changed = false;
 
-      for (final folder
-          in folders) {
-        final id =
-            folder['id'] as int;
+      for (final folder in folders) {
+        final id = folder['id'] as int;
 
         final parent =
-            folder['parent_id']
-                as int?;
+            folder['parent_id'] as int?;
 
         if (parent != null &&
-            descendants
-                .contains(
-              parent,
-            ) &&
-            !descendants.contains(
-              id,
-            )) {
+            descendants.contains(parent) &&
+            !descendants.contains(id)) {
           descendants.add(id);
           changed = true;
         }
@@ -1011,27 +849,19 @@ class LibraryStorageService {
     final contents =
         await _repo.getContent();
 
-    for (final item
-        in contents) {
+    for (final item in contents) {
       final current =
-          item['folder_id']
-              as int?;
+          item['folder_id'] as int?;
 
-      if (!descendants
-          .contains(
-        current,
-      )) {
+      if (!descendants.contains(current)) {
         continue;
       }
 
       final path =
-          item['file_path']
-              ?.toString();
+          item['file_path']?.toString();
 
-      if (path != null &&
-          path.isNotEmpty) {
-        final source =
-            File(path);
+      if (path != null && path.isNotEmpty) {
+        final source = File(path);
 
         if (await source.exists()) {
           final destination =
@@ -1071,16 +901,13 @@ class LibraryStorageService {
     }
 
     final sourcePath =
-        await _folderPath(
-      folderId,
-    );
+        await _folderPath(folderId);
 
     if (sourcePath != null) {
       final directory =
           Directory(sourcePath);
 
-      if (await directory
-          .exists()) {
+      if (await directory.exists()) {
         await directory.delete(
           recursive: true,
         );
@@ -1088,56 +915,37 @@ class LibraryStorageService {
     }
   }
 
-  Future<void>
-      renameFolderDirectory({
+  Future<void> renameFolderDirectory({
     required int folderId,
     required String oldName,
     required String newName,
     int? parentId,
   }) async {
     final parent =
-        await folderDirectory(
-      parentId,
-    );
+        await folderDirectory(parentId);
 
     if (parent == null) {
       return;
     }
 
-    final oldDirectory =
-        Directory(
+    final oldDirectory = Directory(
       p.join(
         parent.path,
         oldName,
       ),
     );
 
-    final oldDirectory =
-        Directory(
-      p.join(
-        parent.path,
-        oldName,
-      ),
-    );
-
-    final newDirectory =
-        Directory(
+    final newDirectory = Directory(
       p.join(
         parent.path,
         newName,
       ),
     );
 
-    if (await oldDirectory
-            .exists() &&
-        p.normalize(
-              oldDirectory.path,
-            ) !=
-            p.normalize(
-              newDirectory.path,
-            )) {
-      if (await newDirectory
-          .exists()) {
+    if (await oldDirectory.exists() &&
+        p.normalize(oldDirectory.path) !=
+            p.normalize(newDirectory.path)) {
+      if (await newDirectory.exists()) {
         throw const FileSystemException(
           'A folder with this name already exists.',
         );
@@ -1180,14 +988,12 @@ class LibraryStorageService {
     final temp =
         await getTemporaryDirectory();
 
-    final zipPath =
-        p.join(
+    final zipPath = p.join(
       temp.path,
       '${p.basename(directory.path)}_${DateTime.now().millisecondsSinceEpoch}.zip',
     );
 
-    final encoder =
-        ZipFileEncoder();
+    final encoder = ZipFileEncoder();
 
     encoder.create(zipPath);
 
@@ -1212,21 +1018,17 @@ class LibraryStorageService {
             : name.trim();
 
     final extension =
-        p.extension(
-      safeName,
-    );
+        p.extension(safeName);
 
-    final base =
-        extension.isEmpty
-            ? safeName
-            : safeName.substring(
-                0,
-                safeName.length -
-                    extension.length,
-              );
+    final base = extension.isEmpty
+        ? safeName
+        : safeName.substring(
+            0,
+            safeName.length -
+                extension.length,
+          );
 
-    var candidate =
-        File(
+    var candidate = File(
       p.join(
         directory.path,
         safeName,
@@ -1235,10 +1037,8 @@ class LibraryStorageService {
 
     var index = 1;
 
-    while (await candidate
-        .exists()) {
-      candidate =
-          File(
+    while (await candidate.exists()) {
+      candidate = File(
         p.join(
           directory.path,
           '$base ($index)$extension',
