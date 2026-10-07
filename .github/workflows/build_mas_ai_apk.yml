@@ -41,7 +41,6 @@ jobs:
           path = Path('android/app/src/main/AndroidManifest.xml')
           text = path.read_text()
 
-          # Set the application name shown on the Android phone.
           updated = re.sub(
               r'android:label="[^"]*"',
               'android:label="MedLibra"',
@@ -56,7 +55,6 @@ jobs:
 
           text = updated
 
-          # Allow MAS AI / MedLibra library storage access.
           permission = (
               '<uses-permission '
               'android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />'
@@ -384,23 +382,7 @@ jobs:
         run: |
           flutter pub get
 
-      - name: 9.1 Patch flutter_isolate Android compatibility
-        shell: bash
-        run: |
-          FILE="$HOME/.pub-cache/hosted/pub.dev/flutter_isolate-2.1.0/android/src/main/java/com/rmawatson/flutterisolate/FlutterIsolatePlugin.java"
-
-          test -f "$FILE"
-
-          sed -i \
-            '/import io\.flutter\.view\.FlutterRunArguments;/d' \
-            "$FILE"
-
-          if grep -q 'FlutterRunArguments' "$FILE"; then
-            echo "FlutterIsolate compatibility patch failed."
-            exit 1
-          fi
-
-      - name: 9.2 Generate MedLibra launcher icon
+      - name: 10. Generate MedLibra launcher icon
         shell: bash
         run: |
           test -f assets/icon/mas_ai_icon.png
@@ -412,15 +394,15 @@ jobs:
           test -d android/app/src/main/res/mipmap-xhdpi
           test -d android/app/src/main/res/mipmap-xxhdpi
 
-      - name: 10. Analyze Flutter project
+      - name: 11. Analyze Flutter project
         run: |
           flutter analyze
 
-      - name: 11. Build release APK
+      - name: 12. Build release APK
         run: |
           flutter build apk --release
 
-      - name: 12. Verify APK
+      - name: 13. Verify APK
         shell: bash
         run: |
           test -f build/app/outputs/flutter-apk/app-release.apk
@@ -428,7 +410,7 @@ jobs:
           ls -lh \
             build/app/outputs/flutter-apk/app-release.apk
 
-      - name: 13. Upload APK
+      - name: 14. Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: medlibra-apk
