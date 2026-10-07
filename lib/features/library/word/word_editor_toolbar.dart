@@ -5,7 +5,9 @@ import 'toolbar/word_toolbar_clipboard.dart';
 import 'toolbar/word_toolbar_font.dart';
 import 'toolbar/word_toolbar_history.dart';
 import 'toolbar/word_toolbar_insert.dart';
+import 'toolbar/word_toolbar_page.dart';
 import 'toolbar/word_toolbar_paragraph.dart';
+import 'toolbar/word_toolbar_review.dart';
 import 'toolbar/word_toolbar_table.dart';
 import 'toolbar/word_toolbar_view.dart';
 
@@ -86,6 +88,18 @@ class WordEditorToolbar extends StatelessWidget {
               _group(
                 context,
                 WordToolbarTable(
+                  controller: controller,
+                ),
+              ),
+              _group(
+                context,
+                WordToolbarReview(
+                  controller: controller,
+                ),
+              ),
+              _group(
+                context,
+                WordToolbarPage(
                   controller: controller,
                 ),
               ),
