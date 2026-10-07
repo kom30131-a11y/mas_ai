@@ -4,112 +4,98 @@ import 'package:quds_office_editor/quds_office_editor.dart';
 class WordEditorView {
   const WordEditorView._();
 
-  static void refresh(WordEditorController c) {
-    c.relayout();
-    c.refresh();
+  static void refresh(
+    WordEditorController controller,
+  ) {
+    controller.relayout();
+    controller.refresh();
   }
 
-  static void fitLayout(WordEditorController c) {
-    c.fitPaintMetrics();
-    c.refresh();
+  static void zoomIn(
+    WordEditorController controller,
+  ) {
+    final value = (controller.viewport.scale * 1.1).clamp(
+      controller.viewport.clampMin,
+      controller.viewport.clampMax,
+    );
+
+    controller.viewport.setScale(value);
+    controller.refresh();
   }
 
-  static void pageUp(WordEditorController c) {
-    if (c.pageCount <= 0) return;
+  static void zoomOut(
+    WordEditorController controller,
+  ) {
+    final value = (controller.viewport.scale / 1.1).clamp(
+      controller.viewport.clampMin,
+      controller.viewport.clampMax,
+    );
 
-    final index = c.visiblePageIndex;
-    final target = (index - 1).clamp(0, c.pageCount - 1);
-
-    c.revealPage(target);
-    c.refresh();
+    controller.viewport.setScale(value);
+    controller.refresh();
   }
 
-  static void pageDown(WordEditorController c) {
-    if (c.pageCount <= 0) return;
+  static void actualSize(
+    WordEditorController controller,
+  ) {
+    final value = 1.0.clamp(
+      controller.viewport.clampMin,
+      controller.viewport.clampMax,
+    );
 
-    final index = c.visiblePageIndex;
-    final target = (index + 1).clamp(0, c.pageCount - 1);
-
-    c.revealPage(target);
-    c.refresh();
+    controller.viewport.setScale(value);
+    controller.refresh();
   }
 
-  static void firstPage(WordEditorController c) {
-    if (c.pageCount == 0) return;
-
-    c.revealPage(0);
-    c.refresh();
-  }
-
-  static void lastPage(WordEditorController c) {
-    if (c.pageCount == 0) return;
-
-    c.revealPage(c.pageCount - 1);
-    c.refresh();
-  }
-
-  static Future<void> showViewMenu(
+  static Future<void> showMenu(
     BuildContext context,
-    WordEditorController c,
+    WordEditorController controller,
   ) async {
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.fit_screen),
-              title: const Text('Fit page'),
-              onTap: () {
-                fitLayout(c);
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.refresh),
-              title: const Text('Refresh layout'),
-              onTap: () {
-                refresh(c);
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.first_page),
-              title: const Text('First page'),
-              onTap: () {
-                firstPage(c);
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.navigate_before),
-              title: const Text('Previous page'),
-              onTap: () {
-                pageUp(c);
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.navigate_next),
-              title: const Text('Next page'),
-              onTap: () {
-                pageDown(c);
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.last_page),
-              title: const Text('Last page'),
-              onTap: () {
-                lastPage(c);
-                Navigator.pop(context);
-              },
-            ),
-          ],
-        ),
-      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.zoom_in),
+                title: const Text('Zoom In'),
+                onTap: () {
+                  zoomIn(controller);
+                  Navigator.of(sheetContext).pop();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.zoom_out),
+                title: const Text('Zoom Out'),
+                onTap: () {
+                  zoomOut(controller);
+                  Navigator.of(sheetContext).pop();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.crop_free),
+                title: const Text('Actual Size'),
+                onTap: () {
+                  actualSize(controller);
+                  Navigator.of(sheetContext).pop();
+                },
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.refresh),
+                title: const Text('Refresh Layout'),
+                onTap: () {
+                  refresh(controller);
+                  Navigator.of(sheetContext).pop();
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
