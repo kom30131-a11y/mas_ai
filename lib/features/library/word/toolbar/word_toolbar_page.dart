@@ -27,11 +27,6 @@ class WordToolbarPage extends StatelessWidget {
                 title: const Text('A4 Landscape'),
                 onTap: () => Navigator.pop(context, 'a4_landscape'),
               ),
-              ListTile(
-                leading: const Icon(Icons.screen_lock_portrait),
-                title: const Text('Widescreen'),
-                onTap: () => Navigator.pop(context, 'wide'),
-              ),
             ],
           ),
         );
@@ -40,13 +35,21 @@ class WordToolbarPage extends StatelessWidget {
 
     if (value == null) return;
 
-    controller.setPageSize(
-      value == 'a4'
-          ? WmlPageSize.a4Portrait
-          : value == 'a4_landscape'
-              ? WmlPageSize.a4Landscape
-              : WmlPageSize.widescreen,
-    );
+    if (value == 'a4') {
+      controller.setPageSize(
+        const WmlPageSize(
+          widthTwips: 11906,
+          heightTwips: 16838,
+        ),
+      );
+    } else {
+      controller.setPageSize(
+        const WmlPageSize(
+          widthTwips: 16838,
+          heightTwips: 11906,
+        ),
+      );
+    }
 
     controller.refresh();
   }
