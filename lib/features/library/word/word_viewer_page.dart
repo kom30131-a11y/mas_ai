@@ -9,12 +9,9 @@ import 'package:share_plus/share_plus.dart';
 import '../../../core/database/database_repository.dart';
 import '../../../core/docx/docx_document_service.dart';
 import '../../../core/docx/docx_draft_repository.dart';
-import '../../../core/storage/library_storage_service.dart';
 import 'word_editor_toolbar.dart';
 import 'word_viewer_search.dart';
 import 'word_viewer_viewport.dart';
-
-enum _ExitChoice { save, discard, cancel }
 
 class WordViewerPage extends StatefulWidget {
   final String title;
@@ -37,7 +34,6 @@ class _WordViewerPageState extends State<WordViewerPage>
   final _docx = DocxDocumentService.instance;
   final _drafts = DocxDraftRepository.instance;
   final _repo = DatabaseRepository.instance;
-  final _storage = LibraryStorageService.instance;
 
   WordEditorController? _controller;
   Timer? _draftTimer;
@@ -45,7 +41,6 @@ class _WordViewerPageState extends State<WordViewerPage>
   bool _loading = true;
   bool _saving = false;
   bool _editing = false;
-  bool _selecting = false;
   bool _started = false;
   bool _rtl = false;
   bool _dark = false;
@@ -113,7 +108,6 @@ class _WordViewerPageState extends State<WordViewerPage>
 
       final sourcePath = await _resolveSourcePath();
 
-      // تهيئة المتحكم بخصائص تطابق تجربة مايكروسوفت وورد الاحترافية
       final controller = await _docx.openController(
         path: sourcePath,
         config: OfficeSurfaceConfig(
@@ -121,7 +115,7 @@ class _WordViewerPageState extends State<WordViewerPage>
           textDirection: _rtl ? TextDirection.rtl : TextDirection.ltr,
           strings: _rtl ? OfficeStrings.arabic : OfficeStrings.english,
           theme: _dark ? OfficeTheme.dark : OfficeTheme.light,
-          showRulers: true, // إظهار المساطر تماماً مثل مايكروسوفت وورد
+          showRulers: true,
           showFormulaBar: false,
           showGridHeaders: false,
           showGridlines: true,
@@ -346,7 +340,6 @@ class _WordViewerPageState extends State<WordViewerPage>
     final controller = _controller;
     if (controller == null || _editing) return;
 
-    _selecting = false;
     controller.setMode(OfficeInteractionMode.editing);
     controller.attachInput();
 
@@ -373,7 +366,6 @@ class _WordViewerPageState extends State<WordViewerPage>
     if (mounted) {
       setState(() {
         _editing = false;
-        _selecting = false;
       });
     }
     _fitWidth();
