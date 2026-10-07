@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:cross_file/cross_file.dart';
 import 'package:docx_viewer_plus/docx_viewer_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
@@ -25,14 +24,11 @@ class _WordViewerPageState extends State<WordViewerPage> {
 
   Future<void> _save() async {
     if (_saving) return;
-
     setState(() => _saving = true);
 
     try {
-      final file = File(widget.path);
-
       final saved = await _key.currentState?.save(
-        outputPath: file.path,
+        outputPath: widget.path,
       );
 
       if (!mounted) return;
@@ -50,22 +46,16 @@ class _WordViewerPageState extends State<WordViewerPage> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Save failed: $e'),
-        ),
+        SnackBar(content: Text('Save failed: $e')),
       );
     } finally {
-      if (mounted) {
-        setState(() => _saving = false);
-      }
+      if (mounted) setState(() => _saving = false);
     }
   }
 
   Future<void> _share() async {
     try {
-      final bytes =
-          await _key.currentState?.getDocxBytes();
-
+      final bytes = await _key.currentState?.getDocxBytes();
       if (bytes == null) return;
 
       final safeName = widget.title.replaceAll(
@@ -81,20 +71,14 @@ class _WordViewerPageState extends State<WordViewerPage> {
 
       if (!mounted) return;
 
-      await SharePlus.instance.share(
-        ShareParams(
-          files: [
-            XFile(temp.path),
-          ],
-        ),
+      await Share.shareXFiles(
+        [XFile(temp.path)],
       );
     } catch (e) {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Share failed: $e'),
-        ),
+        SnackBar(content: Text('Share failed: $e')),
       );
     }
   }
@@ -137,9 +121,8 @@ class _WordViewerPageState extends State<WordViewerPage> {
               arabic
                   ? TextDirection.rtl
                   : TextDirection.ltr,
-          strings: arabic
-              ? DocxViewerStrings.arabic
-              : DocxViewerStrings.english,
+          strings:
+              arabic ? DocxViewerStrings.arabic : null,
         ),
       ),
     );
