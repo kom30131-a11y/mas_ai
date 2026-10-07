@@ -127,6 +127,7 @@ class LibraryStorageService {
 
   Future<String> copyImportedFile({
     required String sourcePath,
+    int? subjectId,
     required int? folderId,
     required String originalName,
   }) async {
@@ -166,6 +167,7 @@ class LibraryStorageService {
   }
 
   Future<String> saveText({
+    int? subjectId,
     required String text,
     required String title,
     required int? folderId,
@@ -262,6 +264,88 @@ class LibraryStorageService {
       folderId:
           destinationFolderId,
     );
+  }
+
+  Future<void> renameContentFile({
+    required Map<String, dynamic> content,
+    required String newTitle,
+  }) async {
+    final oldPath =
+        content['file_path']?.toString();
+
+    if (oldPath == null ||
+        oldPath.isEmpty) {
+      return;
+    }
+
+    final source = File(oldPath);
+
+    if (!await source.exists()) {
+      return;
+    }
+
+    final extension =
+        p.extension(oldPath);
+
+    final newName = extension.isEmpty
+        ? newTitle.trim()
+        : '${newTitle.trim()}$extension';
+
+    final destination = File(
+      p.join(
+        source.parent.path,
+        newName,
+      ),
+    );
+
+    if (p.normalize(source.path) ==
+        p.normalize(destination.path)) {
+      return;
+    }
+
+    if (await destination.exists()) {
+      throw const FileSystemException(
+        'A file with this name already exists.',
+      );
+    }
+
+    await source.rename(
+      destination.path,
+    );
+
+    await _repo.updateContent(
+      contentId:
+          content['id'] as int,
+      filePath:
+          destination.path,
+      originalFileName:
+          p.basename(destination.path),
+    );
+
+    await _repo.updateFilePath(
+      contentId:
+          content['id'] as int,
+      filePath:
+          destination.path,
+    );
+  }
+
+  Future<void> deleteContentFile(
+    Map<String, dynamic> content,
+  ) async {
+    final path =
+        content['file_path']?.toString();
+
+    if (path == null ||
+        path.isEmpty) {
+      return;
+    }
+
+    final file = File(path);
+
+    if (await file.exists()) {
+      await file.delete();
+    }
   }
 
   Future<void> prepareFolderDeletion(
