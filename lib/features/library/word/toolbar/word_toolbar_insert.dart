@@ -15,19 +15,22 @@ class WordToolbarInsert extends StatelessWidget {
       'Rows',
       3,
     );
-    if (rows == null) return;
+
+    if (!context.mounted || rows == null) return;
 
     final columns = await _number(
       context,
       'Columns',
       3,
     );
-    if (columns == null) return;
+
+    if (!context.mounted || columns == null) return;
 
     controller.insertTable(
       rows: rows,
       columns: columns,
     );
+    controller.refresh();
   }
 
   Future<int?> _number(
@@ -35,7 +38,7 @@ class WordToolbarInsert extends StatelessWidget {
     String title,
     int initial,
   ) async {
-    final controller = TextEditingController(
+    final field = TextEditingController(
       text: '$initial',
     );
 
@@ -45,7 +48,7 @@ class WordToolbarInsert extends StatelessWidget {
         return AlertDialog(
           title: Text(title),
           content: TextField(
-            controller: controller,
+            controller: field,
             keyboardType: TextInputType.number,
             autofocus: true,
           ),
@@ -56,9 +59,16 @@ class WordToolbarInsert extends StatelessWidget {
             ),
             FilledButton(
               onPressed: () {
-                final value = int.tryParse(controller.text);
+                final value = int.tryParse(
+                  field.text.trim(),
+                );
+
                 if (value == null || value < 1) return;
-                Navigator.pop(context, value);
+
+                Navigator.pop(
+                  context,
+                  value,
+                );
               },
               child: const Text('Insert'),
             ),
@@ -67,7 +77,7 @@ class WordToolbarInsert extends StatelessWidget {
       },
     );
 
-    controller.dispose();
+    field.dispose();
     return value;
   }
 
@@ -83,12 +93,18 @@ class WordToolbarInsert extends StatelessWidget {
         ),
         IconButton(
           tooltip: 'Insert page break',
-          onPressed: controller.insertPageBreak,
+          onPressed: () {
+            controller.insertPageBreak();
+            controller.refresh();
+          },
           icon: const Icon(Icons.insert_page_break),
         ),
         IconButton(
           tooltip: 'Insert line break',
-          onPressed: controller.insertLineBreak,
+          onPressed: () {
+            controller.insertLineBreak();
+            controller.refresh();
+          },
           icon: const Icon(Icons.keyboard_return),
         ),
       ],
