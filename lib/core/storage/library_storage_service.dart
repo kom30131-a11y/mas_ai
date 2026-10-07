@@ -1,20 +1,17 @@
 import 'dart:io';
-
 import 'package:archive/archive_io.dart';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
-
 import '../database/database_repository.dart';
 
 class LibraryStorageService {
   LibraryStorageService._();
-
   static final instance = LibraryStorageService._();
 
-  static const rootName = 'MedLibra';
+  static const rootName = 'MAS AI';
 
   final _repo = DatabaseRepository.instance;
   Directory? _root;
@@ -34,36 +31,19 @@ class LibraryStorageService {
       if (!status.isGranted) return false;
     }
 
-    final target = Directory('/storage/emulated/0/$rootName');
-    final legacy = Directory('/storage/emulated/0/MAS AI');
-
-    if (!await target.exists() && await legacy.exists()) {
-      try {
-        await legacy.rename(target.path);
-      } catch (_) {}
-    }
-
-    _root = target;
+    _root = Directory('/storage/emulated/0/$rootName');
     await _root!.create(recursive: true);
     await _syncTree();
     return true;
   }
 
   Future<void> syncFolders() async {
-    if (_root == null) {
-      final ready = await ensureReady();
-      if (!ready) return;
-    }
-
+    if (_root == null && !await ensureReady()) return;
     await _syncTree();
   }
 
   Future<Directory?> rootDirectory() async {
-    if (_root == null) {
-      final ready = await ensureReady();
-      if (!ready) return null;
-    }
-
+    if (_root == null && !await ensureReady()) return null;
     return _root;
   }
 
@@ -72,28 +52,20 @@ class LibraryStorageService {
     if (root == null) return null;
 
     final subjects = await _repo.getSubjects();
-
     Map<String, dynamic>? subject;
-
-    for (final item in subjects) {
-      if (item['id'] == subjectId) {
-        subject = item;
+    for (final x in subjects) {
+      if (x['id'] == subjectId) {
+        subject = x;
         break;
       }
     }
-
     if (subject == null) return null;
 
-    final directory = Directory(
-      p.join(
-        root.path,
-        _safeName(subject['name'].toString()),
-      ),
+    final dir = Directory(
+      p.join(root.path, _safeName(subject['name'].toString())),
     );
-
-    await directory.create(recursive: true);
-
-    return directory;
+    await dir.create(recursive: true);
+    return dir;
   }
 
   Future<Directory?> contentDirectory({
@@ -101,50 +73,37 @@ class LibraryStorageService {
     required int? folderId,
   }) async {
     final subject = await subjectDirectory(subjectId);
-
     if (subject == null) return null;
-
     if (folderId == null) return subject;
 
     final folder = await _repo.getFolder(folderId);
-
-    if (folder == null || folder['subject_id'] != subjectId) {
-      return null;
-    }
-
+    if (folder == null || folder['subject_id'] != subjectId) return null;
     return folderDirectory(folderId);
   }
 
   Future<Directory?> folderDirectory(int folderId) async {
     final root = await rootDirectory();
-
     if (root == null) return null;
 
     final folders = await _repo.getAllFolders();
-
     final byId = <int, Map<String, dynamic>>{
-      for (final folder in folders) folder['id'] as int: folder,
+      for (final f in folders) f['id'] as int: f,
     };
 
     final folder = byId[folderId];
-
     if (folder == null) return null;
 
     final subjectId = folder['subject_id'] as int?;
-
     if (subjectId == null) return null;
 
     final subjects = await _repo.getSubjects();
-
     Map<String, dynamic>? subject;
-
-    for (final item in subjects) {
-      if (item['id'] == subjectId) {
-        subject = item;
+    for (final x in subjects) {
+      if (x['id'] == subjectId) {
+        subject = x;
         break;
       }
     }
-
     if (subject == null) return null;
 
     final parts = <String>[];
@@ -153,34 +112,21 @@ class LibraryStorageService {
 
     while (current != null) {
       if (!visited.add(current)) return null;
+      final f = byId[current];
+      if (f == null || f['subject_id'] != subjectId) return null;
 
-      final currentFolder = byId[current];
-
-      if (currentFolder == null) return null;
-
-      if (currentFolder['subject_id'] != subjectId) {
-        return null;
-      }
-
-      parts.insert(
-        0,
-        _safeName(currentFolder['name'].toString()),
-      );
-
-      current = currentFolder['parent_id'] as int?;
+      parts.insert(0, _safeName(f['name'].toString()));
+      current = f['parent_id'] as int?;
     }
 
-    final directory = Directory(
-      p.joinAll([
-        root.path,
-        _safeName(subject['name'].toString()),
-        ...parts,
-      ]),
-    );
+    final dir = Directory(p.joinAll([
+      root.path,
+      _safeName(subject['name'].toString()),
+      ...parts,
+    ]));
 
-    await directory.create(recursive: true);
-
-    return directory;
+    await dir.create(recursive: true);
+    return dir;
   }
 
   Future<String> copyImportedFile({
@@ -189,37 +135,25 @@ class LibraryStorageService {
     required int? folderId,
     required String originalName,
   }) async {
-    final destinationDir = await contentDirectory(
+    final dir = await contentDirectory(
       subjectId: subjectId,
       folderId: folderId,
     );
-
-    if (destinationDir == null) {
-      throw const FileSystemException(
-        'MedLibra storage is unavailable.',
-      );
+    if (dir == null) {
+      throw const FileSystemException('MAS AI storage is unavailable.');
     }
 
     final source = File(sourcePath);
-
     if (!await source.exists()) {
-      throw const FileSystemException(
-        'Source file not found.',
-      );
+      throw const FileSystemException('Source file not found.');
     }
 
-    final destination = await _uniqueFile(
-      destinationDir,
-      originalName,
-    );
-
-    if (p.normalize(source.path) ==
-        p.normalize(destination.path)) {
+    final destination = await _uniqueFile(dir, originalName);
+    if (p.normalize(source.path) == p.normalize(destination.path)) {
       return source.path;
     }
 
     await source.copy(destination.path);
-
     return destination.path;
   }
 
@@ -230,56 +164,37 @@ class LibraryStorageService {
     required String title,
     String? oldPath,
   }) async {
-    final directory = await contentDirectory(
+    final dir = await contentDirectory(
       subjectId: subjectId,
       folderId: folderId,
     );
-
-    if (directory == null) {
-      throw const FileSystemException(
-        'MedLibra storage is unavailable.',
-      );
+    if (dir == null) {
+      throw const FileSystemException('MAS AI storage is unavailable.');
     }
 
     final safeTitle = _safeName(
       title.trim().isEmpty ? 'Material' : title.trim(),
     );
-
-    final requested = p.join(
-      directory.path,
-      '$safeTitle.txt',
-    );
-
+    final requested = p.join(dir.path, '$safeTitle.txt');
     final target = File(requested);
-
-    String path = requested;
+    var path = requested;
 
     if (oldPath != null && oldPath.isNotEmpty) {
       final old = File(oldPath);
-
-      if (await old.exists() &&
-          p.normalize(old.path) !=
-              p.normalize(requested)) {
+      if (await old.exists() && p.normalize(old.path) != p.normalize(requested)) {
         if (await target.exists()) {
-          final unique = await _uniqueFile(
-            directory,
-            '$safeTitle.txt',
-          );
-
+          final unique = await _uniqueFile(dir, '$safeTitle.txt');
           await old.rename(unique.path);
           path = unique.path;
         } else {
           await old.rename(requested);
-          path = requested;
         }
       }
     }
 
     final file = File(path);
-
     await file.parent.create(recursive: true);
     await file.writeAsString(text);
-
     return file.path;
   }
 
@@ -288,22 +203,16 @@ class LibraryStorageService {
     required int? destinationFolderId,
   }) async {
     final subjectId = content['subject_id'] as int?;
-
     if (subjectId == null) {
-      throw const FileSystemException(
-        'Content subject is missing.',
-      );
+      throw const FileSystemException('Content subject is missing.');
     }
 
-    final destinationDir = await contentDirectory(
+    final dir = await contentDirectory(
       subjectId: subjectId,
       folderId: destinationFolderId,
     );
-
-    if (destinationDir == null) {
-      throw const FileSystemException(
-        'Destination folder unavailable.',
-      );
+    if (dir == null) {
+      throw const FileSystemException('Destination folder unavailable.');
     }
 
     final oldPath = content['file_path']?.toString();
@@ -312,13 +221,9 @@ class LibraryStorageService {
       final source = File(oldPath);
 
       if (await source.exists()) {
-        final destination = await _uniqueFile(
-          destinationDir,
-          p.basename(oldPath),
-        );
+        final destination = await _uniqueFile(dir, p.basename(oldPath));
 
-        if (p.normalize(source.path) !=
-            p.normalize(destination.path)) {
+        if (p.normalize(source.path) != p.normalize(destination.path)) {
           await source.rename(destination.path);
 
           await _repo.moveContentToFolder(
@@ -331,7 +236,6 @@ class LibraryStorageService {
             contentId: content['id'] as int,
             filePath: destination.path,
           );
-
           return;
         }
       }
@@ -348,29 +252,21 @@ class LibraryStorageService {
     required String newTitle,
   }) async {
     final oldPath = content['file_path']?.toString();
-
     if (oldPath == null || oldPath.isEmpty) return;
 
     final source = File(oldPath);
-
     if (!await source.exists()) return;
 
-    final directory = source.parent;
+    final dir = source.parent;
     final extension = p.extension(source.path);
-
     final base = _safeName(
-      newTitle.trim().isEmpty
-          ? 'Material'
-          : newTitle.trim(),
+      newTitle.trim().isEmpty ? 'Material' : newTitle.trim(),
     );
 
-    final currentBase =
-        p.basenameWithoutExtension(source.path);
-
-    if (currentBase == base) return;
+    if (p.basenameWithoutExtension(source.path) == base) return;
 
     final destination = await _uniqueFile(
-      directory,
+      dir,
       '$base$extension',
     );
 
@@ -382,18 +278,12 @@ class LibraryStorageService {
     );
   }
 
-  Future<void> deleteContentFile(
-    Map<String, dynamic> content,
-  ) async {
+  Future<void> deleteContentFile(Map<String, dynamic> content) async {
     final path = content['file_path']?.toString();
+    if (path == null || path.isEmpty) return;
 
-    if (path != null && path.isNotEmpty) {
-      final file = File(path);
-
-      if (await file.exists()) {
-        await file.delete();
-      }
-    }
+    final file = File(path);
+    if (await file.exists()) await file.delete();
   }
 
   Future<void> _replaceStoredPathPrefix({
@@ -401,39 +291,30 @@ class LibraryStorageService {
     required String newPrefix,
   }) async {
     final contents = await _repo.getContent();
-
-    final normalizedOld = p.normalize(oldPrefix);
-    final normalizedNew = p.normalize(newPrefix);
+    final oldPath = p.normalize(oldPrefix);
+    final newPath = p.normalize(newPrefix);
 
     for (final item in contents) {
       final path = item['file_path']?.toString();
-
       if (path == null || path.isEmpty) continue;
 
-      final normalizedPath = p.normalize(path);
-
-      if (normalizedPath != normalizedOld &&
-          !normalizedPath.startsWith(
-            '$normalizedOld${p.separator}',
-          )) {
+      final normalized = p.normalize(path);
+      if (normalized != oldPath &&
+          !normalized.startsWith('$oldPath${p.separator}')) {
         continue;
       }
 
-      final suffix =
-          normalizedPath.substring(normalizedOld.length);
-
-      final newPath = p.normalize(
-        '$normalizedNew$suffix',
-      );
+      final suffix = normalized.substring(oldPath.length);
+      final updated = p.normalize('$newPath$suffix');
 
       await _repo.updateContent(
         contentId: item['id'] as int,
-        filePath: newPath,
+        filePath: updated,
       );
 
       await _repo.updateFilePath(
         contentId: item['id'] as int,
-        filePath: newPath,
+        filePath: updated,
       );
     }
   }
@@ -443,69 +324,53 @@ class LibraryStorageService {
     required String newName,
   }) async {
     final root = await rootDirectory();
-
     if (root == null) return;
 
-    final oldPath = Directory(
-      p.join(root.path, _safeName(oldName)),
-    );
+    final oldDir = Directory(p.join(root.path, _safeName(oldName)));
+    final newDir = Directory(p.join(root.path, _safeName(newName)));
 
-    final newPath = Directory(
-      p.join(root.path, _safeName(newName)),
-    );
+    if (p.normalize(oldDir.path) == p.normalize(newDir.path)) return;
 
-    if (p.normalize(oldPath.path) ==
-        p.normalize(newPath.path)) {
-      return;
-    }
-
-    if (await newPath.exists()) {
+    if (await newDir.exists()) {
       throw const FileSystemException(
         'A folder with the new subject name already exists.',
       );
     }
 
-    if (await oldPath.exists()) {
-      await oldPath.rename(newPath.path);
+    if (await oldDir.exists()) {
+      await oldDir.rename(newDir.path);
     } else {
-      await newPath.create(recursive: true);
+      await newDir.create(recursive: true);
     }
 
     await _replaceStoredPathPrefix(
-      oldPrefix: oldPath.path,
-      newPrefix: newPath.path,
+      oldPrefix: oldDir.path,
+      newPrefix: newDir.path,
     );
   }
 
-  Future<void> deleteSubjectDirectory(
-    int subjectId,
-  ) async {
+  Future<void> deleteSubjectDirectory(int subjectId) async {
     final root = await rootDirectory();
-
     if (root == null) return;
 
     final subjects = await _repo.getSubjects();
-
     Map<String, dynamic>? subject;
 
-    for (final item in subjects) {
-      if (item['id'] == subjectId) {
-        subject = item;
+    for (final x in subjects) {
+      if (x['id'] == subjectId) {
+        subject = x;
         break;
       }
     }
 
     if (subject == null) return;
 
-    final directory = Directory(
-      p.join(
-        root.path,
-        _safeName(subject['name'].toString()),
-      ),
+    final dir = Directory(
+      p.join(root.path, _safeName(subject['name'].toString())),
     );
 
-    if (await directory.exists()) {
-      await directory.delete(recursive: true);
+    if (await dir.exists()) {
+      await dir.delete(recursive: true);
     }
   }
 
@@ -517,101 +382,68 @@ class LibraryStorageService {
     int? subjectId,
   }) async {
     final folder = await _repo.getFolder(folderId);
-
     if (folder == null) return;
 
-    final resolvedParentId =
-        parentId ?? folder['parent_id'] as int?;
+    final parent = parentId ?? folder['parent_id'] as int?;
+    final subject = subjectId ?? folder['subject_id'] as int?;
 
-    final resolvedSubjectId =
-        subjectId ?? folder['subject_id'] as int?;
+    Directory? parentDir;
 
-    Directory? parent;
-
-    if (resolvedParentId != null) {
-      parent = await folderDirectory(
-        resolvedParentId,
-      );
-    } else if (resolvedSubjectId != null) {
-      parent = await subjectDirectory(
-        resolvedSubjectId,
-      );
+    if (parent != null) {
+      parentDir = await folderDirectory(parent);
+    } else if (subject != null) {
+      parentDir = await subjectDirectory(subject);
     }
 
-    if (parent == null) return;
+    if (parentDir == null) return;
 
-    final oldDirectory = Directory(
-      p.join(
-        parent.path,
-        _safeName(oldName),
-      ),
+    final oldDir = Directory(
+      p.join(parentDir.path, _safeName(oldName)),
+    );
+    final newDir = Directory(
+      p.join(parentDir.path, _safeName(newName)),
     );
 
-    final newDirectory = Directory(
-      p.join(
-        parent.path,
-        _safeName(newName),
-      ),
-    );
+    if (p.normalize(oldDir.path) == p.normalize(newDir.path)) return;
 
-    if (p.normalize(oldDirectory.path) ==
-        p.normalize(newDirectory.path)) {
-      return;
-    }
-
-    if (await newDirectory.exists()) {
+    if (await newDir.exists()) {
       throw const FileSystemException(
         'A folder with the new name already exists here.',
       );
     }
 
-    if (await oldDirectory.exists()) {
-      await oldDirectory.rename(
-        newDirectory.path,
-      );
+    if (await oldDir.exists()) {
+      await oldDir.rename(newDir.path);
     } else {
-      await newDirectory.create(
-        recursive: true,
-      );
+      await newDir.create(recursive: true);
     }
 
     await _replaceStoredPathPrefix(
-      oldPrefix: oldDirectory.path,
-      newPrefix: newDirectory.path,
+      oldPrefix: oldDir.path,
+      newPrefix: newDir.path,
     );
   }
 
-  Future<void> prepareFolderDeletion(
-    int folderId,
-  ) async {
+  Future<void> prepareFolderDeletion(int folderId) async {
     final folder = await _repo.getFolder(folderId);
-
     if (folder == null) return;
 
-    final subjectId =
-        folder['subject_id'] as int?;
-
+    final subjectId = folder['subject_id'] as int?;
     if (subjectId == null) return;
 
-    final root =
-        await subjectDirectory(subjectId);
-
+    final root = await subjectDirectory(subjectId);
     if (root == null) return;
 
-    final folders =
-        await _repo.getAllFolders();
-
+    final folders = await _repo.getAllFolders();
     final descendants = <int>{folderId};
 
     var changed = true;
-
     while (changed) {
       changed = false;
 
       for (final item in folders) {
         final id = item['id'] as int;
-        final parent =
-            item['parent_id'] as int?;
+        final parent = item['parent_id'] as int?;
 
         if (parent != null &&
             descendants.contains(parent) &&
@@ -622,19 +454,13 @@ class LibraryStorageService {
       }
     }
 
-    final contents =
-        await _repo.getContent();
+    final contents = await _repo.getContent();
 
     for (final item in contents) {
-      final currentFolder =
-          item['folder_id'] as int?;
+      final currentFolder = item['folder_id'] as int?;
+      if (!descendants.contains(currentFolder)) continue;
 
-      if (!descendants.contains(currentFolder)) {
-        continue;
-      }
-
-      final path =
-          item['file_path']?.toString();
+      final path = item['file_path']?.toString();
 
       if (path != null && path.isNotEmpty) {
         final source = File(path);
@@ -645,9 +471,7 @@ class LibraryStorageService {
             p.basename(path),
           );
 
-          await source.rename(
-            destination.path,
-          );
+          await source.rename(destination.path);
 
           await _repo.moveContentToFolder(
             contentId: item['id'] as int,
@@ -670,41 +494,23 @@ class LibraryStorageService {
       );
     }
 
-    final directory =
-        await folderDirectory(folderId);
-
-    if (directory != null &&
-        await directory.exists()) {
-      await directory.delete(
-        recursive: true,
-      );
+    final dir = await folderDirectory(folderId);
+    if (dir != null && await dir.exists()) {
+      await dir.delete(recursive: true);
     }
   }
 
-  Future<String> hashFile(
-    String path,
-  ) async {
-    final digest =
-        await sha256.bind(
-      File(path).openRead(),
-    ).first;
-
+  Future<String> hashFile(String path) async {
+    final digest = await sha256.bind(File(path).openRead()).first;
     return digest.toString();
   }
 
-  Future<void> shareFile(
-    String path,
-  ) async {
-    await Share.shareXFiles([
-      XFile(path),
-    ]);
+  Future<void> shareFile(String path) async {
+    await Share.shareXFiles([XFile(path)]);
   }
 
-  Future<void> shareFolder(
-    Directory directory,
-  ) async {
-    final temp =
-        await getTemporaryDirectory();
+  Future<void> shareFolder(Directory directory) async {
+    final temp = await getTemporaryDirectory();
 
     final zipPath = p.join(
       temp.path,
@@ -712,86 +518,53 @@ class LibraryStorageService {
     );
 
     final encoder = ZipFileEncoder();
-
     encoder.create(zipPath);
-
     await encoder.addDirectory(directory);
-
     await encoder.close();
 
-    await Share.shareXFiles([
-      XFile(zipPath),
-    ]);
+    await Share.shareXFiles([XFile(zipPath)]);
   }
 
   Future<void> _syncTree() async {
     final root = _root;
-
     if (root == null) return;
 
-    await root.create(
-      recursive: true,
-    );
+    await root.create(recursive: true);
 
-    await Directory(
-      p.join(root.path, 'Content'),
-    ).create(recursive: true);
+    for (final name in ['Content', 'Backups', 'Exports']) {
+      await Directory(
+        p.join(root.path, name),
+      ).create(recursive: true);
+    }
 
-    await Directory(
-      p.join(root.path, 'Backups'),
-    ).create(recursive: true);
+    final subjects = await _repo.getSubjects();
 
-    await Directory(
-      p.join(root.path, 'Exports'),
-    ).create(recursive: true);
-
-    final subjects =
-        await _repo.getSubjects();
-
-    final byId =
-        <int, Map<String, dynamic>>{
-      for (final subject in subjects)
-        subject['id'] as int: subject,
+    final byId = <int, Map<String, dynamic>>{
+      for (final s in subjects) s['id'] as int: s,
     };
 
     for (final subject in subjects) {
-      final directory = Directory(
+      await Directory(
         p.join(
           root.path,
-          _safeName(
-            subject['name'].toString(),
-          ),
+          _safeName(subject['name'].toString()),
         ),
-      );
-
-      await directory.create(
-        recursive: true,
-      );
+      ).create(recursive: true);
     }
 
-    final folders =
-        await _repo.getAllFolders();
+    final folders = await _repo.getAllFolders();
 
     for (final folder in folders) {
-      final subjectId =
-          folder['subject_id'] as int?;
+      final subjectId = folder['subject_id'] as int?;
 
-      if (subjectId == null ||
-          byId[subjectId] == null) {
-        continue;
-      }
+      if (subjectId == null || byId[subjectId] == null) continue;
 
       final parts = <String>[];
-
-      int? current =
-          folder['id'] as int?;
-
+      int? current = folder['id'] as int?;
       final visited = <int>{};
 
       while (current != null) {
-        if (!visited.add(current)) {
-          break;
-        }
+        if (!visited.add(current)) break;
 
         Map<String, dynamic>? currentFolder;
 
@@ -802,36 +575,25 @@ class LibraryStorageService {
           }
         }
 
-        if (currentFolder == null) {
-          break;
-        }
+        if (currentFolder == null) break;
 
         parts.insert(
           0,
-          _safeName(
-            currentFolder['name'].toString(),
-          ),
+          _safeName(currentFolder['name'].toString()),
         );
 
-        current =
-            currentFolder['parent_id'] as int?;
+        current = currentFolder['parent_id'] as int?;
       }
 
       if (parts.isEmpty) continue;
 
-      final directory = Directory(
+      await Directory(
         p.joinAll([
           root.path,
-          _safeName(
-            byId[subjectId]!['name'].toString(),
-          ),
+          _safeName(byId[subjectId]!['name'].toString()),
           ...parts,
         ]),
-      );
-
-      await directory.create(
-        recursive: true,
-      );
+      ).create(recursive: true);
     }
   }
 
@@ -839,57 +601,42 @@ class LibraryStorageService {
     Directory directory,
     String name,
   ) async {
-    final original =
-        _safeName(p.basename(name));
-
-    final extension =
-        p.extension(original);
+    final original = _safeName(p.basename(name));
+    final extension = p.extension(original);
 
     final base = extension.isEmpty
         ? original
         : original.substring(
             0,
-            original.length -
-                extension.length,
+            original.length - extension.length,
           );
 
-    var candidate = File(
-      p.join(
-        directory.path,
-        original,
-      ),
+    var file = File(
+      p.join(directory.path, original),
     );
 
     var index = 1;
 
-    while (await candidate.exists()) {
-      candidate = File(
+    while (await file.exists()) {
+      file = File(
         p.join(
           directory.path,
           '$base ($index)$extension',
         ),
       );
-
       index++;
     }
 
-    return candidate;
+    return file;
   }
 
   String _safeName(String value) {
     final cleaned = value
-        .replaceAll(
-          RegExp(r'[\\/:*?"<>|]'),
-          '_',
-        )
-        .replaceAll(
-          RegExp(r'\.{2,}'),
-          '.',
-        )
+        .replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')
+        .replaceAll(RegExp(r'\.{2,}'), '.')
         .trim();
 
-    if (cleaned.isEmpty ||
-        cleaned == '.') {
+    if (cleaned.isEmpty || cleaned == '.') {
       return 'Untitled';
     }
 
