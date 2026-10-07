@@ -155,7 +155,6 @@ class _SubjectPageState extends State<SubjectPage> {
       );
 
       await _storage.folderDirectory(id);
-
       await load();
     } catch (e) {
       if (mounted) {
