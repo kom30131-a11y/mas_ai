@@ -2,17 +2,15 @@ import 'package:flutter/material.dart';
 
 import '../../core/database/database_repository.dart';
 import '../../core/storage/library_storage_service.dart';
-import 'actions/content_actions.dart'
-    as content_actions;
+import 'actions/content_actions.dart' as content_actions;
 import 'content/library_content_helper.dart';
 import 'folder_page.dart';
+import 'move/move_folder_page.dart';
 import 'text/text_editor_page.dart';
 import 'widgets/library_helpers.dart';
 
-final _repo =
-    DatabaseRepository.instance;
-final _storage =
-    LibraryStorageService.instance;
+final _repo = DatabaseRepository.instance;
+final _storage = LibraryStorageService.instance;
 
 class SubjectPage extends StatefulWidget {
   final int subjectId;
@@ -25,12 +23,10 @@ class SubjectPage extends StatefulWidget {
   });
 
   @override
-  State<SubjectPage> createState() =>
-      _SubjectPageState();
+  State<SubjectPage> createState() => _SubjectPageState();
 }
 
-class _SubjectPageState
-    extends State<SubjectPage> {
+class _SubjectPageState extends State<SubjectPage> {
   List<Map<String, dynamic>> folders = [];
   List<Map<String, dynamic>> content = [];
   bool loading = true;
@@ -42,35 +38,27 @@ class _SubjectPageState
   }
 
   Future<void> load() async {
-    final allFolders =
-        await _repo.getFolders();
-    final allContent =
-        await _repo.getContent();
+    final allFolders = await _repo.getFolders();
+    final allContent = await _repo.getContent();
 
     if (!mounted) return;
 
     setState(() {
       folders = allFolders
           .where(
-            (item) =>
-                item['subject_id'] ==
-                widget.subjectId,
+            (item) => item['subject_id'] == widget.subjectId,
           )
           .where(
-            (item) =>
-                item['parent_id'] == null,
+            (item) => item['parent_id'] == null,
           )
           .toList();
 
       content = allContent
           .where(
-            (item) =>
-                item['subject_id'] ==
-                widget.subjectId,
+            (item) => item['subject_id'] == widget.subjectId,
           )
           .where(
-            (item) =>
-                item['folder_id'] == null,
+            (item) => item['folder_id'] == null,
           )
           .toList();
 
@@ -82,13 +70,11 @@ class _SubjectPageState
     String title, [
     String? old,
   ]) async {
-    final controller =
-        TextEditingController(
+    final controller = TextEditingController(
       text: old ?? '',
     );
 
-    final result =
-        await showDialog<String>(
+    final result = await showDialog<String>(
       context: context,
       builder: (_) => AlertDialog(
         title: Text(title),
@@ -98,21 +84,15 @@ class _SubjectPageState
         ),
         actions: [
           TextButton(
-            onPressed: () =>
-                Navigator.pop(context),
-            child:
-                const Text('Cancel'),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () {
-              final value =
-                  controller.text.trim();
+              final value = controller.text.trim();
 
               if (value.isNotEmpty) {
-                Navigator.pop(
-                  context,
-                  value,
-                );
+                Navigator.pop(context, value);
               }
             },
             child: const Text('Save'),
@@ -130,30 +110,25 @@ class _SubjectPageState
   ) async {
     return await showDialog<bool>(
           context: context,
-          builder: (_) =>
-              AlertDialog(
+          builder: (_) => AlertDialog(
             title: Text(title),
             content: const Text(
               'This item will be deleted.',
             ),
             actions: [
               TextButton(
-                onPressed: () =>
-                    Navigator.pop(
+                onPressed: () => Navigator.pop(
                   context,
                   false,
                 ),
-                child:
-                    const Text('Cancel'),
+                child: const Text('Cancel'),
               ),
               FilledButton(
-                onPressed: () =>
-                    Navigator.pop(
+                onPressed: () => Navigator.pop(
                   context,
                   true,
                 ),
-                child:
-                    const Text('Delete'),
+                child: const Text('Delete'),
               ),
             ],
           ),
@@ -162,23 +137,17 @@ class _SubjectPageState
   }
 
   Future<void> _newFolder() async {
-    final name = await _ask(
-      'New folder',
-    );
+    final name = await _ask('New folder');
 
-    if (!mounted || name == null) {
-      return;
-    }
+    if (!mounted || name == null) return;
 
-    final id =
-        await _repo.insertFolder(
+    final id = await _repo.insertFolder(
       name: name,
       parentId: null,
       subjectId: widget.subjectId,
     );
 
     await _storage.folderDirectory(id);
-
     await load();
   }
 
@@ -190,9 +159,7 @@ class _SubjectPageState
       item['name']?.toString(),
     );
 
-    if (!mounted || name == null) {
-      return;
-    }
+    if (!mounted || name == null) return;
 
     await _storage.renameFolderDirectory(
       folderId: item['id'] as int,
@@ -212,11 +179,7 @@ class _SubjectPageState
   Future<void> _deleteFolder(
     Map<String, dynamic> item,
   ) async {
-    if (!await _confirm(
-      'Delete folder?',
-    )) {
-      return;
-    }
+    if (!await _confirm('Delete folder?')) return;
 
     await _storage.prepareFolderDeletion(
       item['id'] as int,
@@ -229,21 +192,37 @@ class _SubjectPageState
     await load();
   }
 
+  Future<void> _moveFolder(
+    Map<String, dynamic> item,
+  ) async {
+    final changed = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MoveFolderPage(
+          folderId: item['id'] as int,
+          subjectId: widget.subjectId,
+          currentParentId:
+              item['parent_id'] as int?,
+        ),
+      ),
+    );
+
+    if (changed == true && mounted) {
+      await load();
+    }
+  }
+
   Future<void> _addContent() async {
     final type = await choose(context);
 
-    if (!mounted || type == null) {
-      return;
-    }
+    if (!mounted || type == null) return;
 
     if (type == 'text') {
       await Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) =>
-              TextEditorPage(
-            subjectId:
-                widget.subjectId,
+          builder: (_) => TextEditorPage(
+            subjectId: widget.subjectId,
             folderId: null,
           ),
         ),
@@ -262,8 +241,7 @@ class _SubjectPageState
   Future<void> _deleteContent(
     Map<String, dynamic> item,
   ) async {
-    await content_actions
-        .removeContent(
+    await content_actions.removeContent(
       context,
       item,
       load,
@@ -273,8 +251,7 @@ class _SubjectPageState
   Future<void> _renameContent(
     Map<String, dynamic> item,
   ) async {
-    await content_actions
-        .editContent(
+    await content_actions.editContent(
       context,
       item,
       load,
@@ -288,13 +265,10 @@ class _SubjectPageState
       context,
       MaterialPageRoute(
         builder: (_) => FolderPage(
-          subjectId:
-              widget.subjectId,
-          folderId:
-              item['id'] as int,
+          subjectId: widget.subjectId,
+          folderId: item['id'] as int,
           folderName:
-              item['name']?.toString() ??
-                  'Folder',
+              item['name']?.toString() ?? 'Folder',
         ),
       ),
     );
@@ -340,16 +314,17 @@ class _SubjectPageState
               await _renameFolder(item);
               break;
 
+            case 'move':
+              await _moveFolder(item);
+              break;
+
             case 'share':
-              final dir =
-                  await _storage
-                      .folderDirectory(
+              final dir = await _storage.folderDirectory(
                 item['id'] as int,
               );
 
               if (dir != null) {
-                await _storage
-                    .shareFolder(dir);
+                await _storage.shareFolder(dir);
               }
               break;
 
@@ -381,27 +356,25 @@ class _SubjectPageState
         PopupMenuItem(
           value: 'rename',
           child: Text(
-            isFolder
-                ? 'Rename folder'
-                : 'Rename',
+            isFolder ? 'Rename folder' : 'Rename',
           ),
         ),
-        if (!isFolder)
-          const PopupMenuItem(
-            value: 'move',
-            child:
-                Text('Move to folder'),
+        const PopupMenuItem(
+          value: 'move',
+          child: Text(
+            'Move',
           ),
+        ),
         const PopupMenuItem(
           value: 'share',
-          child: Text('Share'),
+          child: Text(
+            'Share',
+          ),
         ),
         PopupMenuItem(
           value: 'delete',
           child: Text(
-            isFolder
-                ? 'Delete folder'
-                : 'Delete',
+            isFolder ? 'Delete folder' : 'Delete',
           ),
         ),
       ],
@@ -414,15 +387,13 @@ class _SubjectPageState
       showDragHandle: true,
       builder: (_) => SafeArea(
         child: Column(
-          mainAxisSize:
-              MainAxisSize.min,
+          mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
               leading: const Icon(
                 Icons.insert_drive_file_outlined,
               ),
-              title:
-                  const Text('Add file'),
+              title: const Text('Add file'),
               onTap: () async {
                 Navigator.pop(context);
                 await _addContent();
@@ -432,8 +403,7 @@ class _SubjectPageState
               leading: const Icon(
                 Icons.create_new_folder_outlined,
               ),
-              title:
-                  const Text('New folder'),
+              title: const Text('New folder'),
               onTap: () async {
                 Navigator.pop(context);
                 await _newFolder();
@@ -453,11 +423,12 @@ class _SubjectPageState
         Icons.folder_outlined,
       ),
       title: Text(
-        item['name']?.toString() ??
-            'Folder',
+        item['name']?.toString() ?? 'Folder',
       ),
-      trailing:
-          _menu(item, isFolder: true),
+      trailing: _menu(
+        item,
+        isFolder: true,
+      ),
       onTap: () => _openFolder(item),
     );
   }
@@ -472,14 +443,15 @@ class _SubjectPageState
         ),
       ),
       title: Text(
-        item['title']?.toString() ??
-            'Material',
+        item['title']?.toString() ?? 'Material',
       ),
       subtitle: Text(
         item['type']?.toString() ?? '',
       ),
-      trailing:
-          _menu(item, isFolder: false),
+      trailing: _menu(
+        item,
+        isFolder: false,
+      ),
       onTap: () => _openContent(item),
     );
   }
@@ -501,81 +473,71 @@ class _SubjectPageState
       ),
       body: loading
           ? const Center(
-              child:
-                  CircularProgressIndicator(),
+              child: CircularProgressIndicator(),
             )
           : RefreshIndicator(
               onRefresh: load,
-              child:
-                  folders.isEmpty &&
-                          content.isEmpty
-                      ? ListView(
-                          physics:
-                              const AlwaysScrollableScrollPhysics(),
-                          children: const [
-                            SizedBox(
-                              height: 180,
-                            ),
-                            Center(
-                              child: Text(
-                                'No folders or materials yet.',
-                              ),
-                            ),
-                          ],
-                        )
-                      : ListView(
-                          padding:
-                              const EdgeInsets.only(
-                            top: 8,
-                            bottom: 24,
+              child: folders.isEmpty && content.isEmpty
+                  ? ListView(
+                      physics:
+                          const AlwaysScrollableScrollPhysics(),
+                      children: const [
+                        SizedBox(height: 180),
+                        Center(
+                          child: Text(
+                            'No folders or materials yet.',
                           ),
-                          children: [
-                            if (folders.isNotEmpty) ...[
-                              const Padding(
-                                padding:
-                                    EdgeInsets.fromLTRB(
-                                  16,
-                                  16,
-                                  16,
-                                  8,
-                                ),
-                                child: Text(
-                                  'Folders',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight:
-                                        FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              ...folders.map(
-                                _folderTile,
-                              ),
-                            ],
-                            if (content.isNotEmpty) ...[
-                              const Padding(
-                                padding:
-                                    EdgeInsets.fromLTRB(
-                                  16,
-                                  20,
-                                  16,
-                                  8,
-                                ),
-                                child: Text(
-                                  'Materials',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight:
-                                        FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              ...content.map(
-                                _contentTile,
-                              ),
-                            ],
-                          ],
                         ),
+                      ],
+                    )
+                  : ListView(
+                      padding: const EdgeInsets.only(
+                        top: 8,
+                        bottom: 24,
+                      ),
+                      children: [
+                        if (folders.isNotEmpty) ...[
+                          const Padding(
+                            padding: EdgeInsets.fromLTRB(
+                              16,
+                              16,
+                              16,
+                              8,
+                            ),
+                            child: Text(
+                              'Folders',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          ...folders.map(
+                            _folderTile,
+                          ),
+                        ],
+                        if (content.isNotEmpty) ...[
+                          const Padding(
+                            padding: EdgeInsets.fromLTRB(
+                              16,
+                              20,
+                              16,
+                              8,
+                            ),
+                            child: Text(
+                              'Materials',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          ...content.map(
+                            _contentTile,
+                          ),
+                        ],
+                      ],
+                    ),
             ),
     );
   }
