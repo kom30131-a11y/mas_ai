@@ -20,12 +20,12 @@ class WordToolbarPage extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.crop_portrait),
                 title: const Text('A4 Portrait'),
-                onTap: () => Navigator.pop(context, 'a4'),
+                onTap: () => Navigator.pop(context, 'portrait'),
               ),
               ListTile(
                 leading: const Icon(Icons.crop_landscape),
                 title: const Text('A4 Landscape'),
-                onTap: () => Navigator.pop(context, 'a4_landscape'),
+                onTap: () => Navigator.pop(context, 'landscape'),
               ),
             ],
           ),
@@ -33,23 +33,19 @@ class WordToolbarPage extends StatelessWidget {
       },
     );
 
-    if (value == null) return;
+    if (!context.mounted || value == null) return;
 
-    if (value == 'a4') {
-      controller.setPageSize(
-        const WmlPageSize(
-          widthTwips: 11906,
-          heightTwips: 16838,
-        ),
-      );
-    } else {
-      controller.setPageSize(
-        const WmlPageSize(
-          widthTwips: 16838,
-          heightTwips: 11906,
-        ),
-      );
-    }
+    controller.setPageSize(
+      value == 'portrait'
+          ? const WmlPageSize(
+              widthTwips: 11906,
+              heightTwips: 16838,
+            )
+          : const WmlPageSize(
+              widthTwips: 16838,
+              heightTwips: 11906,
+            ),
+    );
 
     controller.refresh();
   }
@@ -78,7 +74,7 @@ class WordToolbarPage extends StatelessWidget {
       },
     );
 
-    if (value == null) return;
+    if (!context.mounted || value == null) return;
 
     controller.setPageLandscape(value);
     controller.refresh();
