@@ -20,42 +20,27 @@ class WordToolbarSection extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.vertical_align_top),
                 title: const Text('Different first page'),
-                onTap: () => Navigator.pop(
-                  context,
-                  'first',
-                ),
+                onTap: () => Navigator.pop(context, 'first'),
               ),
               ListTile(
                 leading: const Icon(Icons.view_week),
                 title: const Text('Different odd/even pages'),
-                onTap: () => Navigator.pop(
-                  context,
-                  'odd_even',
-                ),
+                onTap: () => Navigator.pop(context, 'odd_even'),
               ),
               ListTile(
                 leading: const Icon(Icons.link),
                 title: const Text('Link to previous'),
-                onTap: () => Navigator.pop(
-                  context,
-                  'link',
-                ),
+                onTap: () => Navigator.pop(context, 'link'),
               ),
               ListTile(
                 leading: const Icon(Icons.view_column),
                 title: const Text('Two columns'),
-                onTap: () => Navigator.pop(
-                  context,
-                  'columns',
-                ),
+                onTap: () => Navigator.pop(context, 'columns'),
               ),
               ListTile(
                 leading: const Icon(Icons.watermark),
                 title: const Text('Watermark'),
-                onTap: () => Navigator.pop(
-                  context,
-                  'watermark',
-                ),
+                onTap: () => Navigator.pop(context, 'watermark'),
               ),
             ],
           ),
@@ -63,7 +48,7 @@ class WordToolbarSection extends StatelessWidget {
       },
     );
 
-    if (value == null) return;
+    if (!context.mounted || value == null) return;
 
     switch (value) {
       case 'first':
@@ -79,9 +64,7 @@ class WordToolbarSection extends StatelessWidget {
         controller.setSectionColumns(2);
         break;
       case 'watermark':
-        controller.setWatermark(
-          text: 'MedLibra',
-        );
+        controller.setWatermark(text: 'MedLibra');
         break;
     }
 
