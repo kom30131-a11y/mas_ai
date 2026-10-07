@@ -22,10 +22,17 @@ class MoveContentPage extends StatefulWidget {
 
 class _MoveContentPageState
     extends State<MoveContentPage> {
-  final repo = DatabaseRepository.instance;
-  final storage = LibraryStorageService.instance;
+  final repo =
+      DatabaseRepository.instance;
 
-  List<Map<String, dynamic>> folders = [];
+  final storage =
+      LibraryStorageService.instance;
+
+  List<Map<String, dynamic>>
+      subjects = [];
+
+  List<Map<String, dynamic>>
+      folders = [];
 
   bool loading = true;
   bool moving = false;
@@ -37,142 +44,286 @@ class _MoveContentPageState
   }
 
   Future<void> load() async {
-    final all = await repo.getAllFolders();
+    final loadedSubjects =
+        await repo.getSubjects();
+
+    final loadedFolders =
+        await repo.getAllFolders();
 
     if (!mounted) return;
 
     setState(() {
-      folders = all
-          .where(
-            (item) =>
-                item['subject_id'] ==
-                widget.subjectId,
-          )
-          .toList();
+      subjects =
+          loadedSubjects;
+
+      folders =
+          loadedFolders;
 
       loading = false;
     });
   }
 
-  Future<void> moveTo(int? folderId) async {
-    if (folderId == widget.currentFolderId) {
-      Navigator.pop(context, false);
+  List<Map<String, dynamic>>
+      foldersForSubject(
+    int subjectId,
+  ) {
+    return folders
+        .where(
+          (item) =>
+              item['subject_id'] ==
+              subjectId,
+        )
+        .toList();
+  }
+
+  bool isCurrentLocation(
+    int subjectId,
+    int? folderId,
+  ) {
+    return subjectId ==
+            widget.subjectId &&
+        folderId ==
+            widget.currentFolderId;
+  }
+
+  String folderPath(
+    int folderId,
+    int subjectId,
+  ) {
+    final subjectFolders =
+        foldersForSubject(
+      subjectId,
+    );
+
+    final byId =
+        <int, Map<String, dynamic>>{
+      for (final item
+          in subjectFolders)
+        item['id'] as int:
+            item,
+    };
+
+    final names =
+        <String>[];
+
+    int? current =
+        folderId;
+
+    while (current != null) {
+      final folder =
+          byId[current];
+
+      if (folder == null) {
+        break;
+      }
+
+      names.insert(
+        0,
+        folder['name']
+            .toString(),
+      );
+
+      current =
+          folder['parent_id']
+              as int?;
+    }
+
+    return names.join(
+      ' / ',
+    );
+  }
+
+  Future<void> moveTo({
+    required int subjectId,
+    required int? folderId,
+  }) async {
+    if (isCurrentLocation(
+      subjectId,
+      folderId,
+    )) {
+      Navigator.pop(
+        context,
+        false,
+      );
+
       return;
     }
 
-    setState(() => moving = true);
+    setState(
+      () => moving = true,
+    );
 
     try {
       await storage.moveContentFile(
         content: widget.content,
-        destinationFolderId: folderId,
+        destinationSubjectId:
+            subjectId,
+        destinationFolderId:
+            folderId,
       );
 
       if (mounted) {
-        Navigator.pop(context, true);
+        Navigator.pop(
+          context,
+          true,
+        );
       }
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
 
-      setState(() => moving = false);
+      setState(
+        () => moving = false,
+      );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        SnackBar(
           content: Text(
-            'Could not move this file.',
+            'Could not move this material: $error',
           ),
         ),
       );
     }
   }
 
-  String pathFor(int? folderId) {
-    if (folderId == null) {
-      return 'Subject root';
-    }
-
-    final byId = <int, Map<String, dynamic>>{
-      for (final item in folders)
-        item['id'] as int: item,
-    };
-
-    final names = <String>[];
-
-    int? current = folderId;
-
-    while (current != null) {
-      final item = byId[current];
-
-      if (item == null) break;
-
-      names.insert(
-        0,
-        item['name'].toString(),
-      );
-
-      current = item['parent_id'] as int?;
-    }
-
-    return names.join(' / ');
-  }
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Move material'),
+        title:
+            const Text(
+          'Move material',
+        ),
       ),
       body: loading
           ? const Center(
-              child: CircularProgressIndicator(),
+              child:
+                  CircularProgressIndicator(),
             )
           : ListView(
               children: [
-                ListTile(
-                  leading: const Icon(
-                    Icons.folder_open_outlined,
-                  ),
-                  title: const Text(
-                    'Subject root',
-                  ),
-                  subtitle: Text(
-                    pathFor(null),
-                  ),
-                  trailing:
-                      widget.currentFolderId == null
-                          ? const Icon(Icons.check)
-                          : null,
-                  onTap: moving
-                      ? null
-                      : () => moveTo(null),
-                ),
-
-                for (final folder in folders)
+                for (final subject
+                    in subjects) ...[
                   ListTile(
-                    leading: const Icon(
-                      Icons.folder_outlined,
+                    contentPadding:
+                        const EdgeInsets.fromLTRB(
+                      20,
+                      12,
+                      16,
+                      4,
+                    ),
+                    leading:
+                        const Icon(
+                      Icons
+                          .folder_special_outlined,
                     ),
                     title: Text(
-                      folder['name'].toString(),
-                    ),
-                    subtitle: Text(
-                      pathFor(
-                        folder['id'] as int,
+                      subject['name']
+                          .toString(),
+                      style:
+                          const TextStyle(
+                        fontWeight:
+                            FontWeight.w700,
                       ),
                     ),
+                  ),
+                  ListTile(
+                    contentPadding:
+                        const EdgeInsets.only(
+                      left: 52,
+                      right: 16,
+                    ),
+                    leading:
+                        const Icon(
+                      Icons
+                          .home_outlined,
+                    ),
+                    title:
+                        const Text(
+                      'Subject root',
+                    ),
+                    subtitle:
+                        const Text(
+                      'Root of this subject',
+                    ),
                     trailing:
-                        widget.currentFolderId ==
-                                folder['id']
+                        isCurrentLocation(
+                                subject['id']
+                                    as int,
+                                null)
                             ? const Icon(
                                 Icons.check,
                               )
                             : null,
-                    onTap: moving
-                        ? null
-                        : () => moveTo(
-                              folder['id'] as int,
+                    onTap:
+                        moving
+                            ? null
+                            : () =>
+                                moveTo(
+                              subjectId:
+                                  subject['id']
+                                      as int,
+                              folderId:
+                                  null,
                             ),
                   ),
+                  for (final folder
+                      in foldersForSubject(
+                    subject['id']
+                        as int,
+                  ))
+                    ListTile(
+                      contentPadding:
+                          const EdgeInsets.only(
+                        left: 52,
+                        right: 16,
+                      ),
+                      leading:
+                          const Icon(
+                        Icons
+                            .folder_outlined,
+                      ),
+                      title:
+                          Text(
+                        folder['name']
+                            .toString(),
+                      ),
+                      subtitle:
+                          Text(
+                        folderPath(
+                          folder['id']
+                              as int,
+                          subject['id']
+                              as int,
+                        ),
+                      ),
+                      trailing:
+                          isCurrentLocation(
+                            subject['id']
+                                as int,
+                            folder['id']
+                                as int,
+                          )
+                              ? const Icon(
+                                  Icons.check,
+                                )
+                              : null,
+                      onTap:
+                          moving
+                              ? null
+                              : () =>
+                                  moveTo(
+                                    subjectId:
+                                        subject['id']
+                                            as int,
+                                    folderId:
+                                        folder['id']
+                                            as int,
+                                  ),
+                    ),
+                ],
               ],
             ),
     );
