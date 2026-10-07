@@ -1,40 +1,54 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/database/database_repository.dart';
+import '../../../core/storage/library_storage_service.dart';
 
-final _repo = DatabaseRepository.instance;
+final _repo =
+    DatabaseRepository.instance;
+
+final _storage =
+    LibraryStorageService.instance;
 
 Future<String?> askSubjectName(
   BuildContext context, {
   String? initialValue,
   String title = 'New subject',
 }) async {
-  final controller = TextEditingController(
+  final controller =
+      TextEditingController(
     text: initialValue,
   );
 
-  final name = await showDialog<String>(
+  final name =
+      await showDialog<String>(
     context: context,
     builder: (_) => AlertDialog(
       title: Text(title),
       content: TextField(
         controller: controller,
         autofocus: true,
-        decoration: const InputDecoration(
+        decoration:
+            const InputDecoration(
           labelText: 'Subject name',
         ),
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          onPressed: () =>
+              Navigator.pop(context),
+          child:
+              const Text('Cancel'),
         ),
         FilledButton(
           onPressed: () {
-            final value = controller.text.trim();
+            final value =
+                controller.text.trim();
 
             if (value.isNotEmpty) {
-              Navigator.pop(context, value);
+              Navigator.pop(
+                context,
+                value,
+              );
             }
           },
           child: const Text('Save'),
@@ -44,6 +58,7 @@ Future<String?> askSubjectName(
   );
 
   controller.dispose();
+
   return name;
 }
 
@@ -51,14 +66,31 @@ Future<void> addSubject(
   BuildContext context,
   VoidCallback refresh,
 ) async {
-  final name = await askSubjectName(context);
+  final name =
+      await askSubjectName(
+    context,
+  );
 
-  if (name == null) return;
+  if (name == null) {
+    return;
+  }
 
-  await _repo.insertSubject({
+  final id =
+      await _repo.insertSubject({
     'name': name,
-    'created_at': DateTime.now().toIso8601String(),
+    'created_at':
+        DateTime.now()
+            .toIso8601String(),
   });
+
+  try {
+    await _storage.subjectDirectory(
+      id,
+    );
+  } catch (_) {
+    await _repo.deleteSubject(id);
+    rethrow;
+  }
 
   refresh();
 }
@@ -68,16 +100,29 @@ Future<void> renameSubject(
   Map<String, dynamic> item,
   VoidCallback refresh,
 ) async {
-  final name = await askSubjectName(
+  final name =
+      await askSubjectName(
     context,
-    initialValue: item['name']?.toString(),
+    initialValue:
+        item['name']?.toString(),
     title: 'Rename subject',
   );
 
-  if (name == null) return;
+  if (name == null) {
+    return;
+  }
+
+  final id =
+      item['id'] as int;
+
+  await _storage
+      .renameSubjectDirectory(
+    subjectId: id,
+    newName: name,
+  );
 
   await _repo.renameSubject(
-    subjectId: item['id'],
+    subjectId: id,
     name: name,
   );
 
@@ -92,32 +137,53 @@ Future<void> removeSubject(
   final confirmed =
       await showDialog<bool>(
         context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('Delete subject?'),
-          content: const Text(
-            'This subject will be deleted.',
+        builder: (_) =>
+            AlertDialog(
+          title:
+              const Text(
+            'Delete subject?',
+          ),
+          content:
+              const Text(
+            'This subject, its folders, and stored materials will be deleted.',
           ),
           actions: [
             TextButton(
               onPressed: () =>
-                  Navigator.pop(context, false),
-              child: const Text('Cancel'),
+                  Navigator.pop(
+                context,
+                false,
+              ),
+              child:
+                  const Text('Cancel'),
             ),
             FilledButton(
               onPressed: () =>
-                  Navigator.pop(context, true),
-              child: const Text('Delete'),
+                  Navigator.pop(
+                context,
+                true,
+              ),
+              child:
+                  const Text('Delete'),
             ),
           ],
         ),
       ) ??
       false;
 
-  if (!confirmed) return;
+  if (!confirmed) {
+    return;
+  }
 
-  await _repo.deleteSubject(
-    item['id'],
+  final id =
+      item['id'] as int;
+
+  await _storage
+      .deleteSubjectDirectory(
+    id,
   );
+
+  await _repo.deleteSubject(id);
 
   refresh();
 }
