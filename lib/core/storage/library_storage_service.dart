@@ -75,35 +75,59 @@ class LibraryStorageService {
     return folderDirectory(folderId);
   }
 
-  Future<Directory?> folderDirectory(int folderId) async {
+  Future<String?> _folderPath(int folderId) async {
     final root = await rootDirectory();
     if (root == null) return null;
+
     final folders = await _repo.getAllFolders();
-    final byId = <int, Map<String, dynamic>>{for (final f in folders) f['id'] as int: f};
+    final byId = <int, Map<String, dynamic>>{
+      for (final folder in folders) folder['id'] as int: folder,
+    };
+
     final folder = byId[folderId];
     if (folder == null) return null;
+
     final subjectId = folder['subject_id'] as int?;
     if (subjectId == null) return null;
+
     final subjects = await _repo.getSubjects();
     Map<String, dynamic>? subject;
+
     for (final item in subjects) {
       if (item['id'] == subjectId) {
         subject = item;
         break;
       }
     }
+
     if (subject == null) return null;
+
     final parts = <String>[];
     int? current = folderId;
     final visited = <int>{};
+
     while (current != null) {
       if (!visited.add(current)) return null;
+
       final item = byId[current];
       if (item == null || item['subject_id'] != subjectId) return null;
+
       parts.insert(0, _safeName(item['name'].toString()));
       current = item['parent_id'] as int?;
     }
-    final dir = Directory(p.joinAll([root.path, _safeName(subject['name'].toString()), ...parts]));
+
+    return p.joinAll([
+      root.path,
+      _safeName(subject['name'].toString()),
+      ...parts,
+    ]);
+  }
+
+  Future<Directory?> folderDirectory(int folderId) async {
+    final path = await _folderPath(folderId);
+    if (path == null) return null;
+
+    final dir = Directory(path);
     await dir.create(recursive: true);
     return dir;
   }
@@ -277,16 +301,40 @@ class LibraryStorageService {
         current = byId[current]?['parent_id'] as int?;
       }
     }
-    final source = await folderDirectory(folderId);
-    if (source == null || !await source.exists()) throw const FileSystemException('Source folder does not exist.');
-    final parent = destinationParentId == null ? await subjectDirectory(subjectId) : await folderDirectory(destinationParentId);
-    if (parent == null) throw const FileSystemException('Destination folder is unavailable.');
-    final destination = Directory(p.join(parent.path, _safeName(folder['name'].toString())));
+    final sourcePath = await _folderPath(folderId);
+    if (sourcePath == null) throw const FileSystemException('Source folder does not exist.');
+
+    final source = Directory(sourcePath);
+    if (!await source.exists()) {
+      throw const FileSystemException('Source folder does not exist.');
+    }
+
+    final parent = destinationParentId == null
+        ? await subjectDirectory(subjectId)
+        : await folderDirectory(destinationParentId);
+
+    if (parent == null) {
+      throw const FileSystemException('Destination folder is unavailable.');
+    }
+
+    final destination = Directory(
+      p.join(parent.path, _safeName(folder['name'].toString())),
+    );
+
     if (p.normalize(source.path) == p.normalize(destination.path)) return;
-    if (await destination.exists()) throw const FileSystemException('A folder with the same name already exists in the destination.');
+
+    if (await destination.exists()) {
+      throw const FileSystemException(
+        'A folder with the same name already exists in the destination.',
+      );
+    }
+
     await destination.parent.create(recursive: true);
     await source.rename(destination.path);
-    await _replaceStoredPathPrefix(oldPrefix: source.path, newPrefix: destination.path);
+    await _replaceStoredPathPrefix(
+      oldPrefix: source.path,
+      newPrefix: destination.path,
+    );
   }
 
   Future<void> prepareFolderDeletion(int folderId) async {
