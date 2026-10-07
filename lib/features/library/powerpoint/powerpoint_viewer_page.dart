@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:microsoft_viewer/microsoft_viewer.dart';
+import 'package:open_filex/open_filex.dart';
 
 class PowerPointViewerPage extends StatefulWidget {
   final String title;
@@ -20,36 +20,43 @@ class PowerPointViewerPage extends StatefulWidget {
 
 class _PowerPointViewerPageState
     extends State<PowerPointViewerPage> {
-  MicrosoftViewer? _viewer;
+  bool _opening = true;
   String? _error;
-  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadFile();
+    _openFile();
   }
 
-  Future<void> _loadFile() async {
+  Future<void> _openFile() async {
     try {
-      final bytes = await File(widget.path).readAsBytes();
+      final file = File(widget.path);
+
+      if (!await file.exists()) {
+        throw Exception('PowerPoint file not found.');
+      }
+
+      final result = await OpenFilex.open(file.path);
 
       if (!mounted) return;
 
-      setState(() {
-        _viewer = MicrosoftViewer(
-          bytes,
-          true,
-          key: ValueKey(widget.path),
-        );
-        _loading = false;
-      });
+      if (result.type != ResultType.done) {
+        setState(() {
+          _error =
+              'Unable to open PowerPoint file.\n${result.message}';
+          _opening = false;
+        });
+        return;
+      }
+
+      setState(() => _opening = false);
     } catch (e) {
       if (!mounted) return;
 
       setState(() {
         _error = 'Unable to open PowerPoint file.\n$e';
-        _loading = false;
+        _opening = false;
       });
     }
   }
@@ -60,31 +67,26 @@ class _PowerPointViewerPageState
       appBar: AppBar(
         title: Text(widget.title),
       ),
-      body: _buildBody(),
-    );
-  }
-
-  Widget _buildBody() {
-    if (_loading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
-    }
-
-    if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            _error!,
-            textAlign: TextAlign.center,
-          ),
-        ),
-      );
-    }
-
-    return SizedBox.expand(
-      child: _viewer ?? const SizedBox.shrink(),
+      body: _opening
+          ? const Center(
+              child: CircularProgressIndicator(),
+            )
+          : _error != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      _error!,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                )
+              : const Center(
+                  child: Text(
+                    'PowerPoint opened in the installed Office application.',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
     );
   }
 }
