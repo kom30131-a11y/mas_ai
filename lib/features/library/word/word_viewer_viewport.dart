@@ -22,7 +22,7 @@ class WordViewerViewport {
       0,
       pages.length - 1,
     );
-    final page = pages[index];
+    final page = pages.indexWhere((p) => p.width > 0) != -1 ? pages[index] : pages.first;
 
     if (page.width <= 0) {
       return false;
