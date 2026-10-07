@@ -71,14 +71,16 @@ class _WordViewerPageState extends State<WordViewerPage> {
 
       if (!mounted) return;
 
-      await Share.shareXFiles(
-        [XFile(temp.path)],
-      );
+      await Share.shareXFiles([
+        XFile(temp.path),
+      ]);
     } catch (e) {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Share failed: $e')),
+        SnackBar(
+          content: Text('Share failed: $e'),
+        ),
       );
     }
   }
@@ -121,8 +123,7 @@ class _WordViewerPageState extends State<WordViewerPage> {
               arabic
                   ? TextDirection.rtl
                   : TextDirection.ltr,
-          strings:
-              arabic ? DocxViewerStrings.arabic : null,
+          strings: DocxViewerStrings.arabic,
         ),
       ),
     );
