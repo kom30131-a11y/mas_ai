@@ -24,10 +24,8 @@ Future<void> openContent(
       MaterialPageRoute(
         builder: (_) =>
             TextEditorPage(
-          subjectId:
-              subjectId,
-          folderId:
-              folderId,
+          subjectId: subjectId,
+          folderId: folderId,
           item: item,
         ),
       ),
@@ -77,6 +75,8 @@ Future<void> openContent(
                       ?.toString() ??
                   'Word',
           path: path,
+          contentId:
+              item['id'] as int?,
         ),
       ),
     );
@@ -108,9 +108,7 @@ Future<void> openContent(
     return;
   }
 
-  _showUnsupportedFile(
-    context,
-  );
+  _showUnsupportedFile(context);
 }
 
 void _showMissingFile(
