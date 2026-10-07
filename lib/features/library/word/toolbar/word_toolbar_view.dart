@@ -1,49 +1,110 @@
 import 'package:flutter/material.dart';
 import 'package:quds_office_editor/quds_office_editor.dart';
 
-class WordToolbarView extends StatelessWidget {
+class WordToolbarReview extends StatelessWidget {
   final WordEditorController controller;
-  final VoidCallback onFitPage;
 
-  const WordToolbarView({
+  const WordToolbarReview({
     super.key,
     required this.controller,
-    required this.onFitPage,
   });
+
+  Future<void> _review(BuildContext context) async {
+    final revision = controller.selectedRevision;
+
+    if (revision == null) {
+      if (controller.hasTrackedChanges) {
+        controller.stepRevision(1);
+        controller.refresh();
+      }
+      return;
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.check),
+                title: const Text('Accept'),
+                onTap: () {
+                  controller.acceptRevision(revision);
+                  controller.refresh();
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.close),
+                title: const Text('Reject'),
+                onTap: () {
+                  controller.rejectRevision(revision);
+                  controller.refresh();
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final hasChanges = controller.hasTrackedChanges;
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
-          tooltip: 'Zoom out',
-          onPressed: () {
-            controller.viewport.zoomOut();
-            controller.refresh();
-          },
-          icon: const Icon(Icons.zoom_out),
+          tooltip: 'Previous change',
+          onPressed: hasChanges
+              ? () {
+                  controller.stepRevision(-1);
+                  controller.refresh();
+                }
+              : null,
+          icon: const Icon(Icons.skip_previous),
         ),
         IconButton(
-          tooltip: 'Zoom in',
-          onPressed: () {
-            controller.viewport.zoomIn();
-            controller.refresh();
-          },
-          icon: const Icon(Icons.zoom_in),
+          tooltip: 'Next change',
+          onPressed: hasChanges
+              ? () {
+                  controller.stepRevision(1);
+                  controller.refresh();
+                }
+              : null,
+          icon: const Icon(Icons.skip_next),
         ),
         IconButton(
-          tooltip: 'Fit width',
-          onPressed: onFitPage,
-          icon: const Icon(Icons.fit_width),
+          tooltip: 'Review change',
+          onPressed: hasChanges
+              ? () => _review(context)
+              : null,
+          icon: const Icon(Icons.rate_review),
         ),
         IconButton(
-          tooltip: 'Actual size',
-          onPressed: () {
-            controller.viewport.setScale(1);
-            controller.refresh();
-          },
-          icon: const Icon(Icons.fullscreen),
+          tooltip: 'Accept all',
+          onPressed: hasChanges
+              ? () {
+                  controller.acceptAllRevisions();
+                  controller.refresh();
+                }
+              : null,
+          icon: const Icon(Icons.done_all),
+        ),
+        IconButton(
+          tooltip: 'Reject all',
+          onPressed: hasChanges
+              ? () {
+                  controller.rejectAllRevisions();
+                  controller.refresh();
+                }
+              : null,
+          icon: const Icon(Icons.clear_all),
         ),
       ],
     );
