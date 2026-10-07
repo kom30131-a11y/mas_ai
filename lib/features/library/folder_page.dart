@@ -157,7 +157,6 @@ class _FolderPageState extends State<FolderPage> {
       );
 
       await _storage.folderDirectory(id);
-
       await load();
     } catch (e) {
       if (mounted) {
@@ -289,9 +288,8 @@ class _FolderPageState extends State<FolderPage> {
 
     if (!mounted || destination == null) return;
 
-    final parentId = destination == -1
-        ? null
-        : destination;
+    final parentId =
+        destination == -1 ? null : destination;
 
     try {
       await _storage.moveFolderDirectory(
