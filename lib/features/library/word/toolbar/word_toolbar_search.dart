@@ -24,9 +24,6 @@ class WordToolbarSearch extends StatelessWidget {
             decoration: const InputDecoration(
               hintText: 'Search',
             ),
-            onSubmitted: (value) {
-              Navigator.pop(context, value);
-            },
           ),
           actions: [
             TextButton(
@@ -34,12 +31,10 @@ class WordToolbarSearch extends StatelessWidget {
               child: const Text('Cancel'),
             ),
             FilledButton(
-              onPressed: () {
-                Navigator.pop(
-                  context,
-                  queryController.text,
-                );
-              },
+              onPressed: () => Navigator.pop(
+                context,
+                queryController.text,
+              ),
               child: const Text('Find'),
             ),
           ],
