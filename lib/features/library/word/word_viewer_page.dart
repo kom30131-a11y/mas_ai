@@ -1,7 +1,9 @@
 import 'dart:io';
 
+import 'package:cross_file/cross_file.dart';
 import 'package:docx_viewer_plus/docx_viewer_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 
 class WordViewerPage extends StatefulWidget {
   final String title;
@@ -19,7 +21,6 @@ class WordViewerPage extends StatefulWidget {
 
 class _WordViewerPageState extends State<WordViewerPage> {
   final _key = GlobalKey<DocxViewerWidgetState>();
-
   bool _saving = false;
 
   Future<void> _save() async {
@@ -36,13 +37,15 @@ class _WordViewerPageState extends State<WordViewerPage> {
 
       if (!mounted) return;
 
-      if (saved != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Word document saved'),
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            saved != null
+                ? 'Word document saved'
+                : 'Nothing to save',
           ),
-        );
-      }
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
 
@@ -65,9 +68,13 @@ class _WordViewerPageState extends State<WordViewerPage> {
 
       if (bytes == null) return;
 
+      final safeName = widget.title.replaceAll(
+        RegExp(r'[\\/:*?"<>|]'),
+        '_',
+      );
+
       final temp = File(
-        '${Directory.systemTemp.path}/'
-        '${widget.title.replaceAll(RegExp(r'[\\\\/:*?"<>|]'), '_')}.docx',
+        '${Directory.systemTemp.path}/$safeName.docx',
       );
 
       await temp.writeAsBytes(bytes);
@@ -132,7 +139,7 @@ class _WordViewerPageState extends State<WordViewerPage> {
                   : TextDirection.ltr,
           strings: arabic
               ? DocxViewerStrings.arabic
-              : null,
+              : DocxViewerStrings.english,
         ),
       ),
     );
