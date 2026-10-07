@@ -9,8 +9,22 @@ class WordToolbarFormatting extends StatelessWidget {
     required this.controller,
   });
 
-  void _apply(WmlRunProps props) {
-    controller.applyRunFormat(props);
+  void _apply({
+    bool? bold,
+    bool? italic,
+    bool? underline,
+    bool? strike,
+    String? vertAlign,
+  }) {
+    controller.applyRunFormat(
+      (props) {
+        if (bold != null) props.bold = bold;
+        if (italic != null) props.italic = italic;
+        if (underline != null) props.underline = underline;
+        if (strike != null) props.strike = strike;
+        if (vertAlign != null) props.vertAlign = vertAlign;
+      },
+    );
     controller.refresh();
   }
 
@@ -24,58 +38,46 @@ class WordToolbarFormatting extends StatelessWidget {
         IconButton(
           tooltip: 'Bold',
           onPressed: () => _apply(
-            WmlRunProps(
-              bold: props.bold != true,
-            ),
+            bold: props.bold != true,
           ),
           icon: const Icon(Icons.format_bold),
         ),
         IconButton(
           tooltip: 'Italic',
           onPressed: () => _apply(
-            WmlRunProps(
-              italic: props.italic != true,
-            ),
+            italic: props.italic != true,
           ),
           icon: const Icon(Icons.format_italic),
         ),
         IconButton(
           tooltip: 'Underline',
           onPressed: () => _apply(
-            WmlRunProps(
-              underline: props.underline == true ? null : true,
-            ),
+            underline: props.underline != true,
           ),
           icon: const Icon(Icons.format_underline),
         ),
         IconButton(
           tooltip: 'Strikethrough',
           onPressed: () => _apply(
-            WmlRunProps(
-              strike: props.strike != true,
-            ),
+            strike: props.strike != true,
           ),
           icon: const Icon(Icons.strikethrough_s),
         ),
         IconButton(
           tooltip: 'Superscript',
           onPressed: () => _apply(
-            WmlRunProps(
-              vertAlign: props.vertAlign == 'superscript'
-                  ? null
-                  : 'superscript',
-            ),
+            vertAlign: props.vertAlign == 'superscript'
+                ? 'baseline'
+                : 'superscript',
           ),
           icon: const Icon(Icons.superscript),
         ),
         IconButton(
           tooltip: 'Subscript',
           onPressed: () => _apply(
-            WmlRunProps(
-              vertAlign: props.vertAlign == 'subscript'
-                  ? null
-                  : 'subscript',
-            ),
+            vertAlign: props.vertAlign == 'subscript'
+                ? 'baseline'
+                : 'subscript',
           ),
           icon: const Icon(Icons.subscript),
         ),
