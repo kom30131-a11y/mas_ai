@@ -4,75 +4,74 @@ import 'package:quds_office_editor/quds_office_editor.dart';
 class WordEditorReview {
   const WordEditorReview._();
 
-  static void enableTrackChanges(
-    WordEditorController c,
+  static void trackChanges(
+    WordEditorController controller,
     bool enabled,
   ) {
-    c.setTrackRevisions(enabled);
-    c.refresh();
-  }
-
-  static void acceptAll(
-    WordEditorController c,
-  ) {
-    c.acceptAllRevisions();
-    c.refresh();
-  }
-
-  static void rejectAll(
-    WordEditorController c,
-  ) {
-    c.rejectAllRevisions();
-    c.refresh();
+    controller.setTrackRevisions(enabled);
+    controller.refresh();
   }
 
   static void acceptSelected(
-    WordEditorController c,
+    WordEditorController controller,
   ) {
-    final revision = c.selectedRevision;
+    final revision = controller.selectedRevision;
     if (revision == null) return;
 
-    c.acceptRevision(revision);
-    c.refresh();
+    controller.acceptRevision(revision);
+    controller.refresh();
   }
 
   static void rejectSelected(
-    WordEditorController c,
+    WordEditorController controller,
   ) {
-    final revision = c.selectedRevision;
+    final revision = controller.selectedRevision;
     if (revision == null) return;
 
-    c.rejectRevision(revision);
-    c.refresh();
+    controller.rejectRevision(revision);
+    controller.refresh();
   }
 
-  static void previousRevision(
-    WordEditorController c,
+  static void acceptAll(
+    WordEditorController controller,
   ) {
-    if (c.document.revisions.isEmpty) return;
-    c.stepRevision(-1);
-    c.refresh();
+    controller.acceptAllRevisions();
+    controller.refresh();
   }
 
-  static void nextRevision(
-    WordEditorController c,
+  static void rejectAll(
+    WordEditorController controller,
   ) {
-    if (c.document.revisions.isEmpty) return;
-    c.stepRevision(1);
-    c.refresh();
+    controller.rejectAllRevisions();
+    controller.refresh();
   }
 
-  static Future<void> showReviewMenu(
+  static void next(
+    WordEditorController controller,
+  ) {
+    if (!controller.hasTrackedChanges) return;
+
+    controller.stepRevision(1);
+    controller.refresh();
+  }
+
+  static void previous(
+    WordEditorController controller,
+  ) {
+    if (!controller.hasTrackedChanges) return;
+
+    controller.stepRevision(-1);
+    controller.refresh();
+  }
+
+  static Future<void> showMenu(
     BuildContext context,
-    WordEditorController c,
+    WordEditorController controller,
   ) async {
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      builder: (context) {
-        final tracked = c.hasTrackedChanges;
-        final count = c.document.revisions.length;
-
+      builder: (sheetContext) {
         return SafeArea(
           child: ListView(
             shrinkWrap: true,
@@ -80,65 +79,62 @@ class WordEditorReview {
               SwitchListTile(
                 secondary: const Icon(Icons.track_changes),
                 title: const Text('Track Changes'),
-                value: tracked,
+                value: controller.hasTrackedChanges,
                 onChanged: (value) {
-                  enableTrackChanges(c, value);
-                  Navigator.pop(context);
+                  trackChanges(controller, value);
+                  Navigator.of(sheetContext).pop();
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.keyboard_arrow_up),
-                title: const Text('Previous change'),
-                enabled: count > 0,
+                title: const Text('Previous Change'),
                 onTap: () {
-                  previousRevision(c);
-                  Navigator.pop(context);
+                  previous(controller);
+                  Navigator.of(sheetContext).pop();
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.keyboard_arrow_down),
-                title: const Text('Next change'),
-                enabled: count > 0,
+                title: const Text('Next Change'),
                 onTap: () {
-                  nextRevision(c);
-                  Navigator.pop(context);
+                  next(controller);
+                  Navigator.of(sheetContext).pop();
+                },
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.check),
+                title: const Text('Accept Selected'),
+                enabled: controller.selectedRevision != null,
+                onTap: () {
+                  acceptSelected(controller);
+                  Navigator.of(sheetContext).pop();
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.check_circle_outline),
-                title: const Text('Accept selected change'),
-                enabled: c.selectedRevision != null,
+                leading: const Icon(Icons.close),
+                title: const Text('Reject Selected'),
+                enabled: controller.selectedRevision != null,
                 onTap: () {
-                  acceptSelected(c);
-                  Navigator.pop(context);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.cancel_outlined),
-                title: const Text('Reject selected change'),
-                enabled: c.selectedRevision != null,
-                onTap: () {
-                  rejectSelected(c);
-                  Navigator.pop(context);
+                  rejectSelected(controller);
+                  Navigator.of(sheetContext).pop();
                 },
               ),
               const Divider(),
               ListTile(
                 leading: const Icon(Icons.done_all),
-                title: const Text('Accept all changes'),
-                enabled: count > 0,
+                title: const Text('Accept All'),
                 onTap: () {
-                  acceptAll(c);
-                  Navigator.pop(context);
+                  acceptAll(controller);
+                  Navigator.of(sheetContext).pop();
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.clear_all),
-                title: const Text('Reject all changes'),
-                enabled: count > 0,
+                title: const Text('Reject All'),
                 onTap: () {
-                  rejectAll(c);
-                  Navigator.pop(context);
+                  rejectAll(controller);
+                  Navigator.of(sheetContext).pop();
                 },
               ),
             ],
