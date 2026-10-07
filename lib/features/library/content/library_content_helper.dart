@@ -22,13 +22,17 @@ Future<void> openContent(
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => TextEditorPage(
-          subjectId: subjectId,
-          folderId: folderId,
+        builder: (_) =>
+            TextEditorPage(
+          subjectId:
+              subjectId,
+          folderId:
+              folderId,
           item: item,
         ),
       ),
     );
+
     return;
   }
 
@@ -46,14 +50,19 @@ Future<void> openContent(
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => CodeEditorPage(
+        builder: (_) =>
+            CodeEditorPage(
           title:
-              item['title']?.toString() ?? 'Code',
+              item['title']
+                      ?.toString() ??
+                  'Code',
           path: path,
-          contentId: item['id'] as int,
+          contentId:
+              item['id'] as int,
         ),
       ),
     );
+
     return;
   }
 
@@ -61,13 +70,17 @@ Future<void> openContent(
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => WordViewerPage(
+        builder: (_) =>
+            WordViewerPage(
           title:
-              item['title']?.toString() ?? 'Word',
+              item['title']
+                      ?.toString() ??
+                  'Word',
           path: path,
         ),
       ),
     );
+
     return;
   }
 
@@ -77,26 +90,34 @@ Future<void> openContent(
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ContentViewerPage(
+        builder: (_) =>
+            ContentViewerPage(
           title:
-              item['title']?.toString() ?? 'Content',
+              item['title']
+                      ?.toString() ??
+                  'Content',
           path: path,
           type: type,
           extractedText:
-              item['content']?.toString(),
+              item['content']
+                  ?.toString(),
         ),
       ),
     );
+
     return;
   }
 
-  _showUnsupportedFile(context);
+  _showUnsupportedFile(
+    context,
+  );
 }
 
 void _showMissingFile(
   BuildContext context,
 ) {
-  ScaffoldMessenger.of(context).showSnackBar(
+  ScaffoldMessenger.of(context)
+      .showSnackBar(
     const SnackBar(
       content: Text(
         'File is no longer available.',
@@ -108,7 +129,8 @@ void _showMissingFile(
 void _showUnsupportedFile(
   BuildContext context,
 ) {
-  ScaffoldMessenger.of(context).showSnackBar(
+  ScaffoldMessenger.of(context)
+      .showSnackBar(
     const SnackBar(
       content: Text(
         'Preview is not available for this file.',
@@ -127,10 +149,13 @@ Future<bool> moveContent(
       await Navigator.push<bool>(
     context,
     MaterialPageRoute(
-      builder: (_) => MoveContentPage(
+      builder: (_) =>
+          MoveContentPage(
         content: item,
-        currentFolderId: folderId,
-        subjectId: subjectId,
+        currentFolderId:
+            folderId,
+        subjectId:
+            subjectId,
       ),
     ),
   );
@@ -144,7 +169,8 @@ Future<void> shareContent(
   final path =
       item['file_path']?.toString();
 
-  if (path == null || path.isEmpty) {
+  if (path == null ||
+      path.isEmpty) {
     return;
   }
 
