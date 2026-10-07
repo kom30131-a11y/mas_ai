@@ -264,24 +264,7 @@ class _WordViewerPageState extends State<WordViewerPage>
   }) {
     var attempts = 0;
 
-    void attempt(Duration _) {
-      if (!mounted || !identical(_controller, controller)) return;
-
-      final fitted = WordViewerViewport.fitCurrentPage(
-        controller,
-        resetScroll: resetScroll && attempts == 0,
-      );
-
-      attempts++;
-
-      if (!fitted && attempts < 8) {
-        WidgetsBinding.instance.addPostFrameCallback(attempt);
-      }
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback(attempt);
-  }
-
+    
   void _showRecoveredMessage() {
     if (!mounted) return;
 
