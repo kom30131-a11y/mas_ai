@@ -10,19 +10,19 @@ class WordToolbarText extends StatelessWidget {
   });
 
   Future<void> _fontSize(BuildContext context) async {
+    final field = TextEditingController();
+
     final value = await showDialog<double>(
       context: context,
       builder: (context) {
-        final field = TextEditingController();
-
         return AlertDialog(
           title: const Text('Font size'),
           content: TextField(
             controller: field,
+            autofocus: true,
             keyboardType: const TextInputType.numberWithOptions(
               decimal: true,
             ),
-            autofocus: true,
             decoration: const InputDecoration(
               hintText: '12',
             ),
@@ -34,9 +34,16 @@ class WordToolbarText extends StatelessWidget {
             ),
             FilledButton(
               onPressed: () {
-                final value = double.tryParse(field.text);
-                if (value == null || value <= 0) return;
-                Navigator.pop(context, value);
+                final size = double.tryParse(
+                  field.text.trim(),
+                );
+
+                if (size == null || size <= 0) return;
+
+                Navigator.pop(
+                  context,
+                  size,
+                );
               },
               child: const Text('Apply'),
             ),
@@ -45,7 +52,9 @@ class WordToolbarText extends StatelessWidget {
       },
     );
 
-    if (value == null) return;
+    field.dispose();
+
+    if (!context.mounted || value == null) return;
 
     controller.applyRunFormat(
       WmlRunProps(
