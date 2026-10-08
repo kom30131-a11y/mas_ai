@@ -10,17 +10,23 @@ class WordToolbarHeaderFooter extends StatelessWidget {
   });
 
   void _header() {
-    controller.setMode(OfficeEditorMode.header);
+    controller.beginHeaderFooterEdit(
+      controller.visiblePageIndex,
+      footer: false,
+    );
     controller.refresh();
   }
 
   void _footer() {
-    controller.setMode(OfficeEditorMode.footer);
+    controller.beginHeaderFooterEdit(
+      controller.visiblePageIndex,
+      footer: true,
+    );
     controller.refresh();
   }
 
   void _close() {
-    controller.setMode(OfficeEditorMode.edit);
+    controller.endHeaderFooterEdit();
     controller.refresh();
   }
 
