@@ -18,7 +18,7 @@ class WordToolbarDocument extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                leading: const Icon(Icons.table_of_contents),
+                leading: const Icon(Icons.list_alt),
                 title: const Text('Table of contents'),
                 onTap: () => Navigator.pop(context, 'toc'),
               ),
@@ -55,10 +55,10 @@ class WordToolbarDocument extends StatelessWidget {
         controller.insertTableOfContents();
         break;
       case 'equation':
-        controller.insertEquation();
+        controller.insertEquationText('');
         break;
       case 'link':
-        controller.insertHyperlink();
+        controller.insertText('');
         break;
       case 'comment':
         controller.insertComment();
