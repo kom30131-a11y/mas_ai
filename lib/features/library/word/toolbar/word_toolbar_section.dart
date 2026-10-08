@@ -38,7 +38,7 @@ class WordToolbarSection extends StatelessWidget {
                 onTap: () => Navigator.pop(context, 'columns'),
               ),
               ListTile(
-                leading: const Icon(Icons.watermark),
+                leading: const Icon(Icons.layers),
                 title: const Text('Watermark'),
                 onTap: () => Navigator.pop(context, 'watermark'),
               ),
@@ -64,7 +64,7 @@ class WordToolbarSection extends StatelessWidget {
         controller.setSectionColumns(2);
         break;
       case 'watermark':
-        controller.setWatermark(text: 'MedLibra');
+        controller.setWatermark('MedLibra');
         break;
     }
 
