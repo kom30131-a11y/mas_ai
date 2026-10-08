@@ -9,24 +9,24 @@ class WordToolbarParagraphFormat extends StatelessWidget {
     required this.controller,
   });
 
-  void _apply(String justification) {
+  void _apply(WmlJustification justification) {
     controller.applyParagraphFormat(
-      WmlParagraphProps(
-        justification: justification,
-      ),
+      (props) {
+        props.justification = justification;
+      },
     );
     controller.refresh();
   }
 
   @override
   Widget build(BuildContext context) {
-    return PopupMenuButton<String>(
+    return PopupMenuButton<WmlJustification>(
       tooltip: 'Paragraph alignment',
       icon: const Icon(Icons.format_align_left),
       onSelected: _apply,
       itemBuilder: (context) => const [
         PopupMenuItem(
-          value: 'left',
+          value: WmlJustification.left,
           child: Row(
             children: [
               Icon(Icons.format_align_left),
@@ -36,7 +36,7 @@ class WordToolbarParagraphFormat extends StatelessWidget {
           ),
         ),
         PopupMenuItem(
-          value: 'center',
+          value: WmlJustification.center,
           child: Row(
             children: [
               Icon(Icons.format_align_center),
@@ -46,7 +46,7 @@ class WordToolbarParagraphFormat extends StatelessWidget {
           ),
         ),
         PopupMenuItem(
-          value: 'right',
+          value: WmlJustification.right,
           child: Row(
             children: [
               Icon(Icons.format_align_right),
@@ -56,7 +56,7 @@ class WordToolbarParagraphFormat extends StatelessWidget {
           ),
         ),
         PopupMenuItem(
-          value: 'both',
+          value: WmlJustification.both,
           child: Row(
             children: [
               Icon(Icons.format_align_justify),
