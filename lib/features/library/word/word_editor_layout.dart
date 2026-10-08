@@ -40,24 +40,23 @@ class WordEditorLayout {
     int bottom = 1134,
     int left = 1134,
   }) {
-    c.setPageMargins(
-      WmlPageMargins(
-        top: top,
-        right: right,
-        bottom: bottom,
-        left: left,
-      ),
+    final section = c.sectionAtCaret;
+
+    section.margins = WmlPageMargins(
+      topTwips: top,
+      rightTwips: right,
+      bottomTwips: bottom,
+      leftTwips: left,
     );
+
+    c.relayout();
     c.refresh();
   }
 
   static void normalMargins(
     WordEditorController c,
   ) {
-    c.setPageMargins(
-      const WmlPageMargins(),
-    );
-    c.refresh();
+    margins(c);
   }
 
   static void narrowMargins(
