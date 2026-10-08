@@ -33,9 +33,7 @@ Future<void> openContent(
 
   final path = item['file_path']?.toString();
 
-  if (path == null ||
-      path.isEmpty ||
-      !File(path).existsSync()) {
+  if (path == null || path.isEmpty || !File(path).existsSync()) {
     _showMissingFile(context);
     return;
   }
@@ -63,7 +61,6 @@ Future<void> openContent(
       context,
       MaterialPageRoute(
         builder: (_) => WordViewerPage(
-          title: title,
           path: path,
           contentId: item['id'] as int?,
         ),
@@ -79,7 +76,6 @@ Future<void> openContent(
       context,
       MaterialPageRoute(
         builder: (_) => ContentViewerPage(
-          title: title,
           path: path,
           type: type,
           extractedText: item['content']?.toString(),
@@ -95,9 +91,7 @@ Future<void> openContent(
 void _showMissingFile(BuildContext context) {
   ScaffoldMessenger.of(context).showSnackBar(
     const SnackBar(
-      content: Text(
-        'File is no longer available.',
-      ),
+      content: Text('File is no longer available.'),
     ),
   );
 }
@@ -105,9 +99,7 @@ void _showMissingFile(BuildContext context) {
 void _showUnsupportedFile(BuildContext context) {
   ScaffoldMessenger.of(context).showSnackBar(
     const SnackBar(
-      content: Text(
-        'Preview is not available for this file.',
-      ),
+      content: Text('Preview is not available for this file.'),
     ),
   );
 }
