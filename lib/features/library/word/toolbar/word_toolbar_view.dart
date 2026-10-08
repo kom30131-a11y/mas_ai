@@ -13,6 +13,7 @@ class WordToolbarView extends StatelessWidget {
 
   void _zoom(double factor) {
     final viewport = controller.viewport;
+
     viewport.setScale(
       (viewport.scale * factor)
           .clamp(
@@ -21,6 +22,7 @@ class WordToolbarView extends StatelessWidget {
           )
           .toDouble(),
     );
+
     controller.refresh();
   }
 
@@ -53,6 +55,7 @@ class WordToolbarView extends StatelessWidget {
                 controller.viewport.clampMax,
               ).toDouble(),
             );
+
             controller.refresh();
           },
           icon: const Icon(Icons.fullscreen),
