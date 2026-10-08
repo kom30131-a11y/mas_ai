@@ -105,16 +105,18 @@ class ContentViewerPage extends StatelessWidget {
         title: Text(title),
       ),
       body: Directionality(
-        textDirection: isArabic
-            ? TextDirection.rtl
-            : TextDirection.ltr,
+        textDirection:
+            isArabic
+                ? TextDirection.rtl
+                : TextDirection.ltr,
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: SelectableText(
             text,
-            textAlign: isArabic
-                ? TextAlign.right
-                : TextAlign.left,
+            textAlign:
+                isArabic
+                    ? TextAlign.right
+                    : TextAlign.left,
             style: const TextStyle(
               fontSize: 16,
               height: 1.6,
