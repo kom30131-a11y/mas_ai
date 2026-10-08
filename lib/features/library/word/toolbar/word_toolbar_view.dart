@@ -11,7 +11,16 @@ class WordToolbarView extends StatelessWidget {
     required this.onFitPage,
   });
 
-  void _refresh() {
+  void _zoom(double factor) {
+    final viewport = controller.viewport;
+    viewport.setScale(
+      (viewport.scale * factor)
+          .clamp(
+            viewport.clampMin,
+            viewport.clampMax,
+          )
+          .toDouble(),
+    );
     controller.refresh();
   }
 
@@ -22,30 +31,29 @@ class WordToolbarView extends StatelessWidget {
       children: [
         IconButton(
           tooltip: 'Zoom out',
-          onPressed: () {
-            controller.viewport.zoomOut();
-            _refresh();
-          },
+          onPressed: () => _zoom(0.9),
           icon: const Icon(Icons.zoom_out),
         ),
         IconButton(
           tooltip: 'Zoom in',
-          onPressed: () {
-            controller.viewport.zoomIn();
-            _refresh();
-          },
+          onPressed: () => _zoom(1.1),
           icon: const Icon(Icons.zoom_in),
         ),
         IconButton(
-          tooltip: 'Fit width',
+          tooltip: 'Fit page',
           onPressed: onFitPage,
-          icon: const Icon(Icons.fit_width),
+          icon: const Icon(Icons.fit_screen),
         ),
         IconButton(
           tooltip: 'Actual size',
           onPressed: () {
-            controller.viewport.setScale(1);
-            _refresh();
+            controller.viewport.setScale(
+              1.0.clamp(
+                controller.viewport.clampMin,
+                controller.viewport.clampMax,
+              ).toDouble(),
+            );
+            controller.refresh();
           },
           icon: const Icon(Icons.fullscreen),
         ),
