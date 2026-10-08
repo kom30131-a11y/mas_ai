@@ -9,24 +9,18 @@ class WordToolbarHeaderFooter extends StatelessWidget {
     required this.controller,
   });
 
-  void _toggleHeader() {
-    controller.setMode(
-      OfficeEditorMode.header,
-    );
+  void _header() {
+    controller.setMode(OfficeEditorMode.header);
     controller.refresh();
   }
 
-  void _toggleFooter() {
-    controller.setMode(
-      OfficeEditorMode.footer,
-    );
+  void _footer() {
+    controller.setMode(OfficeEditorMode.footer);
     controller.refresh();
   }
 
-  void _exit() {
-    controller.setMode(
-      OfficeEditorMode.edit,
-    );
+  void _close() {
+    controller.setMode(OfficeEditorMode.edit);
     controller.refresh();
   }
 
@@ -37,18 +31,18 @@ class WordToolbarHeaderFooter extends StatelessWidget {
       children: [
         IconButton(
           tooltip: 'Header',
-          onPressed: _toggleHeader,
+          onPressed: _header,
           icon: const Icon(Icons.vertical_align_top),
         ),
         IconButton(
           tooltip: 'Footer',
-          onPressed: _toggleFooter,
+          onPressed: _footer,
           icon: const Icon(Icons.vertical_align_bottom),
         ),
         if (controller.isEditingHeaderFooter)
           IconButton(
             tooltip: 'Close header/footer',
-            onPressed: _exit,
+            onPressed: _close,
             icon: const Icon(Icons.close),
           ),
       ],
