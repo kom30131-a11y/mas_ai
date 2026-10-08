@@ -61,7 +61,7 @@ class WordToolbarHyperlink extends StatelessWidget {
     textController.dispose();
     urlController.dispose();
 
-    if (result != true || url.isEmpty) return;
+    if (!context.mounted || result != true || url.isEmpty) return;
 
     controller.insertHyperlink(
       url: url,
