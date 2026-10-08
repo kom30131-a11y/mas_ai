@@ -76,6 +76,7 @@ Future<void> openContent(
       context,
       MaterialPageRoute(
         builder: (_) => ContentViewerPage(
+          title: title,
           path: path,
           type: type,
           extractedText: item['content']?.toString(),
