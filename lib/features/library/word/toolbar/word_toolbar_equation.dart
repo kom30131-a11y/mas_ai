@@ -48,7 +48,7 @@ class WordToolbarEquation extends StatelessWidget {
 
     if (!context.mounted || value == null || value.isEmpty) return;
 
-    controller.insertEquation(value);
+    controller.insertEquationText(value);
     controller.refresh();
   }
 
