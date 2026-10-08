@@ -11,15 +11,44 @@ class WordViewerHandLayer extends StatelessWidget {
     required this.handMode,
   });
 
-  void _pan(
-    DragUpdateDetails details,
-  ) {
-    controller.viewport.origin =
-        controller.viewport.origin -
-        Offset(
-          details.delta.dx,
-          details.delta.dy,
-        );
+  void _pan(DragUpdateDetails details) {
+    controller.viewport.origin -= details.delta;
+    controller.refresh();
+  }
+
+  void _scaleStart(ScaleStartDetails details) {}
+
+  void _scaleUpdate(ScaleUpdateDetails details) {
+    if (details.scale == 1) {
+      controller.viewport.origin -= details.focalPointDelta;
+      controller.refresh();
+      return;
+    }
+
+    final viewport = controller.viewport;
+    final oldScale = viewport.scale;
+    final newScale = (oldScale * details.scale)
+        .clamp(
+          viewport.clampMin,
+          viewport.clampMax,
+        )
+        .toDouble();
+
+    if ((newScale - oldScale).abs() < 0.0001) {
+      viewport.origin -= details.focalPointDelta;
+      controller.refresh();
+      return;
+    }
+
+    final focalPoint = details.focalPoint;
+    final oldOrigin = viewport.origin;
+
+    final contentPoint = (focalPoint - oldOrigin) / oldScale;
+
+    viewport.setScale(newScale);
+
+    viewport.origin =
+        focalPoint - contentPoint * newScale - details.focalPointDelta;
 
     controller.refresh();
   }
@@ -36,6 +65,8 @@ class WordViewerHandLayer extends StatelessWidget {
           GestureDetector(
             behavior: HitTestBehavior.opaque,
             onPanUpdate: _pan,
+            onScaleStart: _scaleStart,
+            onScaleUpdate: _scaleUpdate,
           ),
       ],
     );
