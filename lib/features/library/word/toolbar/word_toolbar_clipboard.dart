@@ -16,22 +16,40 @@ class WordToolbarClipboard extends StatelessWidget {
       children: [
         IconButton(
           tooltip: 'Cut',
-          onPressed: controller.canCut ? controller.cut : null,
+          onPressed: controller.canCut
+              ? () {
+                  controller.cut();
+                  controller.refresh();
+                }
+              : null,
           icon: const Icon(Icons.content_cut),
         ),
         IconButton(
           tooltip: 'Copy',
-          onPressed: controller.canCopy ? controller.copy : null,
+          onPressed: controller.canCopy
+              ? () {
+                  controller.copy();
+                  controller.refresh();
+                }
+              : null,
           icon: const Icon(Icons.content_copy),
         ),
         IconButton(
           tooltip: 'Paste',
-          onPressed: controller.canPaste ? controller.paste : null,
+          onPressed: controller.canPaste
+              ? () {
+                  controller.paste();
+                  controller.refresh();
+                }
+              : null,
           icon: const Icon(Icons.content_paste),
         ),
         IconButton(
           tooltip: 'Select all',
-          onPressed: controller.selectAll,
+          onPressed: () {
+            controller.selectAll();
+            controller.refresh();
+          },
           icon: const Icon(Icons.select_all),
         ),
       ],
