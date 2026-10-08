@@ -9,7 +9,7 @@ class WordToolbarStyles extends StatelessWidget {
     required this.controller,
   });
 
-  void _style(String styleId) {
+  void _apply(String styleId) {
     controller.applyStyle(styleId);
     controller.refresh();
   }
@@ -19,7 +19,7 @@ class WordToolbarStyles extends StatelessWidget {
     return PopupMenuButton<String>(
       tooltip: 'Styles',
       icon: const Icon(Icons.text_fields),
-      onSelected: _style,
+      onSelected: _apply,
       itemBuilder: (context) => const [
         PopupMenuItem(
           value: 'Normal',
