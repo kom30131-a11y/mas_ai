@@ -35,17 +35,17 @@ class WordEditorLayout {
 
   static void margins(
     WordEditorController c, {
-    int topTwips = 1134,
-    int rightTwips = 1134,
-    int bottomTwips = 1134,
-    int leftTwips = 1134,
+    int top = 1134,
+    int right = 1134,
+    int bottom = 1134,
+    int left = 1134,
   }) {
     c.setPageMargins(
       WmlPageMargins(
-        topTwips: topTwips,
-        rightTwips: rightTwips,
-        bottomTwips: bottomTwips,
-        leftTwips: leftTwips,
+        top: top,
+        right: right,
+        bottom: bottom,
+        left: left,
       ),
     );
     c.refresh();
@@ -65,10 +65,10 @@ class WordEditorLayout {
   ) {
     margins(
       c,
-      topTwips: 720,
-      rightTwips: 720,
-      bottomTwips: 720,
-      leftTwips: 720,
+      top: 720,
+      right: 720,
+      bottom: 720,
+      left: 720,
     );
   }
 
@@ -77,10 +77,10 @@ class WordEditorLayout {
   ) {
     margins(
       c,
-      topTwips: 1440,
-      rightTwips: 1440,
-      bottomTwips: 1440,
-      leftTwips: 1440,
+      top: 1440,
+      right: 1440,
+      bottom: 1440,
+      left: 1440,
     );
   }
 
