@@ -56,7 +56,7 @@ class WordToolbarParagraphFormat extends StatelessWidget {
           ),
         ),
         PopupMenuItem(
-          value: WmlJustification.both,
+          value: WmlJustification.justify,
           child: Row(
             children: [
               Icon(Icons.format_align_justify),
