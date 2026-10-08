@@ -60,8 +60,8 @@ class _WordViewerPageState extends State<WordViewerPage> {
         path: source,
         config: const OfficeSurfaceConfig(
           mode: OfficeInteractionMode.editing,
-          showRulers: true,
-          interactiveRulers: true,
+          showRulers: false,
+          interactiveRulers: false,
           enableUndo: true,
           textDirection: TextDirection.ltr,
           strings: OfficeStrings.english,
@@ -165,28 +165,15 @@ class _WordViewerPageState extends State<WordViewerPage> {
     final controller = _controller;
     if (controller == null) return;
 
+    controller.setMode(
+      value
+          ? OfficeInteractionMode.editing
+          : OfficeInteractionMode.viewing,
+    );
+
     setState(() {
       _editMode = value;
     });
-
-    controller.refresh();
-
-    if (value) {
-      _scheduleAutoFit();
-    }
-  }
-
-  void _panPage(DragUpdateDetails details) {
-    final controller = _controller;
-
-    if (controller == null || _editMode) return;
-
-    controller.viewport.origin =
-        controller.viewport.origin -
-        Offset(
-          details.delta.dx,
-          details.delta.dy,
-        );
 
     controller.refresh();
   }
@@ -325,7 +312,6 @@ class _WordViewerPageState extends State<WordViewerPage> {
 
   void _fitWidth() {
     final controller = _controller;
-
     if (controller == null) return;
 
     WordViewerViewport.fitWidth(
@@ -401,7 +387,7 @@ class _WordViewerPageState extends State<WordViewerPage> {
               icon: Icon(
                 _editMode
                     ? Icons.pan_tool_outlined
-                    : Icons.edit,
+                    : Icons.edit_outlined,
               ),
             ),
             IconButton(
@@ -412,36 +398,24 @@ class _WordViewerPageState extends State<WordViewerPage> {
             IconButton(
               tooltip: 'Save',
               onPressed: _saving ? null : _save,
-              icon: const Icon(Icons.save),
+              icon: const Icon(Icons.save_outlined),
             ),
           ],
         ),
         body: Column(
           children: [
-            WordEditorToolbar(
-              controller: controller,
-              onFitPage: _fitWidth,
-            ),
+            if (_editMode)
+              WordEditorToolbar(
+                controller: controller,
+                onFitPage: _fitWidth,
+              ),
             Expanded(
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   _scheduleAutoFit();
 
-                  return Stack(
-                    children: [
-                      Positioned.fill(
-                        child: QudsWordEditor(
-                          controller: controller,
-                        ),
-                      ),
-                      if (!_editMode)
-                        Positioned.fill(
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.translucent,
-                            onPanUpdate: _panPage,
-                          ),
-                        ),
-                    ],
+                  return QudsWordEditor(
+                    controller: controller,
                   );
                 },
               ),
