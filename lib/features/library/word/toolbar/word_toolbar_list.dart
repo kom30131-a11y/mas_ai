@@ -9,9 +9,9 @@ class WordToolbarList extends StatelessWidget {
     required this.controller,
   });
 
-  void _toggle(String kind) {
+  void _toggle(bool numbered) {
     controller.toggleList(
-      kind: kind,
+      numbered: numbered,
     );
     controller.refresh();
   }
@@ -23,12 +23,12 @@ class WordToolbarList extends StatelessWidget {
       children: [
         IconButton(
           tooltip: 'Bulleted list',
-          onPressed: () => _toggle('bullet'),
+          onPressed: () => _toggle(false),
           icon: const Icon(Icons.format_list_bulleted),
         ),
         IconButton(
           tooltip: 'Numbered list',
-          onPressed: () => _toggle('number'),
+          onPressed: () => _toggle(true),
           icon: const Icon(Icons.format_list_numbered),
         ),
       ],
