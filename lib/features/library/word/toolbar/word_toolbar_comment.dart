@@ -46,7 +46,7 @@ class WordToolbarComment extends StatelessWidget {
 
     field.dispose();
 
-    if (text == null || text.isEmpty) return;
+    if (!context.mounted || text == null || text.isEmpty) return;
 
     controller.insertComment(
       text: text,
