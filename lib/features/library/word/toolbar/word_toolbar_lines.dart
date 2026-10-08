@@ -10,11 +10,8 @@ class WordToolbarLines extends StatelessWidget {
   });
 
   void _toggle() {
-    final section = controller.sectionAtCaret;
-    final enabled = section.lineNumbers;
-
     controller.setLineNumbers(
-      !enabled,
+      !controller.sectionAtCaret.lineNumbers,
     );
     controller.refresh();
   }
