@@ -19,7 +19,7 @@ class WordToolbarToc extends StatelessWidget {
     return IconButton(
       tooltip: 'Table of contents',
       onPressed: _insert,
-      icon: const Icon(Icons.table_of_contents),
+      icon: const Icon(Icons.list_alt),
     );
   }
 }
