@@ -12,9 +12,9 @@ class WordToolbarFormatting extends StatelessWidget {
   void _apply({
     bool? bold,
     bool? italic,
-    bool? underline,
+    WmlUnderline? underline,
     bool? strike,
-    String? vertAlign,
+    WmlVertAlign? vertAlign,
   }) {
     controller.applyRunFormat(
       (props) {
@@ -38,46 +38,48 @@ class WordToolbarFormatting extends StatelessWidget {
         IconButton(
           tooltip: 'Bold',
           onPressed: () => _apply(
-            bold: props.bold != true,
+            bold: !props.bold,
           ),
           icon: const Icon(Icons.format_bold),
         ),
         IconButton(
           tooltip: 'Italic',
           onPressed: () => _apply(
-            italic: props.italic != true,
+            italic: !props.italic,
           ),
           icon: const Icon(Icons.format_italic),
         ),
         IconButton(
           tooltip: 'Underline',
           onPressed: () => _apply(
-            underline: props.underline != true,
+            underline: props.underline == WmlUnderline.none
+                ? WmlUnderline.single
+                : WmlUnderline.none,
           ),
           icon: const Icon(Icons.format_underline),
         ),
         IconButton(
           tooltip: 'Strikethrough',
           onPressed: () => _apply(
-            strike: props.strike != true,
+            strike: !props.strike,
           ),
           icon: const Icon(Icons.strikethrough_s),
         ),
         IconButton(
           tooltip: 'Superscript',
           onPressed: () => _apply(
-            vertAlign: props.vertAlign == 'superscript'
-                ? 'baseline'
-                : 'superscript',
+            vertAlign: props.vertAlign == WmlVertAlign.superscript
+                ? WmlVertAlign.baseline
+                : WmlVertAlign.superscript,
           ),
           icon: const Icon(Icons.superscript),
         ),
         IconButton(
           tooltip: 'Subscript',
           onPressed: () => _apply(
-            vertAlign: props.vertAlign == 'subscript'
-                ? 'baseline'
-                : 'subscript',
+            vertAlign: props.vertAlign == WmlVertAlign.subscript
+                ? WmlVertAlign.baseline
+                : WmlVertAlign.subscript,
           ),
           icon: const Icon(Icons.subscript),
         ),
