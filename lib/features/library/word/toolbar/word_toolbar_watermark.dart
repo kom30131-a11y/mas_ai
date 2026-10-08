@@ -47,9 +47,7 @@ class WordToolbarWatermark extends StatelessWidget {
 
     if (!context.mounted || value == null || value.isEmpty) return;
 
-    controller.setWatermark(
-      text: value,
-    );
+    controller.setWatermark(value);
     controller.refresh();
   }
 
@@ -58,7 +56,7 @@ class WordToolbarWatermark extends StatelessWidget {
     return IconButton(
       tooltip: 'Watermark',
       onPressed: () => _watermark(context),
-      icon: const Icon(Icons.watermark),
+      icon: const Icon(Icons.layers),
     );
   }
 }
