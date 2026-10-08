@@ -19,67 +19,94 @@ class WordToolbarTable extends StatelessWidget {
         IconButton(
           tooltip: 'Insert row',
           onPressed: _table
-              ? () => controller.insertTableRow(after: true)
+              ? () {
+                  controller.insertTableRow(after: true);
+                  controller.refresh();
+                }
               : null,
           icon: const Icon(Icons.add_box),
         ),
         IconButton(
           tooltip: 'Insert column',
           onPressed: _table
-              ? () => controller.insertTableColumn(after: true)
+              ? () {
+                  controller.insertTableColumn(after: true);
+                  controller.refresh();
+                }
               : null,
           icon: const Icon(Icons.view_column),
         ),
         IconButton(
           tooltip: 'Delete row',
           onPressed: _table
-              ? controller.deleteTableRow
+              ? () {
+                  controller.deleteTableRow();
+                  controller.refresh();
+                }
               : null,
           icon: const Icon(Icons.remove_circle_outline),
         ),
         IconButton(
           tooltip: 'Delete column',
           onPressed: _table
-              ? controller.deleteTableColumn
+              ? () {
+                  controller.deleteTableColumn();
+                  controller.refresh();
+                }
               : null,
           icon: const Icon(Icons.view_column_outlined),
         ),
         IconButton(
           tooltip: 'Merge cells',
           onPressed: controller.canMergeTableCells
-              ? controller.mergeTableCells
+              ? () {
+                  controller.mergeTableCells();
+                  controller.refresh();
+                }
               : null,
           icon: const Icon(Icons.call_merge),
         ),
         IconButton(
           tooltip: 'Split cells',
           onPressed: controller.canUnmergeTableCells
-              ? controller.unmergeTableCells
+              ? () {
+                  controller.unmergeTableCells();
+                  controller.refresh();
+                }
               : null,
           icon: const Icon(Icons.call_split),
         ),
         IconButton(
           tooltip: 'AutoFit contents',
           onPressed: _table
-              ? () => controller.autoFitTable(
+              ? () {
+                  controller.autoFitTable(
                     WordTableAutoFit.contents,
-                  )
+                  );
+                  controller.refresh();
+                }
               : null,
           icon: const Icon(Icons.fit_screen),
         ),
         IconButton(
           tooltip: 'AutoFit window',
           onPressed: _table
-              ? () => controller.autoFitTable(
+              ? () {
+                  controller.autoFitTable(
                     WordTableAutoFit.window,
-                  )
+                  );
+                  controller.refresh();
+                }
               : null,
           icon: const Icon(Icons.width_full),
         ),
         IconButton(
           tooltip: 'Delete table',
           onPressed: _table
-              ? controller.deleteTable
+              ? () {
+                  controller.deleteTable();
+                  controller.refresh();
+                }
               : null,
           icon: const Icon(Icons.delete_outline),
         ),
