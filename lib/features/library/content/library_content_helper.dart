@@ -15,27 +15,23 @@ Future<void> openContent(
   int subjectId,
   int? folderId,
 ) async {
-  final type =
-      item['type']?.toString() ?? '';
+  final type = item['type']?.toString() ?? '';
 
   if (type == 'Text') {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) =>
-            TextEditorPage(
+        builder: (_) => TextEditorPage(
           subjectId: subjectId,
           folderId: folderId,
           item: item,
         ),
       ),
     );
-
     return;
   }
 
-  final path =
-      item['file_path']?.toString();
+  final path = item['file_path']?.toString();
 
   if (path == null ||
       path.isEmpty ||
@@ -44,23 +40,21 @@ Future<void> openContent(
     return;
   }
 
+  final title =
+      item['title']?.toString() ??
+      path.split(Platform.pathSeparator).last;
+
   if (type == 'Code') {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) =>
-            CodeEditorPage(
-          title:
-              item['title']
-                      ?.toString() ??
-                  'Code',
+        builder: (_) => CodeEditorPage(
+          title: title,
           path: path,
-          contentId:
-              item['id'] as int,
+          contentId: item['id'] as int,
         ),
       ),
     );
-
     return;
   }
 
@@ -68,19 +62,13 @@ Future<void> openContent(
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) =>
-            WordViewerPage(
-          title:
-              item['title']
-                      ?.toString() ??
-                  'Word',
+        builder: (_) => WordViewerPage(
+          title: title,
           path: path,
-          contentId:
-              item['id'] as int?,
+          contentId: item['id'] as int?,
         ),
       ),
     );
-
     return;
   }
 
@@ -90,32 +78,22 @@ Future<void> openContent(
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) =>
-            ContentViewerPage(
-          title:
-              item['title']
-                      ?.toString() ??
-                  'Content',
+        builder: (_) => ContentViewerPage(
+          title: title,
           path: path,
           type: type,
-          extractedText:
-              item['content']
-                  ?.toString(),
+          extractedText: item['content']?.toString(),
         ),
       ),
     );
-
     return;
   }
 
   _showUnsupportedFile(context);
 }
 
-void _showMissingFile(
-  BuildContext context,
-) {
-  ScaffoldMessenger.of(context)
-      .showSnackBar(
+void _showMissingFile(BuildContext context) {
+  ScaffoldMessenger.of(context).showSnackBar(
     const SnackBar(
       content: Text(
         'File is no longer available.',
@@ -124,11 +102,8 @@ void _showMissingFile(
   );
 }
 
-void _showUnsupportedFile(
-  BuildContext context,
-) {
-  ScaffoldMessenger.of(context)
-      .showSnackBar(
+void _showUnsupportedFile(BuildContext context) {
+  ScaffoldMessenger.of(context).showSnackBar(
     const SnackBar(
       content: Text(
         'Preview is not available for this file.',
@@ -143,17 +118,13 @@ Future<bool> moveContent(
   int subjectId,
   int? folderId,
 ) async {
-  final changed =
-      await Navigator.push<bool>(
+  final changed = await Navigator.push<bool>(
     context,
     MaterialPageRoute(
-      builder: (_) =>
-          MoveContentPage(
+      builder: (_) => MoveContentPage(
         content: item,
-        currentFolderId:
-            folderId,
-        subjectId:
-            subjectId,
+        currentFolderId: folderId,
+        subjectId: subjectId,
       ),
     ),
   );
@@ -164,15 +135,9 @@ Future<bool> moveContent(
 Future<void> shareContent(
   Map<String, dynamic> item,
 ) async {
-  final path =
-      item['file_path']?.toString();
+  final path = item['file_path']?.toString();
 
-  if (path == null ||
-      path.isEmpty) {
-    return;
-  }
+  if (path == null || path.isEmpty) return;
 
-  await LibraryStorageService
-      .instance
-      .shareFile(path);
+  await LibraryStorageService.instance.shareFile(path);
 }
