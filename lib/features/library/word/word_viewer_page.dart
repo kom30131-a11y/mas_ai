@@ -29,15 +29,16 @@ class _WordViewerPageState extends State<WordViewerPage> {
 
   WordEditorController? _controller;
   Timer? _saveTimer;
+
   bool _dirty = false;
   bool _saving = false;
   bool _loading = true;
-  String? _error;
-
   bool _autoFitScheduled = false;
+
   double? _lastAutoFitWidth;
   double? _lastAutoFitPageWidth;
-  int? _lastAutoFitPageIndex;
+
+  String? _error;
 
   @override
   void initState() {
@@ -123,11 +124,9 @@ class _WordViewerPageState extends State<WordViewerPage> {
       if (controller == null) return;
 
       final width = controller.viewport.extent.width;
-
       if (width <= 0) return;
 
       final pages = controller.documentLaidOut.pages;
-
       if (pages.isEmpty) return;
 
       final index = controller.visiblePageIndex
@@ -135,19 +134,17 @@ class _WordViewerPageState extends State<WordViewerPage> {
           .toInt();
 
       final page = pages[index];
-
       if (page.width <= 0) return;
 
       final widthChanged =
           _lastAutoFitWidth == null ||
           (_lastAutoFitWidth! - width).abs() > 0.5;
 
-      final pageChanged =
+      final pageWidthChanged =
           _lastAutoFitPageWidth == null ||
-          (_lastAutoFitPageWidth! - page.width).abs() > 0.01 ||
-          _lastAutoFitPageIndex != index;
+          (_lastAutoFitPageWidth! - page.width).abs() > 0.01;
 
-      if (!widthChanged && !pageChanged) return;
+      if (!widthChanged && !pageWidthChanged) return;
 
       final fitted = WordViewerViewport.fitWidth(
         controller,
@@ -159,7 +156,6 @@ class _WordViewerPageState extends State<WordViewerPage> {
 
       _lastAutoFitWidth = width;
       _lastAutoFitPageWidth = page.width;
-      _lastAutoFitPageIndex = index;
     });
   }
 
