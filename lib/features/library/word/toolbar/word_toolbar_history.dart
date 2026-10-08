@@ -17,14 +17,20 @@ class WordToolbarHistory extends StatelessWidget {
         IconButton(
           tooltip: 'Undo',
           onPressed: controller.canUndo
-              ? controller.undo
+              ? () {
+                  controller.undo();
+                  controller.refresh();
+                }
               : null,
           icon: const Icon(Icons.undo),
         ),
         IconButton(
           tooltip: 'Redo',
           onPressed: controller.canRedo
-              ? controller.redo
+              ? () {
+                  controller.redo();
+                  controller.refresh();
+                }
               : null,
           icon: const Icon(Icons.redo),
         ),
