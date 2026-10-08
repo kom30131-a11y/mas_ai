@@ -38,12 +38,12 @@ class WordToolbarPage extends StatelessWidget {
     controller.setPageSize(
       value == 'portrait'
           ? const WmlPageSize(
-              widthTwips: 11906,
-              heightTwips: 16838,
+              width: 595.28,
+              height: 841.89,
             )
           : const WmlPageSize(
-              widthTwips: 16838,
-              heightTwips: 11906,
+              width: 841.89,
+              height: 595.28,
             ),
     );
 
