@@ -49,10 +49,7 @@ class WordToolbarColor extends StatelessWidget {
             children: [
               for (final color in colors)
                 InkWell(
-                  onTap: () => Navigator.pop(
-                    context,
-                    color,
-                  ),
+                  onTap: () => Navigator.pop(context, color),
                   borderRadius: BorderRadius.circular(20),
                   child: Container(
                     width: 36,
@@ -75,10 +72,13 @@ class WordToolbarColor extends StatelessWidget {
     if (!context.mounted || color == null) return;
 
     controller.applyRunFormat(
-      WmlRunProps(
-        color: highlight ? null : _hex(color),
-        highlight: highlight ? _hex(color) : null,
-      ),
+      (props) {
+        if (highlight) {
+          props.highlight = _hex(color);
+        } else {
+          props.color = _hex(color);
+        }
+      },
     );
     controller.refresh();
   }
