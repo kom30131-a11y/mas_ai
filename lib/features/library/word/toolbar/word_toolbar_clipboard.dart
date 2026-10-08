@@ -9,6 +9,21 @@ class WordToolbarClipboard extends StatelessWidget {
     required this.controller,
   });
 
+  Future<void> _cut() async {
+    await controller.cutToClipboard();
+    controller.refresh();
+  }
+
+  Future<void> _copy() async {
+    await controller.copyToClipboard();
+    controller.refresh();
+  }
+
+  Future<void> _paste() async {
+    await controller.pasteFromClipboard();
+    controller.refresh();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -16,33 +31,33 @@ class WordToolbarClipboard extends StatelessWidget {
       children: [
         IconButton(
           tooltip: 'Cut',
-          onPressed: controller.canCut
-              ? () {
-                  controller.cut();
-                  controller.refresh();
-                }
-              : null,
-          icon: const Icon(Icons.content_cut),
+          onPressed:
+              controller.canCut
+                  ? _cut
+                  : null,
+          icon: const Icon(
+            Icons.content_cut,
+          ),
         ),
         IconButton(
           tooltip: 'Copy',
-          onPressed: controller.canCopy
-              ? () {
-                  controller.copy();
-                  controller.refresh();
-                }
-              : null,
-          icon: const Icon(Icons.content_copy),
+          onPressed:
+              controller.canCopy
+                  ? _copy
+                  : null,
+          icon: const Icon(
+            Icons.content_copy,
+          ),
         ),
         IconButton(
           tooltip: 'Paste',
-          onPressed: controller.canPaste
-              ? () {
-                  controller.paste();
-                  controller.refresh();
-                }
-              : null,
-          icon: const Icon(Icons.content_paste),
+          onPressed:
+              controller.canPaste
+                  ? _paste
+                  : null,
+          icon: const Icon(
+            Icons.content_paste,
+          ),
         ),
         IconButton(
           tooltip: 'Select all',
@@ -50,7 +65,9 @@ class WordToolbarClipboard extends StatelessWidget {
             controller.selectAll();
             controller.refresh();
           },
-          icon: const Icon(Icons.select_all),
+          icon: const Icon(
+            Icons.select_all,
+          ),
         ),
       ],
     );
