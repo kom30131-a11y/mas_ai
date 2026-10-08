@@ -32,9 +32,9 @@ class WordToolbarWatermark extends StatelessWidget {
             ),
             FilledButton(
               onPressed: () {
-                final value = field.text.trim();
-                if (value.isEmpty) return;
-                Navigator.pop(context, value);
+                final text = field.text.trim();
+                if (text.isEmpty) return;
+                Navigator.pop(context, text);
               },
               child: const Text('Apply'),
             ),
@@ -45,7 +45,7 @@ class WordToolbarWatermark extends StatelessWidget {
 
     field.dispose();
 
-    if (value == null || value.isEmpty) return;
+    if (!context.mounted || value == null || value.isEmpty) return;
 
     controller.setWatermark(
       text: value,
