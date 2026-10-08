@@ -10,7 +10,8 @@ class WordToolbarColor extends StatelessWidget {
   });
 
   String _hex(Color color) {
-    return color.value
+    return color
+        .toARGB32()
         .toRadixString(16)
         .padLeft(8, '0')
         .substring(2)
@@ -41,7 +42,9 @@ class WordToolbarColor extends StatelessWidget {
       builder: (context) {
         return AlertDialog(
           title: Text(
-            highlight ? 'Highlight color' : 'Text color',
+            highlight
+                ? 'Highlight color'
+                : 'Text color',
           ),
           content: Wrap(
             spacing: 10,
@@ -49,8 +52,12 @@ class WordToolbarColor extends StatelessWidget {
             children: [
               for (final color in colors)
                 InkWell(
-                  onTap: () => Navigator.pop(context, color),
-                  borderRadius: BorderRadius.circular(20),
+                  onTap: () => Navigator.pop(
+                    context,
+                    color,
+                  ),
+                  borderRadius:
+                      BorderRadius.circular(20),
                   child: Container(
                     width: 36,
                     height: 36,
@@ -58,7 +65,8 @@ class WordToolbarColor extends StatelessWidget {
                       color: color,
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: Theme.of(context).dividerColor,
+                        color: Theme.of(context)
+                            .dividerColor,
                       ),
                     ),
                   ),
@@ -80,6 +88,7 @@ class WordToolbarColor extends StatelessWidget {
         }
       },
     );
+
     controller.refresh();
   }
 
@@ -94,7 +103,9 @@ class WordToolbarColor extends StatelessWidget {
             context,
             highlight: false,
           ),
-          icon: const Icon(Icons.format_color_text),
+          icon: const Icon(
+            Icons.format_color_text,
+          ),
         ),
         IconButton(
           tooltip: 'Highlight',
