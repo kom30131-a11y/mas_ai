@@ -9,8 +9,33 @@ class WordToolbarFormat extends StatelessWidget {
     required this.controller,
   });
 
-  void _apply(WmlRunProps props) {
-    controller.applyRunFormat(props);
+  void _apply({
+    bool? bold,
+    bool? italic,
+    WmlUnderline? underline,
+    bool? strike,
+  }) {
+    controller.applyRunFormat(
+      (props) {
+        if (bold != null) {
+          props.bold = bold;
+        }
+
+        if (italic != null) {
+          props.italic = italic;
+        }
+
+        if (underline != null) {
+          props.underline = underline;
+        }
+
+        if (strike != null) {
+          props.strike = strike;
+        }
+      },
+    );
+
+    controller.refresh();
   }
 
   @override
@@ -23,32 +48,42 @@ class WordToolbarFormat extends StatelessWidget {
         IconButton(
           tooltip: 'Bold',
           onPressed: () => _apply(
-            WmlRunProps(bold: props.bold != true),
+            bold: !props.bold,
           ),
-          icon: const Icon(Icons.format_bold),
+          icon: const Icon(
+            Icons.format_bold,
+          ),
         ),
         IconButton(
           tooltip: 'Italic',
           onPressed: () => _apply(
-            WmlRunProps(italic: props.italic != true),
+            italic: !props.italic,
           ),
-          icon: const Icon(Icons.format_italic),
+          icon: const Icon(
+            Icons.format_italic,
+          ),
         ),
         IconButton(
           tooltip: 'Underline',
           onPressed: () => _apply(
-            WmlRunProps(
-              underline: props.underline == true ? null : true,
-            ),
+            underline:
+                props.underline ==
+                        WmlUnderline.none
+                    ? WmlUnderline.single
+                    : WmlUnderline.none,
           ),
-          icon: const Icon(Icons.format_underline),
+          icon: const Icon(
+            Icons.format_underline,
+          ),
         ),
         IconButton(
           tooltip: 'Strikethrough',
           onPressed: () => _apply(
-            WmlRunProps(strike: props.strike != true),
+            strike: !props.strike,
           ),
-          icon: const Icon(Icons.strikethrough_s),
+          icon: const Icon(
+            Icons.strikethrough_s,
+          ),
         ),
       ],
     );
