@@ -30,14 +30,15 @@ class WordViewerViewport {
 
     final viewWidth = width ?? viewport.extent.width;
 
-    if (viewWidth <= _scrollBar + 1) return false;
+    if (viewWidth <= _scrollBar) return false;
 
     final availableWidth = math.max(
       1.0,
       viewWidth - _scrollBar,
     );
 
-    final pageWidthAtScaleOne = page.width * _pointsToPixels;
+    final pageWidthAtScaleOne =
+        page.width * _pointsToPixels;
 
     if (pageWidthAtScaleOne <= 0) return false;
 
