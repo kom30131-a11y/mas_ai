@@ -64,8 +64,8 @@ class WordToolbarHyperlink extends StatelessWidget {
     if (!context.mounted || result != true || url.isEmpty) return;
 
     controller.insertHyperlink(
-      url: url,
       text: text.isEmpty ? url : text,
+      target: url,
     );
     controller.refresh();
   }
