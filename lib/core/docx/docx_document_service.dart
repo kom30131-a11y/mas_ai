@@ -13,9 +13,7 @@ class DocxDocumentService {
 
   final _storage = LibraryStorageService.instance;
 
-  Future<Uint8List> readBytes(
-    String path,
-  ) async {
+  Future<Uint8List> readBytes(String path) async {
     final file = File(path);
 
     if (!await file.exists()) {
@@ -33,10 +31,17 @@ class DocxDocumentService {
   }) async {
     final bytes = await readBytes(path);
 
-    return WordEditorController.fromBytes(
-      bytes,
+    final controller = WordEditorController(
       config: config,
     );
+
+    try {
+      await controller.loadBytesAsync(bytes);
+      return controller;
+    } catch (_) {
+      controller.dispose();
+      rethrow;
+    }
   }
 
   Future<void> writeAtomic(
@@ -165,15 +170,13 @@ class DocxDocumentService {
       recursive: true,
     );
 
-    final safeName = fileName
-        .replaceAll(
-          RegExp(r'[\\/:*?"<>|]'),
-          '_',
-        );
+    final safeName = fileName.replaceAll(
+      RegExp(r'[\\/:*?"<>|]'),
+      '_',
+    );
 
     final extension =
-        p.extension(safeName).toLowerCase() ==
-                '.docx'
+        p.extension(safeName).toLowerCase() == '.docx'
             ? ''
             : '.docx';
 
@@ -209,9 +212,7 @@ class DocxDocumentService {
     return output.path;
   }
 
-  Future<void> deleteFile(
-    String path,
-  ) async {
+  Future<void> deleteFile(String path) async {
     final file = File(path);
 
     if (await file.exists()) {
