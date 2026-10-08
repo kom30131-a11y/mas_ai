@@ -44,11 +44,20 @@ class WordToolbarSearch extends StatelessWidget {
 
     field.dispose();
 
-    if (!context.mounted || query == null || query.trim().isEmpty) return;
+    if (!context.mounted || query == null || query.trim().isEmpty) {
+      return;
+    }
 
-    controller.find(
-      query.trim(),
+    final hits = controller.find(
+      OfficeFindOptions(
+        query: query.trim(),
+      ),
     );
+
+    if (hits.isNotEmpty) {
+      controller.revealFindHit(hits.first);
+    }
+
     controller.refresh();
   }
 
