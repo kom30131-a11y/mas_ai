@@ -9,7 +9,6 @@ class WordViewerViewport {
   static const double _pointsToPixels = 96 / 72;
   static const double _pageSideGutter = 64;
   static const double _scrollBar = 14;
-  static const double _phoneMargin = 8;
 
   static bool fitWidth(
     WordEditorController controller, {
@@ -31,17 +30,14 @@ class WordViewerViewport {
 
     final viewWidth = width ?? viewport.extent.width;
 
-    if (viewWidth <= _scrollBar + (_phoneMargin * 2)) {
-      return false;
-    }
+    if (viewWidth <= _scrollBar + 1) return false;
 
     final availableWidth = math.max(
       1.0,
-      viewWidth - _scrollBar - (_phoneMargin * 2),
+      viewWidth - _scrollBar,
     );
 
-    final pageWidthAtScaleOne =
-        page.width * _pointsToPixels;
+    final pageWidthAtScaleOne = page.width * _pointsToPixels;
 
     if (pageWidthAtScaleOne <= 0) return false;
 
@@ -55,10 +51,7 @@ class WordViewerViewport {
     viewport.setScale(scale);
 
     viewport.origin = Offset(
-      math.max(
-        0,
-        _pageSideGutter - _phoneMargin,
-      ),
+      _pageSideGutter,
       resetScroll ? 0 : viewport.origin.dy,
     );
 
