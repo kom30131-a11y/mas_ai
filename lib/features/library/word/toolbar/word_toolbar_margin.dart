@@ -9,38 +9,31 @@ class WordToolbarMargin extends StatelessWidget {
     required this.controller,
   });
 
-  void _setMargin(int twips) {
-    controller.setPageMargins(
-      WmlPageMargins(
-        topTwips: twips,
-        bottomTwips: twips,
-        leftTwips: twips,
-        rightTwips: twips,
-      ),
-    );
+  void _setMargin(WmlPageMargins margins) {
+    controller.setPageMargins(margins);
     controller.refresh();
   }
 
   @override
   Widget build(BuildContext context) {
-    return PopupMenuButton<int>(
+    return PopupMenuButton<WmlPageMargins>(
       tooltip: 'Margins',
       icon: const Icon(Icons.space_bar),
       onSelected: _setMargin,
       itemBuilder: (context) => const [
         PopupMenuItem(
-          value: 720,
+          value: WmlPageMargins.narrow,
           child: Text('Narrow'),
         ),
         PopupMenuItem(
-          value: 1134,
+          value: WmlPageMargins.normal,
           child: Text('Normal'),
         ),
         PopupMenuItem(
-          value: 1440,
+          value: WmlPageMargins.wide,
           child: Text('Wide'),
         ),
       ],
     );
   }
-  
+}
