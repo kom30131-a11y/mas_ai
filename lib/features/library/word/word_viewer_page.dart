@@ -6,6 +6,7 @@ import 'package:quds_office_editor/quds_office_editor.dart';
 import '../../../core/docx/docx_document_service.dart';
 import '../../../core/docx/docx_draft_repository.dart';
 import 'word_editor_toolbar.dart';
+import 'word_viewer_hand_layer.dart';
 import 'word_viewer_search.dart';
 import 'word_viewer_viewport.dart';
 
@@ -34,7 +35,7 @@ class _WordViewerPageState extends State<WordViewerPage> {
   bool _saving = false;
   bool _loading = true;
   bool _autoFitScheduled = false;
-  bool _editMode = true;
+  bool _handMode = false;
 
   double? _lastAutoFitWidth;
   double? _lastAutoFitPageWidth;
@@ -79,7 +80,7 @@ class _WordViewerPageState extends State<WordViewerPage> {
         _controller = controller;
         _loading = false;
         _dirty = draftPath != null;
-        _editMode = true;
+        _handMode = false;
       });
 
       _scheduleAutoFit();
@@ -161,21 +162,10 @@ class _WordViewerPageState extends State<WordViewerPage> {
     });
   }
 
-  void _setEditMode(bool value) {
-    final controller = _controller;
-    if (controller == null) return;
-
-    controller.setMode(
-      value
-          ? OfficeInteractionMode.editing
-          : OfficeInteractionMode.viewing,
-    );
-
+  void _toggleHandMode() {
     setState(() {
-      _editMode = value;
+      _handMode = !_handMode;
     });
-
-    controller.refresh();
   }
 
   Future<void> _saveDraft() async {
@@ -312,6 +302,7 @@ class _WordViewerPageState extends State<WordViewerPage> {
 
   void _fitWidth() {
     final controller = _controller;
+
     if (controller == null) return;
 
     WordViewerViewport.fitWidth(
@@ -382,12 +373,12 @@ class _WordViewerPageState extends State<WordViewerPage> {
               icon: const Icon(Icons.search),
             ),
             IconButton(
-              tooltip: _editMode ? 'Hand mode' : 'Edit',
-              onPressed: () => _setEditMode(!_editMode),
+              tooltip: _handMode ? 'Edit' : 'Hand mode',
+              onPressed: _toggleHandMode,
               icon: Icon(
-                _editMode
-                    ? Icons.pan_tool_outlined
-                    : Icons.edit_outlined,
+                _handMode
+                    ? Icons.edit_outlined
+                    : Icons.pan_tool_outlined,
               ),
             ),
             IconButton(
@@ -404,7 +395,7 @@ class _WordViewerPageState extends State<WordViewerPage> {
         ),
         body: Column(
           children: [
-            if (_editMode)
+            if (!_handMode)
               WordEditorToolbar(
                 controller: controller,
                 onFitPage: _fitWidth,
@@ -414,8 +405,9 @@ class _WordViewerPageState extends State<WordViewerPage> {
                 builder: (context, constraints) {
                   _scheduleAutoFit();
 
-                  return QudsWordEditor(
+                  return WordViewerHandLayer(
                     controller: controller,
+                    handMode: _handMode,
                   );
                 },
               ),
