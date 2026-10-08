@@ -6,14 +6,12 @@ import 'powerpoint/powerpoint_viewer_page.dart';
 import 'word/word_viewer_page.dart';
 
 class ContentViewerPage extends StatelessWidget {
-  final String title;
   final String path;
   final String type;
   final String? extractedText;
 
   const ContentViewerPage({
     super.key,
-    required this.title,
     required this.path,
     required this.type,
     this.extractedText,
@@ -24,104 +22,70 @@ class ContentViewerPage extends StatelessWidget {
     final value = type.toLowerCase();
 
     if (value == 'pdf') {
-      return PdfViewerPage(
-        title: title,
-        path: path,
-      );
+      return PdfViewerPage(path: path);
     }
 
-    if (_isWord(value)) {
-      return WordViewerPage(
-        title: title,
-        path: path,
-      );
-    }
-
-    if (_isPowerPoint(value)) {
-      return PowerPointViewerPage(
-        title: title,
-        path: path,
-      );
-    }
-
-    if (_isImage(value)) {
-      return ImageViewerPage(
-        title: title,
-        path: path,
-      );
-    }
-
-    if (extractedText != null &&
-        extractedText!.trim().isNotEmpty) {
-      return _textViewer(
-        context,
-        extractedText!,
-      );
-    }
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
-      ),
-      body: const Center(
-        child: Text(
-          'Preview is not available for this file.',
-        ),
-      ),
-    );
-  }
-
-  bool _isWord(String value) {
-    return value == 'word' ||
+    if (value == 'word' ||
         value == 'doc' ||
-        value == 'docx';
-  }
+        value == 'docx') {
+      return WordViewerPage(path: path);
+    }
 
-  bool _isPowerPoint(String value) {
-    return value == 'ppt' ||
+    if (value == 'ppt' ||
         value == 'pptx' ||
-        value == 'powerpoint';
-  }
+        value == 'powerpoint') {
+      return PowerPointViewerPage(path: path);
+    }
 
-  bool _isImage(String value) {
-    return value == 'jpg' ||
+    if (value == 'jpg' ||
         value == 'jpeg' ||
         value == 'png' ||
         value == 'webp' ||
         value == 'heic' ||
-        value == 'image';
-  }
+        value == 'image') {
+      return ImageViewerPage(path: path);
+    }
 
-  Widget _textViewer(
-    BuildContext context,
-    String text,
-  ) {
-    final isArabic = RegExp(
-      r'[\u0600-\u06FF]',
-    ).hasMatch(text);
+    if (extractedText != null &&
+        extractedText!.trim().isNotEmpty) {
+      final isArabic = RegExp(
+        r'[\u0600-\u06FF]',
+      ).hasMatch(extractedText!);
+
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(path.split('/').last),
+        ),
+        body: Directionality(
+          textDirection:
+              isArabic
+                  ? TextDirection.rtl
+                  : TextDirection.ltr,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: SelectableText(
+              extractedText!,
+              textAlign:
+                  isArabic
+                      ? TextAlign.right
+                      : TextAlign.left,
+              style: const TextStyle(
+                fontSize: 16,
+                height: 1.6,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(title),
+        title: Text(path.split('/').last),
       ),
-      body: Directionality(
-        textDirection:
-            isArabic
-                ? TextDirection.rtl
-                : TextDirection.ltr,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: SelectableText(
-            text,
-            textAlign:
-                isArabic
-                    ? TextAlign.right
-                    : TextAlign.left,
-            style: const TextStyle(
-              fontSize: 16,
-              height: 1.6,
-            ),
-          ),
+      body: const Center(
+        child: Text(
+          'Preview is not available for this file.',
         ),
       ),
     );
