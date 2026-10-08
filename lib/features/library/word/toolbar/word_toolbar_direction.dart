@@ -11,7 +11,7 @@ class WordToolbarDirection extends StatelessWidget {
 
   void _set(bool rtl) {
     controller.setParagraphDirection(
-      rightToLeft: rtl,
+      rtl: rtl,
     );
     controller.refresh();
   }
