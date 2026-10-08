@@ -34,6 +34,11 @@ class _WordViewerPageState extends State<WordViewerPage> {
   bool _loading = true;
   String? _error;
 
+  bool _autoFitScheduled = false;
+  double? _lastAutoFitWidth;
+  double? _lastAutoFitPageWidth;
+  int? _lastAutoFitPageIndex;
+
   @override
   void initState() {
     super.initState();
@@ -66,13 +71,15 @@ class _WordViewerPageState extends State<WordViewerPage> {
         return;
       }
 
-      controller.addListener(_markDirty);
+      controller.addListener(_onControllerChanged);
 
       setState(() {
         _controller = controller;
         _loading = false;
         _dirty = draftPath != null;
       });
+
+      _scheduleAutoFit();
     } catch (e) {
       if (!mounted) return;
 
@@ -81,6 +88,11 @@ class _WordViewerPageState extends State<WordViewerPage> {
         _error = '$e';
       });
     }
+  }
+
+  void _onControllerChanged() {
+    _markDirty();
+    _scheduleAutoFit();
   }
 
   void _markDirty() {
@@ -95,6 +107,60 @@ class _WordViewerPageState extends State<WordViewerPage> {
       const Duration(seconds: 2),
       _saveDraft,
     );
+  }
+
+  void _scheduleAutoFit() {
+    if (_autoFitScheduled) return;
+
+    _autoFitScheduled = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _autoFitScheduled = false;
+
+      if (!mounted) return;
+
+      final controller = _controller;
+      if (controller == null) return;
+
+      final width = controller.viewport.extent.width;
+
+      if (width <= 0) return;
+
+      final pages = controller.documentLaidOut.pages;
+
+      if (pages.isEmpty) return;
+
+      final index = controller.visiblePageIndex
+          .clamp(0, pages.length - 1)
+          .toInt();
+
+      final page = pages[index];
+
+      if (page.width <= 0) return;
+
+      final widthChanged =
+          _lastAutoFitWidth == null ||
+          (_lastAutoFitWidth! - width).abs() > 0.5;
+
+      final pageChanged =
+          _lastAutoFitPageWidth == null ||
+          (_lastAutoFitPageWidth! - page.width).abs() > 0.01 ||
+          _lastAutoFitPageIndex != index;
+
+      if (!widthChanged && !pageChanged) return;
+
+      final fitted = WordViewerViewport.fitWidth(
+        controller,
+        width: width,
+        resetScroll: false,
+      );
+
+      if (!fitted) return;
+
+      _lastAutoFitWidth = width;
+      _lastAutoFitPageWidth = page.width;
+      _lastAutoFitPageIndex = index;
+    });
   }
 
   Future<void> _saveDraft() async {
@@ -231,6 +297,7 @@ class _WordViewerPageState extends State<WordViewerPage> {
 
   void _fitWidth() {
     final controller = _controller;
+
     if (controller == null) return;
 
     WordViewerViewport.fitWidth(
@@ -242,7 +309,7 @@ class _WordViewerPageState extends State<WordViewerPage> {
   @override
   void dispose() {
     _saveTimer?.cancel();
-    _controller?.removeListener(_markDirty);
+    _controller?.removeListener(_onControllerChanged);
     _controller?.dispose();
     super.dispose();
   }
@@ -319,8 +386,14 @@ class _WordViewerPageState extends State<WordViewerPage> {
               onFitPage: _fitWidth,
             ),
             Expanded(
-              child: QudsWordEditor(
-                controller: controller,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  _scheduleAutoFit();
+
+                  return QudsWordEditor(
+                    controller: controller,
+                  );
+                },
               ),
             ),
           ],
