@@ -9,25 +9,25 @@ class WordToolbarParagraph extends StatelessWidget {
     required this.controller,
   });
 
-  void _align(String value) {
+  void _align(WmlJustification value) {
     controller.applyParagraphFormat(
-      WmlParagraphProps(
-        justification: value,
-      ),
+      (props) {
+        props.justification = value;
+      },
     );
     controller.refresh();
   }
 
-  void _indent(int value) {
+  void _indent(double value) {
     controller.setParagraphIndent(
       left: value,
     );
     controller.refresh();
   }
 
-  void _list(String kind) {
+  void _list(bool numbered) {
     controller.toggleList(
-      kind: kind,
+      numbered: numbered,
     );
     controller.refresh();
   }
@@ -39,37 +39,37 @@ class WordToolbarParagraph extends StatelessWidget {
       children: [
         IconButton(
           tooltip: 'Align left',
-          onPressed: () => _align('left'),
+          onPressed: () => _align(WmlJustification.left),
           icon: const Icon(Icons.format_align_left),
         ),
         IconButton(
           tooltip: 'Center',
-          onPressed: () => _align('center'),
+          onPressed: () => _align(WmlJustification.center),
           icon: const Icon(Icons.format_align_center),
         ),
         IconButton(
           tooltip: 'Align right',
-          onPressed: () => _align('right'),
+          onPressed: () => _align(WmlJustification.right),
           icon: const Icon(Icons.format_align_right),
         ),
         IconButton(
           tooltip: 'Justify',
-          onPressed: () => _align('both'),
+          onPressed: () => _align(WmlJustification.both),
           icon: const Icon(Icons.format_align_justify),
         ),
         IconButton(
           tooltip: 'Bulleted list',
-          onPressed: () => _list('bullet'),
+          onPressed: () => _list(false),
           icon: const Icon(Icons.format_list_bulleted),
         ),
         IconButton(
           tooltip: 'Numbered list',
-          onPressed: () => _list('number'),
+          onPressed: () => _list(true),
           icon: const Icon(Icons.format_list_numbered),
         ),
         IconButton(
           tooltip: 'Increase indent',
-          onPressed: () => _indent(720),
+          onPressed: () => _indent(36),
           icon: const Icon(Icons.format_indent_increase),
         ),
         IconButton(
