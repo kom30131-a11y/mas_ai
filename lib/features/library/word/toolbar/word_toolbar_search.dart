@@ -10,7 +10,7 @@ class WordToolbarSearch extends StatelessWidget {
   });
 
   Future<void> _search(BuildContext context) async {
-    final queryController = TextEditingController();
+    final field = TextEditingController();
 
     final query = await showDialog<String>(
       context: context,
@@ -18,7 +18,7 @@ class WordToolbarSearch extends StatelessWidget {
         return AlertDialog(
           title: const Text('Find'),
           content: TextField(
-            controller: queryController,
+            controller: field,
             autofocus: true,
             textInputAction: TextInputAction.search,
             decoration: const InputDecoration(
@@ -33,7 +33,7 @@ class WordToolbarSearch extends StatelessWidget {
             FilledButton(
               onPressed: () => Navigator.pop(
                 context,
-                queryController.text,
+                field.text,
               ),
               child: const Text('Find'),
             ),
@@ -42,9 +42,9 @@ class WordToolbarSearch extends StatelessWidget {
       },
     );
 
-    queryController.dispose();
+    field.dispose();
 
-    if (query == null || query.trim().isEmpty) return;
+    if (!context.mounted || query == null || query.trim().isEmpty) return;
 
     controller.find(
       query.trim(),
