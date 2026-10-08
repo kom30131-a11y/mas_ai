@@ -10,17 +10,31 @@ class WordToolbarSpacing extends StatelessWidget {
   });
 
   void _apply({
-    int? before,
-    int? after,
-    int? line,
+    double? before,
+    double? after,
+    bool? explicitLine,
+    double? line,
   }) {
     controller.applyParagraphFormat(
-      WmlParagraphProps(
-        spacingBefore: before,
-        spacingAfter: after,
-        explicitLineSpacing: line,
-      ),
+      (props) {
+        if (before != null) {
+          props.spacingBefore = before;
+        }
+
+        if (after != null) {
+          props.spacingAfter = after;
+        }
+
+        if (explicitLine != null) {
+          props.explicitLineSpacing = explicitLine;
+        }
+
+        if (line != null) {
+          props.lineSpacing = line;
+        }
+      },
     );
+
     controller.refresh();
   }
 
@@ -35,28 +49,31 @@ class WordToolbarSpacing extends StatelessWidget {
             _apply(
               before: 0,
               after: 0,
-              line: 240,
+              explicitLine: true,
+              line: 1,
             );
             break;
           case 'normal':
             _apply(
               before: 0,
-              after: 120,
-              line: 276,
+              after: 8,
+              explicitLine: false,
+              line: 1.15,
             );
             break;
           case 'wide':
             _apply(
               before: 0,
-              after: 240,
-              line: 360,
+              after: 16,
+              explicitLine: true,
+              line: 1.5,
             );
             break;
           case 'before':
-            _apply(before: 240);
+            _apply(before: 12);
             break;
           case 'after':
-            _apply(after: 240);
+            _apply(after: 12);
             break;
         }
       },
