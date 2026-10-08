@@ -1,10 +1,11 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:quds_office_editor/quds_office_editor.dart';
 
 import '../../../core/docx/docx_document_service.dart';
 import '../../../core/docx/docx_draft_repository.dart';
-import 'toolbar/word_editor_toolbar.dart';
+import 'word_editor_toolbar.dart';
 import 'word_viewer_search.dart';
 import 'word_viewer_viewport.dart';
 
@@ -33,8 +34,6 @@ class _WordViewerPageState extends State<WordViewerPage> {
   bool _loading = true;
   String? _error;
 
-  WordEditorController? get controller => _controller;
-
   @override
   void initState() {
     super.initState();
@@ -45,25 +44,35 @@ class _WordViewerPageState extends State<WordViewerPage> {
     try {
       final draft = widget.contentId == null
           ? null
-          : await _drafts.findByContentId(widget.contentId!);
+          : await _drafts.getDraft(widget.contentId!);
 
-      final source = draft?.draftPath ?? widget.path;
+      final draftPath = draft?['draft_path'] as String?;
+      final source = draftPath ?? widget.path;
 
-      final controller = await _service.openController(source);
+      final controller = await _service.openController(
+        path: source,
+        config: const OfficeSurfaceConfig(
+          mode: OfficeInteractionMode.editing,
+          showRulers: true,
+          interactiveRulers: true,
+          enableUndo: true,
+          textDirection: TextDirection.ltr,
+          strings: OfficeStrings.english,
+        ),
+      );
 
       if (!mounted) {
         controller.dispose();
         return;
       }
 
+      controller.addListener(_markDirty);
+
       setState(() {
         _controller = controller;
         _loading = false;
+        _dirty = draftPath != null;
       });
-
-      if (draft != null) {
-        _dirty = true;
-      }
     } catch (e) {
       if (!mounted) return;
 
@@ -75,6 +84,10 @@ class _WordViewerPageState extends State<WordViewerPage> {
   }
 
   void _markDirty() {
+    final controller = _controller;
+
+    if (controller == null || !controller.isDirty) return;
+
     _dirty = true;
     _saveTimer?.cancel();
 
@@ -85,36 +98,45 @@ class _WordViewerPageState extends State<WordViewerPage> {
   }
 
   Future<void> _saveDraft() async {
-    final c = _controller;
-    if (c == null || !_dirty || _saving) return;
+    final controller = _controller;
+
+    if (controller == null || !_dirty || _saving) return;
+    if (widget.contentId == null) return;
 
     _saving = true;
 
     try {
-      final bytes = await c.writeBytes();
+      final bytes = await controller.saveBytesAsync();
 
-      if (widget.contentId != null) {
-        await _drafts.saveDraft(
-          contentId: widget.contentId!,
-          originalPath: widget.path,
-          bytes: bytes,
-        );
-      }
+      final draftPath = await _service.writeDraft(
+        contentId: widget.contentId!,
+        originalPath: widget.path,
+        bytes: bytes,
+      );
+
+      await _drafts.saveDraft(
+        contentId: widget.contentId!,
+        draftPath: draftPath,
+        originalPath: widget.path,
+      );
     } finally {
       _saving = false;
     }
   }
 
-  Future<void> _save() async {
-    final c = _controller;
-    if (c == null) return;
+  Future<bool> _save() async {
+    final controller = _controller;
 
-    setState(() {
-      _saving = true;
-    });
+    if (controller == null) return false;
+
+    if (mounted) {
+      setState(() {
+        _saving = true;
+      });
+    }
 
     try {
-      final bytes = await c.writeBytes();
+      final bytes = await controller.saveBytesAsync();
 
       await _service.writeAtomic(
         widget.path,
@@ -127,6 +149,7 @@ class _WordViewerPageState extends State<WordViewerPage> {
         );
       }
 
+      controller.markClean();
       _dirty = false;
 
       if (mounted) {
@@ -136,6 +159,8 @@ class _WordViewerPageState extends State<WordViewerPage> {
           ),
         );
       }
+
+      return true;
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -144,11 +169,15 @@ class _WordViewerPageState extends State<WordViewerPage> {
           ),
         );
       }
+
+      return false;
     } finally {
       if (mounted) {
         setState(() {
           _saving = false;
         });
+      } else {
+        _saving = false;
       }
     }
   }
@@ -158,7 +187,7 @@ class _WordViewerPageState extends State<WordViewerPage> {
 
     final result = await showDialog<bool>(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           title: const Text('Unsaved changes'),
           content: const Text(
@@ -167,18 +196,28 @@ class _WordViewerPageState extends State<WordViewerPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(
-                context,
+                dialogContext,
+                false,
+              ),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(
+                dialogContext,
                 true,
               ),
               child: const Text('Discard'),
             ),
             FilledButton(
               onPressed: () async {
-                Navigator.pop(
-                  context,
-                  false,
-                );
-                await _save();
+                final saved = await _save();
+
+                if (dialogContext.mounted) {
+                  Navigator.pop(
+                    dialogContext,
+                    saved,
+                  );
+                }
               },
               child: const Text('Save'),
             ),
@@ -191,11 +230,11 @@ class _WordViewerPageState extends State<WordViewerPage> {
   }
 
   void _fitWidth() {
-    final c = _controller;
-    if (c == null) return;
+    final controller = _controller;
+    if (controller == null) return;
 
     WordViewerViewport.fitWidth(
-      c,
+      controller,
       resetScroll: false,
     );
   }
@@ -203,6 +242,7 @@ class _WordViewerPageState extends State<WordViewerPage> {
   @override
   void dispose() {
     _saveTimer?.cancel();
+    _controller?.removeListener(_markDirty);
     _controller?.dispose();
     super.dispose();
   }
@@ -234,7 +274,7 @@ class _WordViewerPageState extends State<WordViewerPage> {
       );
     }
 
-    final c = _controller!;
+    final controller = _controller!;
 
     return PopScope(
       canPop: false,
@@ -253,16 +293,17 @@ class _WordViewerPageState extends State<WordViewerPage> {
           actions: [
             IconButton(
               tooltip: 'Find',
-              onPressed: () => showSearch(
-                context: context,
-                delegate: WordViewerSearch(c),
+              onPressed: () => WordViewerSearch.show(
+                context,
+                controller,
+                replace: false,
               ),
               icon: const Icon(Icons.search),
             ),
             IconButton(
               tooltip: 'Fit width',
               onPressed: _fitWidth,
-              icon: const Icon(Icons.fit_width),
+              icon: const Icon(Icons.fit_screen),
             ),
             IconButton(
               tooltip: 'Save',
@@ -274,13 +315,12 @@ class _WordViewerPageState extends State<WordViewerPage> {
         body: Column(
           children: [
             WordEditorToolbar(
-              controller: c,
+              controller: controller,
               onFitPage: _fitWidth,
             ),
             Expanded(
               child: QudsWordEditor(
-                controller: c,
-                onChanged: _markDirty,
+                controller: controller,
               ),
             ),
           ],
