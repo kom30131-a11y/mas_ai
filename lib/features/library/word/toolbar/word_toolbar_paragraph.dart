@@ -19,16 +19,12 @@ class WordToolbarParagraph extends StatelessWidget {
   }
 
   void _indent(double value) {
-    controller.setParagraphIndent(
-      left: value,
-    );
+    controller.setParagraphIndent(left: value);
     controller.refresh();
   }
 
   void _list(bool numbered) {
-    controller.toggleList(
-      numbered: numbered,
-    );
+    controller.toggleList(numbered: numbered);
     controller.refresh();
   }
 
@@ -54,7 +50,7 @@ class WordToolbarParagraph extends StatelessWidget {
         ),
         IconButton(
           tooltip: 'Justify',
-          onPressed: () => _align(WmlJustification.both),
+          onPressed: () => _align(WmlJustification.justify),
           icon: const Icon(Icons.format_align_justify),
         ),
         IconButton(
