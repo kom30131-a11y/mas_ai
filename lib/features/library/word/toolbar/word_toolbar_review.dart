@@ -9,18 +9,18 @@ class WordToolbarReview extends StatelessWidget {
     required this.controller,
   });
 
-  Future<void> _revisions(BuildContext context) async {
-    if (!controller.hasTrackedChanges) return;
-
+  Future<void> _review(BuildContext context) async {
     final revision = controller.selectedRevision;
 
     if (revision == null) {
-      controller.stepRevision(forward: true);
-      controller.refresh();
+      if (controller.hasTrackedChanges) {
+        controller.stepRevision(1);
+        controller.refresh();
+      }
       return;
     }
 
-    await showModalBottomSheet<void>(
+    final action = await showModalBottomSheet<String>(
       context: context,
       builder: (context) {
         return SafeArea(
@@ -30,38 +30,42 @@ class WordToolbarReview extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.check),
                 title: const Text('Accept'),
-                onTap: () {
-                  controller.acceptRevision(revision.id);
-                  controller.refresh();
-                  Navigator.pop(context);
-                },
+                onTap: () => Navigator.pop(context, 'accept'),
               ),
               ListTile(
                 leading: const Icon(Icons.close),
                 title: const Text('Reject'),
-                onTap: () {
-                  controller.rejectRevision(revision.id);
-                  controller.refresh();
-                  Navigator.pop(context);
-                },
+                onTap: () => Navigator.pop(context, 'reject'),
               ),
             ],
           ),
         );
       },
     );
+
+    if (!context.mounted || action == null) return;
+
+    if (action == 'accept') {
+      controller.acceptRevision(revision);
+    } else {
+      controller.rejectRevision(revision);
+    }
+
+    controller.refresh();
   }
 
   @override
   Widget build(BuildContext context) {
+    final hasChanges = controller.hasTrackedChanges;
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
           tooltip: 'Previous change',
-          onPressed: controller.hasTrackedChanges
+          onPressed: hasChanges
               ? () {
-                  controller.stepRevision(forward: false);
+                  controller.stepRevision(-1);
                   controller.refresh();
                 }
               : null,
@@ -69,24 +73,24 @@ class WordToolbarReview extends StatelessWidget {
         ),
         IconButton(
           tooltip: 'Next change',
-          onPressed: controller.hasTrackedChanges
+          onPressed: hasChanges
               ? () {
-                  controller.stepRevision(forward: true);
+                  controller.stepRevision(1);
                   controller.refresh();
                 }
               : null,
           icon: const Icon(Icons.skip_next),
         ),
         IconButton(
-          tooltip: 'Accept or reject change',
-          onPressed: controller.hasTrackedChanges
-              ? () => _revisions(context)
+          tooltip: 'Review change',
+          onPressed: hasChanges
+              ? () => _review(context)
               : null,
           icon: const Icon(Icons.rate_review),
         ),
         IconButton(
-          tooltip: 'Accept all changes',
-          onPressed: controller.hasTrackedChanges
+          tooltip: 'Accept all',
+          onPressed: hasChanges
               ? () {
                   controller.acceptAllRevisions();
                   controller.refresh();
@@ -95,8 +99,8 @@ class WordToolbarReview extends StatelessWidget {
           icon: const Icon(Icons.done_all),
         ),
         IconButton(
-          tooltip: 'Reject all changes',
-          onPressed: controller.hasTrackedChanges
+          tooltip: 'Reject all',
+          onPressed: hasChanges
               ? () {
                   controller.rejectAllRevisions();
                   controller.refresh();
