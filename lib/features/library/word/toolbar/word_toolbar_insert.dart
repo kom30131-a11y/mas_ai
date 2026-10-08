@@ -38,9 +38,7 @@ class WordToolbarInsert extends StatelessWidget {
     String title,
     int initial,
   ) async {
-    final field = TextEditingController(
-      text: '$initial',
-    );
+    final field = TextEditingController(text: '$initial');
 
     final value = await showDialog<int>(
       context: context,
@@ -59,9 +57,7 @@ class WordToolbarInsert extends StatelessWidget {
             ),
             FilledButton(
               onPressed: () {
-                final value = int.tryParse(
-                  field.text.trim(),
-                );
+                final value = int.tryParse(field.text.trim());
 
                 if (value == null || value < 1) return;
 
@@ -100,9 +96,9 @@ class WordToolbarInsert extends StatelessWidget {
           icon: const Icon(Icons.insert_page_break),
         ),
         IconButton(
-          tooltip: 'Insert line break',
+          tooltip: 'Insert paragraph break',
           onPressed: () {
-            controller.insertLineBreak();
+            controller.insertParagraphBreak();
             controller.refresh();
           },
           icon: const Icon(Icons.keyboard_return),
