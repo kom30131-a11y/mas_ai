@@ -9,50 +9,36 @@ class WordToolbarColor extends StatelessWidget {
     required this.controller,
   });
 
-  void _applyTextColor(Color color) {
-    controller.applyRunFormat(
-      WmlRunProps(
-        color: _hex(color),
-      ),
-    );
-    controller.refresh();
-  }
-
-  void _applyHighlight(Color color) {
-    controller.applyRunFormat(
-      WmlRunProps(
-        highlight: _hex(color),
-      ),
-    );
-    controller.refresh();
-  }
-
   String _hex(Color color) {
-    return color.value.toRadixString(16).substring(2).toUpperCase();
+    return color.value
+        .toRadixString(16)
+        .padLeft(8, '0')
+        .substring(2)
+        .toUpperCase();
   }
 
   Future<void> _pick(
     BuildContext context, {
     required bool highlight,
   }) async {
+    const colors = [
+      Colors.black,
+      Colors.white,
+      Colors.red,
+      Colors.orange,
+      Colors.yellow,
+      Colors.green,
+      Colors.cyan,
+      Colors.blue,
+      Colors.purple,
+      Colors.pink,
+      Colors.brown,
+      Colors.grey,
+    ];
+
     final color = await showDialog<Color>(
       context: context,
       builder: (context) {
-        const colors = [
-          Colors.black,
-          Colors.red,
-          Colors.blue,
-          Colors.green,
-          Colors.orange,
-          Colors.purple,
-          Colors.brown,
-          Colors.grey,
-          Colors.white,
-          Colors.yellow,
-          Colors.cyan,
-          Colors.pink,
-        ];
-
         return AlertDialog(
           title: Text(
             highlight ? 'Highlight color' : 'Text color',
@@ -63,7 +49,10 @@ class WordToolbarColor extends StatelessWidget {
             children: [
               for (final color in colors)
                 InkWell(
-                  onTap: () => Navigator.pop(context, color),
+                  onTap: () => Navigator.pop(
+                    context,
+                    color,
+                  ),
                   borderRadius: BorderRadius.circular(20),
                   child: Container(
                     width: 36,
@@ -83,13 +72,15 @@ class WordToolbarColor extends StatelessWidget {
       },
     );
 
-    if (color == null) return;
+    if (!context.mounted || color == null) return;
 
-    if (highlight) {
-      _applyHighlight(color);
-    } else {
-      _applyTextColor(color);
-    }
+    controller.applyRunFormat(
+      WmlRunProps(
+        color: highlight ? null : _hex(color),
+        highlight: highlight ? _hex(color) : null,
+      ),
+    );
+    controller.refresh();
   }
 
   @override
