@@ -6,12 +6,14 @@ import 'powerpoint/powerpoint_viewer_page.dart';
 import 'word/word_viewer_page.dart';
 
 class ContentViewerPage extends StatelessWidget {
+  final String title;
   final String path;
   final String type;
   final String? extractedText;
 
   const ContentViewerPage({
     super.key,
+    required this.title,
     required this.path,
     required this.type,
     this.extractedText,
@@ -22,19 +24,27 @@ class ContentViewerPage extends StatelessWidget {
     final value = type.toLowerCase();
 
     if (value == 'pdf') {
-      return PdfViewerPage(path: path);
+      return PdfViewerPage(
+        title: title,
+        path: path,
+      );
     }
 
     if (value == 'word' ||
         value == 'doc' ||
         value == 'docx') {
-      return WordViewerPage(path: path);
+      return WordViewerPage(
+        path: path,
+      );
     }
 
     if (value == 'ppt' ||
         value == 'pptx' ||
         value == 'powerpoint') {
-      return PowerPointViewerPage(path: path);
+      return PowerPointViewerPage(
+        title: title,
+        path: path,
+      );
     }
 
     if (value == 'jpg' ||
@@ -43,7 +53,10 @@ class ContentViewerPage extends StatelessWidget {
         value == 'webp' ||
         value == 'heic' ||
         value == 'image') {
-      return ImageViewerPage(path: path);
+      return ImageViewerPage(
+        title: title,
+        path: path,
+      );
     }
 
     if (extractedText != null &&
@@ -54,7 +67,7 @@ class ContentViewerPage extends StatelessWidget {
 
       return Scaffold(
         appBar: AppBar(
-          title: Text(path.split('/').last),
+          title: Text(title),
         ),
         body: Directionality(
           textDirection:
@@ -81,7 +94,7 @@ class ContentViewerPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(path.split('/').last),
+        title: Text(title),
       ),
       body: const Center(
         child: Text(
