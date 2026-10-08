@@ -35,10 +35,10 @@ c.refresh();
 
 static void margins(
 WordEditorController c, {
-int top = 1134,
-int right = 1134,
-int bottom = 1134,
-int left = 1134,
+double top = 1134,
+double right = 1134,
+double bottom = 1134,
+double left = 1134,
 }) {
 c.setPageMargins(
 WmlPageMargins(
@@ -260,8 +260,7 @@ c.refresh();
 }
 
 static void zoomOut(
-WordEditorController c,
-) {
+WordEditorController c) {
 final scale =
 (c.viewport.scale / 1.1)
 .clamp(
