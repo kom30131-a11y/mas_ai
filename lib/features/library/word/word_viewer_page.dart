@@ -34,6 +34,7 @@ class _WordViewerPageState extends State<WordViewerPage> {
   bool _saving = false;
   bool _loading = true;
   bool _autoFitScheduled = false;
+  bool _editMode = true;
 
   double? _lastAutoFitWidth;
   double? _lastAutoFitPageWidth;
@@ -78,6 +79,7 @@ class _WordViewerPageState extends State<WordViewerPage> {
         _controller = controller;
         _loading = false;
         _dirty = draftPath != null;
+        _editMode = true;
       });
 
       _scheduleAutoFit();
@@ -157,6 +159,36 @@ class _WordViewerPageState extends State<WordViewerPage> {
       _lastAutoFitWidth = width;
       _lastAutoFitPageWidth = page.width;
     });
+  }
+
+  void _setEditMode(bool value) {
+    final controller = _controller;
+    if (controller == null) return;
+
+    setState(() {
+      _editMode = value;
+    });
+
+    controller.refresh();
+
+    if (value) {
+      _scheduleAutoFit();
+    }
+  }
+
+  void _panPage(DragUpdateDetails details) {
+    final controller = _controller;
+
+    if (controller == null || _editMode) return;
+
+    controller.viewport.origin =
+        controller.viewport.origin -
+        Offset(
+          details.delta.dx,
+          details.delta.dy,
+        );
+
+    controller.refresh();
   }
 
   Future<void> _saveDraft() async {
@@ -364,6 +396,15 @@ class _WordViewerPageState extends State<WordViewerPage> {
               icon: const Icon(Icons.search),
             ),
             IconButton(
+              tooltip: _editMode ? 'Hand mode' : 'Edit',
+              onPressed: () => _setEditMode(!_editMode),
+              icon: Icon(
+                _editMode
+                    ? Icons.pan_tool_outlined
+                    : Icons.edit,
+              ),
+            ),
+            IconButton(
               tooltip: 'Fit width',
               onPressed: _fitWidth,
               icon: const Icon(Icons.fit_screen),
@@ -386,8 +427,21 @@ class _WordViewerPageState extends State<WordViewerPage> {
                 builder: (context, constraints) {
                   _scheduleAutoFit();
 
-                  return QudsWordEditor(
-                    controller: controller,
+                  return Stack(
+                    children: [
+                      Positioned.fill(
+                        child: QudsWordEditor(
+                          controller: controller,
+                        ),
+                      ),
+                      if (!_editMode)
+                        Positioned.fill(
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.translucent,
+                            onPanUpdate: _panPage,
+                          ),
+                        ),
+                    ],
                   );
                 },
               ),
