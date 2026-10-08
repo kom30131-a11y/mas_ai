@@ -9,6 +9,13 @@ class WordToolbarDirection extends StatelessWidget {
     required this.controller,
   });
 
+  void _set(bool rtl) {
+    controller.setParagraphDirection(
+      rightToLeft: rtl,
+    );
+    controller.refresh();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -16,23 +23,17 @@ class WordToolbarDirection extends StatelessWidget {
       children: [
         IconButton(
           tooltip: 'Left to right',
-          onPressed: () {
-            controller.setParagraphDirection(
-              rightToLeft: false,
-            );
-            controller.refresh();
-          },
-          icon: const Icon(Icons.format_textdirection_l_to_r),
+          onPressed: () => _set(false),
+          icon: const Icon(
+            Icons.format_textdirection_l_to_r,
+          ),
         ),
         IconButton(
           tooltip: 'Right to left',
-          onPressed: () {
-            controller.setParagraphDirection(
-              rightToLeft: true,
-            );
-            controller.refresh();
-          },
-          icon: const Icon(Icons.format_textdirection_r_to_l),
+          onPressed: () => _set(true),
+          icon: const Icon(
+            Icons.format_textdirection_r_to_l,
+          ),
         ),
       ],
     );
