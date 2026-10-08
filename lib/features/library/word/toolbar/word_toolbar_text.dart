@@ -34,16 +34,9 @@ class WordToolbarText extends StatelessWidget {
             ),
             FilledButton(
               onPressed: () {
-                final size = double.tryParse(
-                  field.text.trim(),
-                );
-
+                final size = double.tryParse(field.text.trim());
                 if (size == null || size <= 0) return;
-
-                Navigator.pop(
-                  context,
-                  size,
-                );
+                Navigator.pop(context, size);
               },
               child: const Text('Apply'),
             ),
@@ -57,9 +50,9 @@ class WordToolbarText extends StatelessWidget {
     if (!context.mounted || value == null) return;
 
     controller.applyRunFormat(
-      WmlRunProps(
-        fontSizeHalfPoints: (value * 2).round(),
-      ),
+      (props) {
+        props.fontSizeHalfPoints = (value * 2).round();
+      },
     );
     controller.refresh();
   }
