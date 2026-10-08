@@ -5,6 +5,7 @@ import 'package:quds_office_editor/quds_office_editor.dart';
 
 import '../../../core/docx/docx_document_service.dart';
 import '../../../core/docx/docx_draft_repository.dart';
+import '../../../core/settings/app_settings_controller.dart';
 import 'word_editor_toolbar.dart';
 import 'word_viewer_hand_layer.dart';
 import 'word_viewer_search.dart';
@@ -21,19 +22,25 @@ class WordViewerPage extends StatefulWidget {
   });
 
   @override
-  State<WordViewerPage> createState() => _WordViewerPageState();
+  State<WordViewerPage> createState() =>
+      _WordViewerPageState();
 }
 
-class _WordViewerPageState extends State<WordViewerPage> {
+class _WordViewerPageState
+    extends State<WordViewerPage> {
   final _service = DocxDocumentService.instance;
   final _drafts = DocxDraftRepository.instance;
+  final _settings =
+      AppSettingsController.instance;
 
   WordEditorController? _controller;
+
   Timer? _saveTimer;
 
   bool _dirty = false;
   bool _saving = false;
   bool _loading = true;
+  bool _openStarted = false;
   bool _autoFitScheduled = false;
   bool _handMode = false;
 
@@ -43,30 +50,65 @@ class _WordViewerPageState extends State<WordViewerPage> {
   String? _error;
 
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (_openStarted) {
+      return;
+    }
+
+    _openStarted = true;
     _open();
+  }
+
+  OfficeSurfaceConfig _surfaceConfig() {
+    final direction =
+        _settings.isArabic
+            ? TextDirection.rtl
+            : TextDirection.ltr;
+
+    final strings =
+        _settings.isArabic
+            ? OfficeStrings.arabic
+            : OfficeStrings.english;
+
+    final theme =
+        Theme.of(context).brightness ==
+                Brightness.dark
+            ? OfficeTheme.dark
+            : OfficeTheme.light;
+
+    return OfficeSurfaceConfig(
+      mode: OfficeInteractionMode.editing,
+      theme: theme,
+      showRulers: false,
+      interactiveRulers: false,
+      enableUndo: true,
+      adaptiveChrome: true,
+      textDirection: direction,
+      strings: strings,
+    );
   }
 
   Future<void> _open() async {
     try {
-      final draft = widget.contentId == null
-          ? null
-          : await _drafts.getDraft(widget.contentId!);
+      final draft =
+          widget.contentId == null
+              ? null
+              : await _drafts.getDraft(
+                  widget.contentId!,
+                );
 
-      final draftPath = draft?['draft_path'] as String?;
-      final source = draftPath ?? widget.path;
+      final draftPath =
+          draft?['draft_path'] as String?;
 
-      final controller = await _service.openController(
+      final source =
+          draftPath ?? widget.path;
+
+      final controller =
+          await _service.openController(
         path: source,
-        config: const OfficeSurfaceConfig(
-          mode: OfficeInteractionMode.editing,
-          showRulers: false,
-          interactiveRulers: false,
-          enableUndo: true,
-          textDirection: TextDirection.ltr,
-          strings: OfficeStrings.english,
-        ),
+        config: _surfaceConfig(),
       );
 
       if (!mounted) {
@@ -74,7 +116,9 @@ class _WordViewerPageState extends State<WordViewerPage> {
         return;
       }
 
-      controller.addListener(_onControllerChanged);
+      controller.addListener(
+        _onControllerChanged,
+      );
 
       setState(() {
         _controller = controller;
@@ -85,7 +129,9 @@ class _WordViewerPageState extends State<WordViewerPage> {
 
       _scheduleAutoFit();
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _loading = false;
@@ -102,9 +148,13 @@ class _WordViewerPageState extends State<WordViewerPage> {
   void _markDirty() {
     final controller = _controller;
 
-    if (controller == null || !controller.isDirty) return;
+    if (controller == null ||
+        !controller.isDirty) {
+      return;
+    }
 
     _dirty = true;
+
     _saveTimer?.cancel();
 
     _saveTimer = Timer(
@@ -114,48 +164,81 @@ class _WordViewerPageState extends State<WordViewerPage> {
   }
 
   void _scheduleAutoFit() {
-    if (_autoFitScheduled) return;
+    if (_autoFitScheduled) {
+      return;
+    }
 
     _autoFitScheduled = true;
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) {
       _autoFitScheduled = false;
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       final controller = _controller;
-      if (controller == null) return;
 
-      final width = controller.viewport.extent.width;
-      if (width <= 0) return;
+      if (controller == null) {
+        return;
+      }
 
-      final pages = controller.documentLaidOut.pages;
-      if (pages.isEmpty) return;
+      final width =
+          controller.viewport.extent.width;
+
+      if (width <= 0) {
+        return;
+      }
+
+      final pages =
+          controller.documentLaidOut.pages;
+
+      if (pages.isEmpty) {
+        return;
+      }
 
       final index = controller.visiblePageIndex
-          .clamp(0, pages.length - 1)
+          .clamp(
+            0,
+            pages.length - 1,
+          )
           .toInt();
 
       final page = pages[index];
-      if (page.width <= 0) return;
+
+      if (page.width <= 0) {
+        return;
+      }
 
       final widthChanged =
           _lastAutoFitWidth == null ||
-          (_lastAutoFitWidth! - width).abs() > 0.5;
+          (_lastAutoFitWidth! - width)
+                  .abs() >
+              0.5;
 
       final pageWidthChanged =
           _lastAutoFitPageWidth == null ||
-          (_lastAutoFitPageWidth! - page.width).abs() > 0.01;
+          (_lastAutoFitPageWidth! -
+                      page.width)
+                  .abs() >
+              0.01;
 
-      if (!widthChanged && !pageWidthChanged) return;
+      if (!widthChanged &&
+          !pageWidthChanged) {
+        return;
+      }
 
-      final fitted = WordViewerViewport.fitWidth(
+      final fitted =
+          WordViewerViewport.fitWidth(
         controller,
         width: width,
         resetScroll: false,
       );
 
-      if (!fitted) return;
+      if (!fitted) {
+        return;
+      }
 
       _lastAutoFitWidth = width;
       _lastAutoFitPageWidth = page.width;
@@ -171,15 +254,24 @@ class _WordViewerPageState extends State<WordViewerPage> {
   Future<void> _saveDraft() async {
     final controller = _controller;
 
-    if (controller == null || !_dirty || _saving) return;
-    if (widget.contentId == null) return;
+    if (controller == null ||
+        !_dirty ||
+        _saving) {
+      return;
+    }
+
+    if (widget.contentId == null) {
+      return;
+    }
 
     _saving = true;
 
     try {
-      final bytes = await controller.saveBytesAsync();
+      final bytes =
+          await controller.saveBytesAsync();
 
-      final draftPath = await _service.writeDraft(
+      final draftPath =
+          await _service.writeDraft(
         contentId: widget.contentId!,
         originalPath: widget.path,
         bytes: bytes,
@@ -198,7 +290,9 @@ class _WordViewerPageState extends State<WordViewerPage> {
   Future<bool> _save() async {
     final controller = _controller;
 
-    if (controller == null) return false;
+    if (controller == null) {
+      return false;
+    }
 
     if (mounted) {
       setState(() {
@@ -207,7 +301,8 @@ class _WordViewerPageState extends State<WordViewerPage> {
     }
 
     try {
-      final bytes = await controller.saveBytesAsync();
+      final bytes =
+          await controller.saveBytesAsync();
 
       await _service.writeAtomic(
         widget.path,
@@ -224,7 +319,8 @@ class _WordViewerPageState extends State<WordViewerPage> {
       _dirty = false;
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(context)
+            .showSnackBar(
           const SnackBar(
             content: Text('Saved'),
           ),
@@ -234,7 +330,8 @@ class _WordViewerPageState extends State<WordViewerPage> {
       return true;
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(context)
+            .showSnackBar(
           SnackBar(
             content: Text('$e'),
           ),
@@ -254,34 +351,45 @@ class _WordViewerPageState extends State<WordViewerPage> {
   }
 
   Future<bool> _handleBack() async {
-    if (!_dirty) return true;
+    if (!_dirty) {
+      return true;
+    }
 
-    final result = await showDialog<bool>(
+    final result =
+        await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Unsaved changes'),
+          title:
+              const Text('Unsaved changes'),
           content: const Text(
             'Save your changes before leaving?',
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(
-                dialogContext,
-                false,
-              ),
-              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.pop(
+                  dialogContext,
+                  false,
+                );
+              },
+              child:
+                  const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () => Navigator.pop(
-                dialogContext,
-                true,
-              ),
-              child: const Text('Discard'),
+              onPressed: () {
+                Navigator.pop(
+                  dialogContext,
+                  true,
+                );
+              },
+              child:
+                  const Text('Discard'),
             ),
             FilledButton(
               onPressed: () async {
-                final saved = await _save();
+                final saved =
+                    await _save();
 
                 if (dialogContext.mounted) {
                   Navigator.pop(
@@ -290,7 +398,8 @@ class _WordViewerPageState extends State<WordViewerPage> {
                   );
                 }
               },
-              child: const Text('Save'),
+              child:
+                  const Text('Save'),
             ),
           ],
         );
@@ -303,19 +412,31 @@ class _WordViewerPageState extends State<WordViewerPage> {
   void _fitWidth() {
     final controller = _controller;
 
-    if (controller == null) return;
+    if (controller == null) {
+      return;
+    }
 
-    WordViewerViewport.fitWidth(
+    final fitted =
+        WordViewerViewport.fitWidth(
       controller,
       resetScroll: false,
     );
+
+    if (fitted && mounted) {
+      setState(() {});
+    }
   }
 
   @override
   void dispose() {
     _saveTimer?.cancel();
-    _controller?.removeListener(_onControllerChanged);
+
+    _controller?.removeListener(
+      _onControllerChanged,
+    );
+
     _controller?.dispose();
+
     super.dispose();
   }
 
@@ -324,22 +445,27 @@ class _WordViewerPageState extends State<WordViewerPage> {
     if (_loading) {
       return const Scaffold(
         body: Center(
-          child: CircularProgressIndicator(),
+          child:
+              CircularProgressIndicator(),
         ),
       );
     }
 
-    if (_error != null || _controller == null) {
+    if (_error != null ||
+        _controller == null) {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Word'),
         ),
         body: Center(
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding:
+                const EdgeInsets.all(24),
             child: Text(
-              _error ?? 'Unable to open document',
-              textAlign: TextAlign.center,
+              _error ??
+                  'Unable to open document',
+              textAlign:
+                  TextAlign.center,
             ),
           ),
         ),
@@ -350,31 +476,43 @@ class _WordViewerPageState extends State<WordViewerPage> {
 
     return PopScope(
       canPop: false,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
+      onPopInvokedWithResult:
+          (didPop, result) async {
+        if (didPop) {
+          return;
+        }
 
-        if (await _handleBack() && context.mounted) {
+        if (await _handleBack() &&
+            context.mounted) {
           Navigator.of(context).pop();
         }
       },
       child: Scaffold(
         appBar: AppBar(
           title: Text(
-            widget.path.split('/').last,
+            widget.path
+                .split('/')
+                .last,
           ),
           actions: [
             IconButton(
               tooltip: 'Find',
-              onPressed: () => WordViewerSearch.show(
+              onPressed: () =>
+                  WordViewerSearch.show(
                 context,
                 controller,
                 replace: false,
               ),
-              icon: const Icon(Icons.search),
+              icon: const Icon(
+                Icons.search,
+              ),
             ),
             IconButton(
-              tooltip: _handMode ? 'Edit' : 'Hand mode',
-              onPressed: _toggleHandMode,
+              tooltip: _handMode
+                  ? 'Edit'
+                  : 'Hand mode',
+              onPressed:
+                  _toggleHandMode,
               icon: Icon(
                 _handMode
                     ? Icons.edit_outlined
@@ -384,12 +522,18 @@ class _WordViewerPageState extends State<WordViewerPage> {
             IconButton(
               tooltip: 'Fit width',
               onPressed: _fitWidth,
-              icon: const Icon(Icons.fit_screen),
+              icon: const Icon(
+                Icons.fit_screen,
+              ),
             ),
             IconButton(
               tooltip: 'Save',
-              onPressed: _saving ? null : _save,
-              icon: const Icon(Icons.save_outlined),
+              onPressed: _saving
+                  ? null
+                  : _save,
+              icon: const Icon(
+                Icons.save_outlined,
+              ),
             ),
           ],
         ),
@@ -402,12 +546,15 @@ class _WordViewerPageState extends State<WordViewerPage> {
               ),
             Expanded(
               child: LayoutBuilder(
-                builder: (context, constraints) {
+                builder:
+                    (context, constraints) {
                   _scheduleAutoFit();
 
                   return WordViewerHandLayer(
-                    controller: controller,
-                    handMode: _handMode,
+                    controller:
+                        controller,
+                    handMode:
+                        _handMode,
                   );
                 },
               ),
